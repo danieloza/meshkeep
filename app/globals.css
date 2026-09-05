@@ -161,6 +161,7 @@ body {
   background-color: #14211e !important;
 }
 
+.dark [class~="bg-white/60"],
 .dark [class~="bg-white/50"],
 .dark [class~="bg-white/35"] {
   background-color: rgb(20 33 30 / 70%) !important;
@@ -170,12 +171,15 @@ body {
 .dark [class~="bg-[#f4f6f3]"],
 .dark [class~="bg-[#f8faf8]"],
 .dark [class~="bg-[#eef0ed]"],
+.dark [class~="bg-[#e3e7e2]"],
 .dark [class~="bg-[#edf5f2]"],
 .dark [class~="bg-[#f2f7f5]"] {
   background-color: #1a2925 !important;
 }
 
 .dark [class~="bg-[#dff4ed]"],
+.dark [class~="bg-[#dff0eb]"],
+.dark [class~="bg-[#e4f2ee]"],
 .dark [class~="bg-[#e6f3ef]"],
 .dark [class~="bg-[#e8f4f0]"],
 .dark [class~="bg-[#e2efeb]"] {
@@ -196,6 +200,7 @@ body {
 
 .dark [class~="bg-[#d7ece7]"],
 .dark [class~="bg-[#f1e4d7]"],
+.dark [class~="bg-[#f6ede7]"],
 .dark [class~="bg-[#e5e1f1]"],
 .dark [class~="bg-[#dfe7f1]"],
 .dark [class~="bg-stone-100"],
@@ -204,7 +209,10 @@ body {
 }
 
 .dark [class~="text-[#15211f]"],
-.dark [class~="text-[#25322f]"] {
+.dark [class~="text-[#25322f]"],
+.dark [class~="text-[#354a46]"],
+.dark [class~="text-[#5c6763]"],
+.dark [class~="hover:text-[#4b6b64]"]:hover {
   color: #edf7f3 !important;
 }
 
@@ -214,6 +222,7 @@ body {
 .dark [class~="text-[#697572]"],
 .dark [class~="text-[#6f7b78]"],
 .dark [class~="text-[#707c79]"],
+.dark [class~="text-[#72807d]"],
 .dark [class~="text-[#74807d]"],
 .dark [class~="text-[#75817e]"],
 .dark [class~="text-[#76817f]"],
@@ -232,10 +241,12 @@ body {
 }
 
 .dark [class~="text-[#22574f]"],
+.dark [class~="text-[#286057]"],
 .dark [class~="text-[#2c5c54]"],
 .dark [class~="text-[#2c5b54]"],
 .dark [class~="text-[#2f6e63]"],
 .dark [class~="text-[#315f57]"],
+.dark [class~="text-[#32665d]"],
 .dark [class~="text-[#31675e]"],
 .dark [class~="text-[#386c63]"],
 .dark [class~="text-[#396b62]"],
@@ -290,6 +301,33 @@ body {
 .dark [class~="text-red-700"],
 .dark [class~="text-red-600"] {
   color: #f4a2a7 !important;
+}
+
+/* The warm "private" badge carries the same visual weight as the teal "shared"
+   badge, so dark mode keeps the distinction with a light, warm text color. */
+.dark [class~="text-[#795b49]"] {
+  color: #d9b99e !important;
+}
+
+/* Emerald communicates a healthy/online state. Without these mappings the
+   status badges and invitation panel remain bright surfaces in dark mode.
+   Alpha variants need explicit entries, just like the amber and red states. */
+.dark [class~="bg-emerald-50"] {
+  background-color: #16302a !important;
+}
+
+.dark [class~="bg-emerald-100/80"] {
+  background-color: #1e3f35 !important;
+}
+
+.dark [class~="text-emerald-900/75"],
+.dark [class~="text-emerald-800"],
+.dark [class~="text-emerald-700"] {
+  color: #8ee0c1 !important;
+}
+
+.dark [class~="text-sky-700"] {
+  color: #7cc4ec !important;
 }
 
 .dark select,

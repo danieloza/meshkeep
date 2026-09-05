@@ -485,11 +485,50 @@ function ProjectCard({ project, onExport, onOpen, onMakePrivate, onDelete, onCop
   return <Card className="group relative min-h-[220px] overflow-hidden border-0 bg-white/85 shadow-[0_8px_30px_rgba(24,48,44,.045)] ring-black/6 transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(24,48,44,.08)]"><div className={cn('pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br', project.color)} /><CardHeader className="relative"><div className="mb-4 flex items-start justify-between"><button aria-label={`Open project ${project.name}`} className="grid size-11 place-items-center rounded-xl border border-black/6 bg-white/90 text-[#2c5b54] shadow-sm" onClick={onOpen} type="button"><Icon className="size-5" /></button><div className="flex"><Button aria-label={`Copy project ID for ${project.name}`} onClick={onCopyId} size="icon-sm" title="Copy ID for agent" variant="ghost"><Copy /></Button><Button aria-label={`Export context for ${project.name}`} onClick={onExport} size="icon-sm" variant="ghost"><Download /></Button>{project.visibility === 'private' ? <Button aria-label={`Delete project ${project.name}`} onClick={onDelete} size="icon-sm" variant="ghost"><Trash2 /></Button> : <Button aria-label={`Make project ${project.name} private`} onClick={onMakePrivate} size="icon-sm" variant="ghost"><LockKeyhole /></Button>}</div></div><button className="text-left" onClick={onOpen} type="button"><CardTitle className="text-base">{project.name}</CardTitle><CardDescription className="min-h-10 leading-5">{project.description}</CardDescription></button></CardHeader><CardContent className="mt-auto flex items-center justify-between"><Badge className={cn('gap-1.5 font-medium', project.visibility === 'private' ? 'border-[#82604d]/15 bg-[#f6ede7] text-[#795b49]' : 'border-[#387267]/15 bg-[#e4f2ee] text-[#32665d]')} variant="outline"><VisibilityIcon /> {visibilityLabels[project.visibility]}</Badge><AvatarGroup>{project.members.map((member, index) => <Avatar className={cn('size-7', ['bg-[#d7ece7]', 'bg-[#f1e4d7]', 'bg-[#e5e1f1]', 'bg-[#dfe7f1]'][index])} key={member} size="sm"><AvatarFallback className="bg-transparent text-[9px] font-semibold text-[#354a46]">{member}</AvatarFallback></Avatar>)}</AvatarGroup></CardContent><CardFooter className="justify-between border-black/5 bg-black/[0.015] py-2 text-[11px] text-[#818b89]"><span>{project.files} files · {project.updated}</span><Button onClick={onOpen} size="sm" variant="ghost">Open chat</Button></CardFooter></Card>;
 }
 
+type EffectiveProvider = { label: string; origin: 'member' | 'team' | 'environment'; modelCount: number } | null;
+
+const ORIGIN_LABEL: Record<'member' | 'team' | 'environment', string> = {
+  member: 'your own key',
+  team: "the team's key",
+  environment: 'a key set on the server',
+};
+
+// The dashboard and usage view describe the same provider, so they read the
+// same server state. The dashboard used to hard-code a provider name and could
+// contradict the provider card after bring-your-own-provider was configured.
+function useEffectiveProvider(): { effective: EffectiveProvider; loaded: boolean } {
+  const [effective, setEffective] = useState<EffectiveProvider>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/provider', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = (await response.json()) as ProviderState;
+        if (active) setEffective(payload.effective);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
+  }, []);
+
+  return { effective, loaded };
+}
+
 function UsagePanel({ dailyLimit, inputUsage, monthlyLimit, monthlyUsage, outputUsage }: { dailyLimit: number; inputUsage: number; monthlyLimit: number; monthlyUsage: number; outputUsage: number }) {
   const total = inputUsage + outputUsage;
   const percent = dailyLimit ? Math.min(100, Math.round((total / dailyLimit) * 100)) : 0;
   const monthlyPercent = monthlyLimit ? Math.min(100, Math.round((monthlyUsage / monthlyLimit) * 100)) : 0;
-  return <Card className="border-0 bg-white/90 shadow-[0_8px_30px_rgba(24,48,44,.045)] ring-black/6"><CardHeader><CardDescription className="flex items-center gap-2"><Bot className="size-4" /> API usage</CardDescription><CardTitle className="flex items-center gap-2 text-base">Your limits <Badge className="bg-[#dff4ed] text-[#286057]" variant="secondary">FREE</Badge></CardTitle></CardHeader><CardContent className="space-y-5"><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Daily limit</p><p className="mt-0.5 text-lg font-semibold">{formatTokens(total)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(dailyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{percent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#2c766a] [&_[data-slot=progress-track]]:h-1.5" value={percent} /></div><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Monthly limit</p><p className="mt-0.5 text-sm font-semibold">{formatTokens(monthlyUsage)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(monthlyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{monthlyPercent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#4d8b80] [&_[data-slot=progress-track]]:h-1" value={monthlyPercent} /></div><div className="grid grid-cols-2 gap-3 rounded-xl bg-[#f3f5f2] p-3 text-xs"><div><p className="text-[#7a8582]">Format API</p><p className="mt-1 font-semibold">OpenAI</p></div><div><p className="text-[#7a8582]">Provider</p><p className="mt-1 font-semibold">TokenRouter</p></div><div><p className="text-[#7a8582]">Input today</p><p className="mt-1 font-semibold">{formatTokens(inputUsage)}</p></div><div><p className="text-[#7a8582]">Output today</p><p className="mt-1 font-semibold">{formatTokens(outputUsage)}</p></div></div><p className="flex items-start gap-2 text-[11px] leading-4 text-[#7a8582]"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[#3c756b]" /> The shared key stays on the server and is never exposed to team members.</p></CardContent></Card>;
+  const { effective, loaded } = useEffectiveProvider();
+  // Do not guess a provider name while the server response is still pending.
+  const providerName = effective ? effective.label : loaded ? 'Not connected' : '—';
+  const keyNote = effective
+    ? `Messages go out on ${ORIGIN_LABEL[effective.origin]}, which stays on the server and never reaches the browser.`
+    : loaded
+      ? 'No provider is connected, so the chat cannot reach a model.'
+      : 'Checking which provider answers your messages.';
+  return <Card className="border-0 bg-white/90 shadow-[0_8px_30px_rgba(24,48,44,.045)] ring-black/6"><CardHeader><CardDescription className="flex items-center gap-2"><Bot className="size-4" /> API usage</CardDescription><CardTitle className="flex items-center gap-2 text-base">Your limits <Badge className="bg-[#dff4ed] text-[#286057]" variant="secondary">FREE</Badge></CardTitle></CardHeader><CardContent className="space-y-5"><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Daily limit</p><p className="mt-0.5 text-lg font-semibold">{formatTokens(total)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(dailyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{percent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#2c766a] [&_[data-slot=progress-track]]:h-1.5" value={percent} /></div><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Monthly limit</p><p className="mt-0.5 text-sm font-semibold">{formatTokens(monthlyUsage)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(monthlyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{monthlyPercent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#4d8b80] [&_[data-slot=progress-track]]:h-1" value={monthlyPercent} /></div><div className="grid grid-cols-2 gap-3 rounded-xl bg-[#f3f5f2] p-3 text-xs"><div><p className="text-[#7a8582]">Wire format</p><p className="mt-1 font-semibold">OpenAI-compatible</p></div><div><p className="text-[#7a8582]">Provider</p><p className="mt-1 truncate font-semibold" title={providerName}>{providerName}</p></div><div><p className="text-[#7a8582]">Input today</p><p className="mt-1 font-semibold">{formatTokens(inputUsage)}</p></div><div><p className="text-[#7a8582]">Output today</p><p className="mt-1 font-semibold">{formatTokens(outputUsage)}</p></div></div><p className="flex items-start gap-2 text-[11px] leading-4 text-[#7a8582]"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[#3c756b]" /> {keyNote}</p></CardContent></Card>;
 }
 
 type SyncCredential = { id: string; label: string; expiresAt: string; lastUsedAt: string | null };
@@ -514,7 +553,7 @@ function SyncAgentPanel({ onNotice }: { onNotice: (message: string) => void }) {
     const response = await fetch('/api/sync/token', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     if (response.ok) { setTokens((current) => current.filter((token) => token.id !== id)); setRawToken(''); onNotice('Agent key revoked.'); }
   }
-  return <Card className="border-0 bg-white/90 shadow-none ring-black/6"><CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Local folder<Hint text="An agent key lets one machine upload and delete files in projects you can edit. It grants no model access and is shown once, because the server keeps only its hash. Revoking it stops that machine immediately." /></CardTitle><CardDescription>The agent copies changed files only to the selected project.</CardDescription></CardHeader><CardContent className="space-y-3"><a className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-medium hover:bg-black/[0.03]" download href="/meshkeep-sync.ps1"><Download className="size-3.5" /> Download Windows agent</a><Button disabled={creating} onClick={() => void createToken()} size="sm" variant="outline"><KeyRound /> {creating ? 'Creating…' : 'New agent key'}</Button>{rawToken && <div className="rounded-xl border border-amber-700/10 bg-amber-50 p-3"><p className="mb-2 text-[11px] leading-4 text-amber-900/75">Copy it now. The key will not be shown again and does not grant TokenRouter access.</p><div className="flex gap-2"><Input aria-label="Sync agent key" className="h-8 min-w-0 bg-white text-[10px]" readOnly value={rawToken} /><Button onClick={() => { void navigator.clipboard.writeText(rawToken); onNotice('Agent key copied.'); }} size="icon-sm" type="button" variant="outline"><Copy /></Button></div></div>}{tokens.map((token) => <div className="flex items-center gap-2 rounded-lg bg-[#f4f6f3] px-3 py-2 text-[11px]" key={token.id}><div className="min-w-0 flex-1"><p className="truncate font-medium">{token.label}</p><p className="text-[#7c8784]">expires {new Date(token.expiresAt).toLocaleDateString('en-US')}</p></div><Button aria-label={`Revoke ${token.label}`} onClick={() => void revoke(token.id)} size="icon-xs" variant="ghost"><Trash2 /></Button></div>)}</CardContent></Card>;
+  return <Card className="border-0 bg-white/90 shadow-none ring-black/6"><CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Local folder<Hint text="An agent key lets one machine upload and delete files in projects you can edit. It grants no model access and is shown once, because the server keeps only its hash. Revoking it stops that machine immediately." /></CardTitle><CardDescription>The agent copies changed files only to the selected project.</CardDescription></CardHeader><CardContent className="space-y-3"><a className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-medium hover:bg-black/[0.03]" download href="/meshkeep-sync.ps1"><Download className="size-3.5" /> Download Windows agent</a><Button disabled={creating} onClick={() => void createToken()} size="sm" variant="outline"><KeyRound /> {creating ? 'Creating…' : 'New agent key'}</Button>{rawToken && <div className="rounded-xl border border-amber-700/10 bg-amber-50 p-3"><p className="mb-2 text-[11px] leading-4 text-amber-900/75">Copy it now. The key will not be shown again and grants no model access.</p><div className="flex gap-2"><Input aria-label="Sync agent key" className="h-8 min-w-0 bg-white text-[10px]" readOnly value={rawToken} /><Button onClick={() => { void navigator.clipboard.writeText(rawToken); onNotice('Agent key copied.'); }} size="icon-sm" type="button" variant="outline"><Copy /></Button></div></div>}{tokens.map((token) => <div className="flex items-center gap-2 rounded-lg bg-[#f4f6f3] px-3 py-2 text-[11px]" key={token.id}><div className="min-w-0 flex-1"><p className="truncate font-medium">{token.label}</p><p className="text-[#7c8784]">expires {new Date(token.expiresAt).toLocaleDateString('en-US')}</p></div><Button aria-label={`Revoke ${token.label}`} onClick={() => void revoke(token.id)} size="icon-xs" variant="ghost"><Trash2 /></Button></div>)}</CardContent></Card>;
 }
 
 function MemberRow({ member, colorIndex, isOwnerView, currentMemberId, onChanged, onNotice }: { member: TeamMember; colorIndex: number; isOwnerView: boolean; currentMemberId: string; onChanged: () => void; onNotice: (message: string) => void }) {
@@ -703,13 +742,7 @@ type ProviderState = {
   mine: ProviderSummary;
   team: ProviderSummary;
   canSetTeam: boolean;
-  effective: { label: string; origin: 'member' | 'team' | 'environment'; modelCount: number } | null;
-};
-
-const ORIGIN_LABEL: Record<'member' | 'team' | 'environment', string> = {
-  member: 'your own key',
-  team: "the team's key",
-  environment: 'a key set on the server',
+  effective: EffectiveProvider;
 };
 
 function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => void; onChanged: () => void }) {

@@ -1,8 +1,14 @@
 # MeshKeep
 
+[![CI](https://github.com/danieloza/meshkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/danieloza/meshkeep/actions/workflows/ci.yml)
+
 MeshKeep is a private, self-hostable AI workspace for teams of up to four people. Projects are private by default and can be shared with selected teammates or the entire team.
 
 The repository contains source code and placeholders only. It does not include a hosted model key, user conversations, uploaded files, email addresses, sessions, or production database exports.
+
+## Product tour
+
+[Watch the 60-second MeshKeep product tour](https://github.com/danieloza/meshkeep/releases/download/v0.1.0/meshkeep-product-tour.mp4). It uses demonstration data and contains no production credentials or private project content.
 
 ## Highlights
 
