@@ -1,0 +1,5 @@
+# Some fixtures are compared byte-for-byte and contain absolute byte offsets.
+# Git can mistake the ASCII-only PDF fixture for text and convert LF to CRLF on
+# Windows, which shifts its xref table and corrupts the file. ZIP fixtures are
+# normally detected automatically, but marking the directory is unambiguous.
+tests/fixtures/** binary

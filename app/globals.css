@@ -1,0 +1,298 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 80% -10%, rgba(87, 196, 171, 0.1), transparent 32%),
+    #f4f5f2;
+}
+
+:root {
+  --background: #f4f5f2;
+  --foreground: #15211f;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #173d38;
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: #4d8b80;
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: #0b1412;
+  --foreground: #edf7f3;
+  --card: #14211e;
+  --card-foreground: #edf7f3;
+  --popover: #172622;
+  --popover-foreground: #edf7f3;
+  --primary: #74c9b8;
+  --primary-foreground: #07110f;
+  --secondary: #1b2b27;
+  --secondary-foreground: #e4f2ed;
+  --muted: #1a2925;
+  --muted-foreground: #9baea8;
+  --accent: #20332e;
+  --accent-foreground: #edf7f3;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(205 235 226 / 13%);
+  --input: rgb(205 235 226 / 17%);
+  --ring: #4f9e8f;
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: #08110f;
+  --sidebar-foreground: #edf7f3;
+  --sidebar-primary: #74c9b8;
+  --sidebar-primary-foreground: #07110f;
+  --sidebar-accent: #1a2b26;
+  --sidebar-accent-foreground: #edf7f3;
+  --sidebar-border: rgb(205 235 226 / 12%);
+  --sidebar-ring: #4f9e8f;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 80% -10%, rgb(76 171 149 / 14%), transparent 34%),
+    #0b1412;
+}
+
+/* Dashboard v4 nadal używa kilku precyzyjnych kolorów marki w klasach
+   Tailwind. Te mapowania zachowują ich role w ciemnym motywie bez zmiany
+   układu ani semantyki komponentów. */
+.dark [class~="bg-[#f4f5f2]"],
+.dark [class~="bg-[#eef1ed]"],
+.dark [class~="bg-[#f7f8f5]"] {
+  background-color: #0b1412 !important;
+}
+
+.dark [class~="bg-[#fbfcfa]"],
+.dark [class~="bg-white"],
+.dark [class~="bg-white/90"],
+.dark [class~="bg-white/85"],
+.dark [class~="bg-white/80"],
+.dark [class~="bg-white/75"],
+.dark [class~="bg-white/70"] {
+  background-color: #14211e !important;
+}
+
+.dark [class~="bg-white/50"],
+.dark [class~="bg-white/35"] {
+  background-color: rgb(20 33 30 / 70%) !important;
+}
+
+.dark [class~="bg-[#f3f5f2]"],
+.dark [class~="bg-[#f4f6f3]"],
+.dark [class~="bg-[#f8faf8]"],
+.dark [class~="bg-[#eef0ed]"],
+.dark [class~="bg-[#edf5f2]"],
+.dark [class~="bg-[#f2f7f5]"] {
+  background-color: #1a2925 !important;
+}
+
+.dark [class~="bg-[#dff4ed]"],
+.dark [class~="bg-[#e6f3ef]"],
+.dark [class~="bg-[#e8f4f0]"],
+.dark [class~="bg-[#e2efeb]"] {
+  background-color: #1d3831 !important;
+}
+
+.dark [class~="bg-[#173d38]"] {
+  background-color: #286f63 !important;
+}
+
+.dark [class~="bg-[#15322e]"] {
+  background-color: #102b26 !important;
+}
+
+.dark [class~="bg-[#102724]"] {
+  background-color: #07110f !important;
+}
+
+.dark [class~="bg-[#d7ece7]"],
+.dark [class~="bg-[#f1e4d7]"],
+.dark [class~="bg-[#e5e1f1]"],
+.dark [class~="bg-[#dfe7f1]"],
+.dark [class~="bg-stone-100"],
+.dark [class~="bg-sky-50"] {
+  background-color: #254039 !important;
+}
+
+.dark [class~="text-[#15211f]"],
+.dark [class~="text-[#25322f]"] {
+  color: #edf7f3 !important;
+}
+
+.dark [class~="text-[#63706d]"],
+.dark [class~="text-[#65716e]"],
+.dark [class~="text-[#66726f]"],
+.dark [class~="text-[#697572]"],
+.dark [class~="text-[#6f7b78]"],
+.dark [class~="text-[#707c79]"],
+.dark [class~="text-[#74807d]"],
+.dark [class~="text-[#75817e]"],
+.dark [class~="text-[#76817f]"],
+.dark [class~="text-[#7a8582]"],
+.dark [class~="text-[#7b8582]"],
+.dark [class~="text-[#7c8784]"],
+.dark [class~="text-[#7d8784]"],
+.dark [class~="text-[#818b89]"],
+.dark [class~="text-[#87918f]"],
+.dark [class~="text-[#88928f]"],
+.dark [class~="text-[#89928f]"],
+.dark [class~="text-[#8a9492]"],
+.dark [class~="text-[#8b9491]"],
+.dark [class~="text-[#929b98]"] {
+  color: #9baea8 !important;
+}
+
+.dark [class~="text-[#22574f]"],
+.dark [class~="text-[#2c5c54]"],
+.dark [class~="text-[#2c5b54]"],
+.dark [class~="text-[#2f6e63]"],
+.dark [class~="text-[#315f57]"],
+.dark [class~="text-[#31675e]"],
+.dark [class~="text-[#386c63]"],
+.dark [class~="text-[#396b62]"],
+.dark [class~="text-[#3c756b]"],
+.dark [class~="text-[#42645e]"],
+.dark [class~="text-[#4b766f]"],
+.dark [class~="text-[#518078]"] {
+  color: #83cdbd !important;
+}
+
+.dark [class~="border-black/6"],
+.dark [class~="border-black/7"],
+.dark [class~="border-black/8"],
+.dark [class~="border-black/10"],
+.dark [class~="border-black/20"] {
+  border-color: rgb(205 235 226 / 13%) !important;
+}
+
+.dark [class~="ring-black/6"],
+.dark [class~="ring-black/7"] {
+  --tw-ring-color: rgb(205 235 226 / 12%) !important;
+}
+
+/* Selektor `~=` dopasowuje cale tokeny klas, wiec `bg-red-50` NIE obejmuje
+   `bg-red-50/70`. Wiersze dziennika uzywaly wlasnie wariantu z przezroczystoscia
+   i zostawaly prawie biale, podczas gdy tekst ciemnial razem z reszta - czyli
+   najwazniejsze wpisy, te o odebraniu dostepu, byly nieczytelne. Kazdy wariant
+   trzeba wymienic osobno. */
+.dark [class~="bg-amber-50"] {
+  background-color: #312817 !important;
+}
+
+.dark [class~="bg-amber-100"] {
+  background-color: #40351d !important;
+}
+
+.dark [class~="text-amber-900/75"],
+.dark [class~="text-amber-800"],
+.dark [class~="text-amber-700"] {
+  color: #e7c987 !important;
+}
+
+.dark [class~="bg-red-50"],
+.dark [class~="bg-red-50/70"] {
+  background-color: #351b1d !important;
+}
+
+.dark [class~="bg-red-100"] {
+  background-color: #4a2226 !important;
+}
+
+.dark [class~="text-red-700"],
+.dark [class~="text-red-600"] {
+  color: #f4a2a7 !important;
+}
+
+.dark select,
+.dark textarea {
+  color: #edf7f3;
+}

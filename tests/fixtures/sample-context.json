@@ -1,0 +1,12 @@
+{
+  "provider": "claude",
+  "conversations": [
+    {
+      "name": "Przykładowa rozmowa",
+      "chat_messages": [
+        { "sender": "human", "text": "Przygotuj krótką listę zadań." },
+        { "sender": "assistant", "text": "Oczywiście — zacznijmy od celu i zakresu." }
+      ]
+    }
+  ]
+}

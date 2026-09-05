@@ -1,0 +1,18 @@
+# Copy this file to .dev.vars. Never share or commit .dev.vars.
+APP_ORIGIN=http://127.0.0.1:3080
+OWNER_ACCOUNT_USER_ID=your_chatgpt_account_user_id
+OWNER_EMAIL=owner@example.com
+ALLOW_FIRST_USER_BOOTSTRAP=false
+
+# Required only when users save their own provider credentials. Use a unique,
+# randomly generated value with at least 32 characters.
+PROVIDER_KEY_ENCRYPTION_KEY=replace-me-with-random-secret
+
+# Optional legacy team provider. Leave blank for bring-your-own-provider mode.
+TOKENROUTER_API_KEY=
+
+# Optional shared Google Drive storage (OAuth with the drive.file scope).
+GOOGLE_DRIVE_CLIENT_ID=
+GOOGLE_DRIVE_CLIENT_SECRET=
+GOOGLE_DRIVE_REFRESH_TOKEN=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
