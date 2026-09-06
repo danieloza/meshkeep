@@ -1,6 +1,12 @@
 # MeshKeep
 
 [![CI](https://github.com/danieloza/meshkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/danieloza/meshkeep/actions/workflows/ci.yml)
+[![Secret Scan](https://github.com/danieloza/meshkeep/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/danieloza/meshkeep/actions/workflows/secret-scan.yml)
+[![Release](https://img.shields.io/github/v/release/danieloza/meshkeep)](https://github.com/danieloza/meshkeep/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2f6f64.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-339933?logo=nodedotjs&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-6b7280)](#local-development)
 
 MeshKeep is a private, self-hostable AI workspace for teams of up to four people. Projects are private by default and can be shared with selected teammates or the entire team.
 
@@ -8,7 +14,19 @@ The repository contains source code and placeholders only. It does not include a
 
 ## Product tour
 
-[Watch the 60-second MeshKeep product tour](https://github.com/danieloza/meshkeep/releases/download/v0.1.0/meshkeep-product-tour.mp4). It uses demonstration data and contains no production credentials or private project content.
+Both videos use demonstration data and contain no production credentials or private project content.
+
+### Product overview — 30 seconds
+
+A concise overview of the product, privacy model, file context, team controls, and local folder synchronization. [Download the 1080p MP4](https://github.com/danieloza/meshkeep/releases/download/v0.1.0/meshkeep-product-overview.mp4).
+
+https://github.com/user-attachments/assets/16535886-a580-48ff-8299-929f7babe623
+
+### End-to-end workflow — 60 seconds
+
+A deeper walkthrough built from the real interface: private projects, selected file context, bring-your-own-provider configuration, usage controls, and the audit trail. [Download the 1080p MP4](https://github.com/danieloza/meshkeep/releases/download/v0.1.0/meshkeep-product-tour.mp4).
+
+https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 
 ## Highlights
 
