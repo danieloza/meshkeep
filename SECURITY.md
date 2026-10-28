@@ -9,6 +9,8 @@ Do not open a public issue for a suspected vulnerability or exposed credential. 
 - Keep `.dev.vars`, provider keys, encryption keys, and OAuth credentials out of Git.
 - Set a unique `PROVIDER_KEY_ENCRYPTION_KEY` of at least 32 random characters before enabling saved providers.
 - Store production credentials only in the hosting secret store.
+- Set `AUTH_MODE=sites` only behind OpenAI Sites. Anywhere else keep the default `standalone`, because the `oai-authenticated-user-*` headers are trusted only in Sites mode.
+- In standalone mode, set a unique `OWNER_SETUP_TOKEN` of at least 32 random characters. Anyone who knows it can act as the owner.
 - Leave `ALLOW_FIRST_USER_BOOTSTRAP` unset after the owner exists.
 - Do not expose D1 or R2 bindings directly to browsers.
 - Review new upload formats before adding them to the allowlist.

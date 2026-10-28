@@ -1,5 +1,13 @@
 # Copy this file to .dev.vars. Never share or commit .dev.vars.
 APP_ORIGIN=http://127.0.0.1:3080
+
+# `standalone` (default) for any host other than OpenAI Sites; `sites` only
+# when Sites sets the identity headers. See "Authentication modes" in README.
+AUTH_MODE=standalone
+# Standalone mode: at least 32 random characters. Opens /setup for the owner.
+OWNER_SETUP_TOKEN=replace-me-with-random-secret-of-32-plus-chars
+
+# Sites mode only: first-owner bootstrap through the hosting identity.
 OWNER_ACCOUNT_USER_ID=your_chatgpt_account_user_id
 OWNER_EMAIL=owner@example.com
 ALLOW_FIRST_USER_BOOTSTRAP=false

@@ -78,7 +78,9 @@ function Hint({ text, side = 'top', ciemna = false }: { text: string; side?: 'to
   );
 }
 
-export function Dashboard() {
+type AuthMode = 'sites' | 'standalone';
+
+export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
@@ -297,7 +299,7 @@ export function Dashboard() {
   }
 
   if (loading) return <SecureGate title="Loading private cloud…" />;
-  if (authRequired) return <SecureGate authRequired title="This workspace requires an invitation" />;
+  if (authRequired) return <SecureGate authMode={authMode} authRequired title="This workspace requires an invitation" />;
 
   return (
     <TooltipProvider delay={200}>
@@ -472,8 +474,10 @@ function Sidebar({ open, onClose, fileCount, isOwner, section, onSelect }: { ope
   </aside></>;
 }
 
-function SecureGate({ title, authRequired = false }: { title: string; authRequired?: boolean }) {
-  return <main className="grid min-h-screen place-items-center bg-[#f4f5f2] p-5 text-[#15211f]"><Card className="w-full max-w-md border-0 bg-white/90 text-center shadow-xl ring-black/6"><CardHeader><span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-[#dff4ed] text-[#2f6e63]">{authRequired ? <LockKeyhole /> : <Loader2 className="animate-spin" />}</span><CardTitle>{title}</CardTitle><CardDescription>{authRequired ? 'Ask the owner for a one-time link. The owner can reconnect with their ChatGPT account.' : 'Checking your session and project access.'}</CardDescription></CardHeader>{authRequired && <CardFooter className="justify-center"><Link className="inline-flex h-8 items-center justify-center rounded-lg bg-[#173d38] px-3 text-sm font-medium text-white transition hover:bg-[#23534c]" href="/signin-with-chatgpt?return_to=%2F">I am the owner</Link></CardFooter>}</Card></main>;
+function SecureGate({ title, authRequired = false, authMode = 'standalone' }: { title: string; authRequired?: boolean; authMode?: AuthMode }) {
+  const ownerHint = authMode === 'sites' ? 'The owner can reconnect with their ChatGPT account.' : 'The owner signs in with the setup key.';
+  const ownerHref = authMode === 'sites' ? '/signin-with-chatgpt?return_to=%2F' : '/setup';
+  return <main className="grid min-h-screen place-items-center bg-[#f4f5f2] p-5 text-[#15211f]"><Card className="w-full max-w-md border-0 bg-white/90 text-center shadow-xl ring-black/6"><CardHeader><span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-[#dff4ed] text-[#2f6e63]">{authRequired ? <LockKeyhole /> : <Loader2 className="animate-spin" />}</span><CardTitle>{title}</CardTitle><CardDescription>{authRequired ? `Ask the owner for a one-time link. ${ownerHint}` : 'Checking your session and project access.'}</CardDescription></CardHeader>{authRequired && <CardFooter className="justify-center"><Link className="inline-flex h-8 items-center justify-center rounded-lg bg-[#173d38] px-3 text-sm font-medium text-white transition hover:bg-[#23534c]" href={ownerHref}>I am the owner</Link></CardFooter>}</Card></main>;
 }
 
 function MetricCard({ icon: Icon, label, value, detail, accent = false }: { icon: typeof Folder; label: string; value: string; detail: string; accent?: boolean }) {

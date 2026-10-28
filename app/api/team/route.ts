@@ -1,9 +1,9 @@
-import { env } from 'cloudflare:workers';
 import { and, asc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { invites, memberLimits, members } from '@/db/schema';
 import { requireMember, requireOwner } from '@/lib/server/auth';
+import { getAuthMode } from '@/lib/server/auth-mode';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { recordAudit } from '@/lib/server/audit';
 import { newInviteToken, sha256 } from '@/lib/server/session';
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       {
         invite: { id, email, expiresInDays: 7, joinPath: `/join?token=${encodeURIComponent(token)}`, kind: existingMember ? 'reconnect' : 'invite' },
         signInRequired: false,
-        authProvider: env.OWNER_ACCOUNT_USER_ID || env.OWNER_EMAIL ? 'app-session-or-chatgpt' : 'app-session',
+        authProvider: getAuthMode() === 'sites' ? 'app-session-or-chatgpt' : 'app-session',
       },
       { status: 201 },
     );
