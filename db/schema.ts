@@ -98,6 +98,8 @@ export const projects = sqliteTable(
       .notNull()
       .default('r2'),
     driveFolderId: text('drive_folder_id'),
+    // Standing guidance sent to the model before every message in the project.
+    instructions: text('instructions').notNull().default(''),
     createdAt: timestamp('created_at'),
     updatedAt: timestamp('updated_at'),
   },
@@ -162,6 +164,10 @@ export const messages = sqliteTable(
     model: text('model'),
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
+    // JSON snapshot of the files that went into an answer, with what happened
+    // to each one. A snapshot rather than a reference, so the record still
+    // says what the model saw after a file is renamed or deleted.
+    contextFiles: text('context_files'),
     createdAt: timestamp('created_at'),
   },
   (table) => [index('messages_conversation_idx').on(table.conversationId)],

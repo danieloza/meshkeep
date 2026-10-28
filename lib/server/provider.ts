@@ -84,7 +84,9 @@ async function providerFetch(baseUrl: string, path: string, apiKey: string, init
   return fetch(`${baseUrl}${path}`, {
     ...init,
     headers,
-    signal: AbortSignal.timeout(45_000),
+    // A streamed answer can legitimately run longer than any fixed timeout, so
+    // a streaming caller passes its own signal and guards idle time itself.
+    signal: init.signal ?? AbortSignal.timeout(45_000),
     // Never follow a redirect: the key is in a header, and following would
     // hand it to whatever host the response points at. workerd does not
     // implement 'error', and 'manual' gives the same guarantee because the 3xx
@@ -133,17 +135,40 @@ export async function checkProvider(baseUrl: string, apiKey: string): Promise<{ 
   }
 }
 
-export async function callProvider(provider: ResolvedProvider, input: {
+const FIRST_BYTE_TIMEOUT_MS = 45_000;
+
+// Opens a streamed completion and returns the provider's response once its
+// headers arrive. Every failure the provider reports before the first byte is
+// turned into an ApiError here, so the caller only ever streams a success.
+export async function streamProvider(provider: ResolvedProvider, input: {
   model: string;
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   temperature: number;
   maxTokens: number;
-}) {
-  const response = await providerFetch(provider.baseUrl, '/chat/completions', provider.apiKey, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: input.model, messages: input.messages, temperature: input.temperature, max_tokens: input.maxTokens, stream: false }),
-  });
+}, signal: AbortSignal) {
+  // The timer covers only the wait for headers. A timeout signal passed to
+  // fetch would stay attached to the body and cut a long answer mid-stream;
+  // once headers arrive, the caller's signal alone governs the stream.
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal.aborted) abort();
+  signal.addEventListener('abort', abort, { once: true });
+  const firstByte = setTimeout(abort, FIRST_BYTE_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await providerFetch(provider.baseUrl, '/chat/completions', provider.apiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream, application/json' },
+      // `include_usage` asks for a final chunk with token counts. Providers
+      // that ignore it are still charged, from an estimate.
+      body: JSON.stringify({ model: input.model, messages: input.messages, temperature: input.temperature, max_tokens: input.maxTokens, stream: true, stream_options: { include_usage: true } }),
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(502, `${provider.label} did not respond in time.`);
+  } finally {
+    clearTimeout(firstByte);
+  }
 
   if (!response.ok) {
     // The label and status are safe to log; the key never is.
@@ -153,13 +178,24 @@ export async function callProvider(provider: ResolvedProvider, input: {
     if (response.status === 429) throw new ApiError(429, `${provider.label} rate-limited the request. Try again later.`);
     throw new ApiError(502, `${provider.label} could not complete the request (HTTP ${response.status}).`);
   }
+  if (!response.body) throw new ApiError(502, 'The provider returned an empty response.');
+  return response;
+}
 
-  const result = (await response.json()) as { choices?: Array<{ message?: { content?: unknown } }>; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } };
+// Some OpenAI-compatible servers ignore `stream: true` and answer with a single
+// JSON body. That is still a valid answer, just delivered in one piece.
+export function readCompletionJson(raw: string): { content: string; inputTokens: number; outputTokens: number } | null {
+  let result: { choices?: Array<{ message?: { content?: unknown } }>; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } };
+  try {
+    result = JSON.parse(raw);
+  } catch {
+    return null;
+  }
   const content = result.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') throw new ApiError(502, 'The provider returned an invalid response.');
+  if (typeof content !== 'string') return null;
   const inputTokens = typeof result.usage?.prompt_tokens === 'number' ? Math.max(0, Math.trunc(result.usage.prompt_tokens)) : 0;
   const outputTokens = typeof result.usage?.completion_tokens === 'number' ? Math.max(0, Math.trunc(result.usage.completion_tokens)) : 0;
-  return { content: content.slice(0, 200_000), inputTokens, outputTokens };
+  return { content, inputTokens, outputTokens };
 }
 
 // Re-exported so callers do not need to know where the validation lives.

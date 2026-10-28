@@ -32,6 +32,9 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 
 - Private projects with owner, editor, and reader permissions
 - Project-scoped conversations and explicit file context
+- Streamed answers rendered as Markdown, with copyable code blocks
+- Each answer lists the files the model received, and whether each arrived in full, in part, or not at all
+- Project instructions sent ahead of every message in the project
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
 - JSON context import from other assistants
@@ -48,7 +51,7 @@ See the unauthenticated `/showcase` page for a provider-free product overview.
 
 The browser never receives a provider credential after it is submitted. User-supplied provider keys are validated, encrypted with AES-GCM, and then stored in D1. The encryption key lives only in `PROVIDER_KEY_ENCRYPTION_KEY` on the server. Backups omit encrypted credentials, and logs contain only provider labels and response status codes.
 
-Local folders are not mounted or watched by the web application. Files enter a project only after an explicit browser import or through the separately authorized sync agent. A chat request receives only the files selected for that message. Unsupported binaries and images remain project assets and are not silently converted into model context.
+Local folders are not mounted or watched by the web application. Files enter a project only after an explicit browser import or through the separately authorized sync agent. A chat request receives only the files selected for that message, and the answer shows which of them reached the model and in what form. Unsupported binaries and images remain project assets and are not silently converted into model context.
 
 Uploaded objects use random R2 keys. Invitation, session, and sync-agent credentials are stored as hashes. Authorization is enforced by server routes; client-side visibility is only a user-interface convenience.
 
@@ -151,7 +154,7 @@ npm run smoke -- https://your-meshkeep.example
 
 ## Database and backups
 
-The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment.
+The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` only add tables and columns; apply them in order before deploying a release that includes them.
 
 Owners can export D1 data as JSON from the Activity log. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, and R2 object bytes. Convert a reviewed export into restoration SQL with:
 
