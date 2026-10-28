@@ -90,11 +90,13 @@ Copy the generated value into `.dev.vars` as `PROVIDER_KEY_ENCRYPTION_KEY`. Neve
 | Variable | Purpose |
 | --- | --- |
 | `APP_ORIGIN` | Canonical deployment origin used for metadata and social cards |
+| `AUTH_MODE` | `standalone` (default) or `sites`; see [Authentication modes](#authentication-modes) |
+| `OWNER_SETUP_TOKEN` | Standalone mode: secret of at least 32 characters that creates the owner and restores owner access |
 | `PROVIDER_KEY_ENCRYPTION_KEY` | Server-only secret used to encrypt user-supplied provider credentials |
 | `TOKENROUTER_API_KEY` | Optional legacy server-side team provider; leave blank for BYOK-only mode |
-| `OWNER_ACCOUNT_USER_ID` | Preferred first-owner bootstrap using the hosting identity |
-| `OWNER_EMAIL` | Optional legacy first-owner bootstrap by email |
-| `ALLOW_FIRST_USER_BOOTSTRAP` | Emergency bootstrap switch; leave unset in normal production |
+| `OWNER_ACCOUNT_USER_ID` | Sites mode: preferred first-owner bootstrap using the hosting identity |
+| `OWNER_EMAIL` | Sites mode: optional legacy first-owner bootstrap by email |
+| `ALLOW_FIRST_USER_BOOTSTRAP` | Sites mode: emergency bootstrap switch; leave unset in normal production |
 | `GOOGLE_DRIVE_CLIENT_ID` | Experimental server-configured Drive adapter |
 | `GOOGLE_DRIVE_CLIENT_SECRET` | Experimental Drive OAuth secret |
 | `GOOGLE_DRIVE_REFRESH_TOKEN` | Experimental Drive refresh token |
@@ -103,6 +105,17 @@ Copy the generated value into `.dev.vars` as `PROVIDER_KEY_ENCRYPTION_KEY`. Neve
 The Drive adapter does not include an in-app OAuth setup flow. Treat it as experimental until your deployment supplies and manages OAuth credentials independently.
 
 Before deploying, replace the placeholder `project_id` in `.openai/hosting.json` and inject production values through the hosting secret store.
+
+### Authentication modes
+
+MeshKeep identifies people in one of two ways, selected by `AUTH_MODE`:
+
+- **`standalone` (default):** for any host other than OpenAI Sites. The owner opens `/setup` and enters `OWNER_SETUP_TOKEN`. The first use creates the owner account; later uses restore access to it. Everyone else joins through one-time invitation links. The `oai-authenticated-user-*` headers are ignored, because outside Sites a client could set them to any value.
+- **`sites`:** only when OpenAI Sites sits in front of the worker. Sites sets the `oai-authenticated-user-*` headers, and the owner signs in with ChatGPT. `/setup` is disabled in this mode.
+
+Never set `AUTH_MODE=sites` on a deployment that clients can reach without passing through Sites: anyone could then sign in as any user by sending those headers. Standalone is the default for that reason. A Sites deployment that forgets the setting loses ChatGPT sign-in, but it does not trust headers it cannot verify.
+
+Generate the setup key the same way as the encryption key, and store it only in the hosting secret store. Rotating the secret invalidates the old key; existing sessions stay valid.
 
 ## Folder-sync agent
 

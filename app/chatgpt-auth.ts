@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getAuthMode } from '@/lib/server/auth-mode';
 
 export type ChatGPTUser = {
   userId: string;
@@ -19,6 +20,9 @@ const SIGN_OUT_PATH = '/signout-with-chatgpt';
 const CALLBACK_PATH = '/callback';
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
+  // Every identity read goes through here, so this one check covers all of
+  // them. Outside Sites the headers are whatever the client chose to send.
+  if (getAuthMode() !== 'sites') return null;
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);

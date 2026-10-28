@@ -11,6 +11,38 @@ import { getSessionMember, sha256 } from './session';
 export type CurrentMember = typeof members.$inferSelect;
 const MAX_MEMBERS = 4;
 
+// The owner row never stores a real address: the owner signs in through the
+// platform or the setup key, not through an invitation sent to an email.
+export function newOwnerMember(providerUserId: string, displayName: string): CurrentMember {
+  const id = crypto.randomUUID();
+  const now = new Date();
+  return {
+    id,
+    providerUserId,
+    email: `owner-${id.slice(0, 12)}@invalid.example`,
+    displayName: displayName.slice(0, 100),
+    role: 'owner',
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+// The first owner also gets a starter project, so the dashboard is not empty.
+export function ownerInserts(db: ReturnType<typeof getDb>, owner: CurrentMember) {
+  return [
+    db.insert(members).values(owner),
+    db.insert(memberLimits).values({ memberId: owner.id }),
+    db.insert(projects).values({
+      id: crypto.randomUUID(),
+      ownerId: owner.id,
+      name: 'AI Workspace Demo',
+      description: 'A clean workspace for exploring private projects, file context and AI-assisted conversations.',
+      visibility: 'private',
+    }),
+  ] as const;
+}
+
 export async function requireMember(): Promise<CurrentMember> {
   const sessionMember = await getSessionMember();
   if (sessionMember) return sessionMember;
@@ -69,31 +101,23 @@ export async function requireMember(): Promise<CurrentMember> {
     }
   }
 
-  const id = crypto.randomUUID();
   const now = new Date();
-  const member = {
-    id,
-    providerUserId,
-    email: mayBootstrapOwner ? `owner-${id.slice(0, 12)}@invalid.example` : email,
-    displayName: mayBootstrapOwner ? 'Demo Owner' : identity.displayName.slice(0, 100),
-    role: mayBootstrapOwner ? ('owner' as const) : ('member' as const),
-    status: 'active' as const,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const member: CurrentMember = mayBootstrapOwner
+    ? newOwnerMember(providerUserId, 'Demo Owner')
+    : {
+        id: crypto.randomUUID(),
+        providerUserId,
+        email,
+        displayName: identity.displayName.slice(0, 100),
+        role: 'member',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      };
+  const { id } = member;
   try {
     if (mayBootstrapOwner) {
-      await db.batch([
-        db.insert(members).values(member),
-        db.insert(memberLimits).values({ memberId: id }),
-        db.insert(projects).values({
-          id: crypto.randomUUID(),
-          ownerId: id,
-          name: 'AI Workspace Demo',
-          description: 'A clean workspace for exploring private projects, file context and AI-assisted conversations.',
-          visibility: 'private',
-        }),
-      ]);
+      await db.batch(ownerInserts(db, member));
     } else {
       await db.batch([
         db.insert(members).values(member),

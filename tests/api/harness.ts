@@ -159,8 +159,21 @@ function seedSql(): string {
 
 let proces: ChildProcess | null = null;
 let katalogStanu = '';
+// Trzymane w module, a nie przekazywane do `podnieProces`, bo ten jest wolany
+// takze przy restarcie po awarii transportu. Restart bez tych zmiennych
+// podnioslby workera w innym trybie logowania niz ten, ktory test sprawdza.
+let zmienneWorkera: Record<string, string> = {};
 
-export async function startWorkera() {
+export type OpcjeWorkera = {
+  // Bez zasiewu baza ma sam schemat, czyli wyglada jak swieza instalacja.
+  // Tylko na takiej da sie sprawdzic zakladanie pierwszego wlasciciela.
+  zasiej?: boolean;
+  // Dodatkowe zmienne srodowiska workera, przekazywane jako `--var`.
+  zmienne?: Record<string, string>;
+};
+
+export async function startWorkera(opcje: OpcjeWorkera = {}) {
+  zmienneWorkera = opcje.zmienne ?? {};
   // Stan miniflare MUSI lezec poza repozytorium. Uruchomienie z konfiguracji w
   // `dist/` bez `--persist-to` tworzy `dist/server/.wrangler/` z lokalna baza,
   // ktora potem jedzie do chmury razem z paczka wdrozeniowa.
@@ -172,19 +185,21 @@ export async function startWorkera() {
     uruchom('npx', ['wrangler', 'd1', 'execute', 'site-creator-d1', ...wspolne, '--file', join(KATALOG, 'drizzle', nazwa)], `Migracja ${nazwa}`);
   }
 
-  const seed = join(katalogStanu, 'seed.sql');
-  writeFileSync(seed, seedSql(), 'utf8');
-  uruchom('npx', ['wrangler', 'd1', 'execute', 'site-creator-d1', ...wspolne, '--file', seed], 'Zasianie danych');
+  if (opcje.zasiej !== false) {
+    const seed = join(katalogStanu, 'seed.sql');
+    writeFileSync(seed, seedSql(), 'utf8');
+    uruchom('npx', ['wrangler', 'd1', 'execute', 'site-creator-d1', ...wspolne, '--file', seed], 'Zasianie danych');
 
-  for (const id of [ID.plikWspolny, ID.plikObcego, ID.plikKasowanyPrzezEdytora]) {
-    const zawartosc = join(katalogStanu, `${id}.txt`);
-    writeFileSync(zawartosc, 'TRESC', 'utf8');
-    uruchom('npx', ['wrangler', 'r2', 'object', 'put', `site-creator-r2/obj/${id}`, '--file', zawartosc, ...wspolne], 'Wgranie obiektu R2');
+    for (const id of [ID.plikWspolny, ID.plikObcego, ID.plikKasowanyPrzezEdytora]) {
+      const zawartosc = join(katalogStanu, `${id}.txt`);
+      writeFileSync(zawartosc, 'TRESC', 'utf8');
+      uruchom('npx', ['wrangler', 'r2', 'object', 'put', `site-creator-r2/obj/${id}`, '--file', zawartosc, ...wspolne], 'Wgranie obiektu R2');
+    }
+    // Prawdziwy PDF z materialu testowego, a nie atrapa: inaczej ekstrakcja nie
+    // wykonalaby sie naprawde i test sciezki zalacznika nic by nie znaczyl.
+    uruchom('npx', ['wrangler', 'r2', 'object', 'put', `site-creator-r2/obj/${ID.plikPdf}`,
+      '--file', join(KATALOG, 'tests', 'fixtures', 'umowa.pdf'), ...wspolne], 'Wgranie PDF-a do R2');
   }
-  // Prawdziwy PDF z materialu testowego, a nie atrapa: inaczej ekstrakcja nie
-  // wykonalaby sie naprawde i test sciezki zalacznika nic by nie znaczyl.
-  uruchom('npx', ['wrangler', 'r2', 'object', 'put', `site-creator-r2/obj/${ID.plikPdf}`,
-    '--file', join(KATALOG, 'tests', 'fixtures', 'umowa.pdf'), ...wspolne], 'Wgranie PDF-a do R2');
 
   await podnieProces();
 }
@@ -197,6 +212,7 @@ function podnieProces() {
     // 503, zanim dojdzie do fetcha - i test sciezki wyjscia nie sprawdzalby
     // niczego. Wartosc jest celowo nieprawidlowa, zeby dostawca ja odrzucil.
     '--var', 'TOKENROUTER_API_KEY:klucz-testowy-nieprawidlowy',
+    ...Object.entries(zmienneWorkera).flatMap(([nazwa, wartosc]) => ['--var', `${nazwa}:${wartosc}`]),
   ].map(cytuj), {
     cwd: KATALOG, shell: true, stdio: 'ignore',
   });
@@ -290,7 +306,10 @@ export function jakoAgent(token: string = TOKENY.agent): Record<string, string> 
   return { Authorization: `Bearer ${token}` };
 }
 
-export type Odpowiedz = { status: number; dane: Record<string, unknown>; tekst: string };
+// `ponowienia` mowi, ile razy zadanie poszlo ponownie po awarii transportu.
+// Przy zadaniach, ktore cos zakladaja, ma to znaczenie: pierwsza proba mogla
+// sie wykonac, a zgubic sie dopiero odpowiedz.
+export type Odpowiedz = { status: number; dane: Record<string, unknown>; tekst: string; naglowki: Headers; ponowienia: number };
 
 export async function zapytaj(sciezka: string, opcje: RequestInit = {}): Promise<Odpowiedz> {
   for (let proba = 0; ; proba += 1) {
@@ -319,6 +338,15 @@ export async function zapytaj(sciezka: string, opcje: RequestInit = {}): Promise
 
     let dane: unknown = null;
     try { dane = JSON.parse(tekst); } catch { dane = { surowe: tekst }; }
-    return { status: odpowiedz.status, dane: dane as Record<string, unknown>, tekst };
+    return { status: odpowiedz.status, dane: dane as Record<string, unknown>, tekst, naglowki: odpowiedz.headers, ponowienia: proba };
   }
+}
+
+// Wartosc ciasteczka sesji z odpowiedzi, ktora je ustawia. Zwraca naglowek do
+// kolejnych zadan, zeby test sprawdzal sesje wydana przez serwer, a nie
+// zasiana recznie w bazie.
+export function sesjaZOdpowiedzi(odp: Odpowiedz): Record<string, string> | null {
+  const ciasteczko = odp.naglowki.getSetCookie().find((wpis) => wpis.startsWith('meshkeep_session='));
+  if (!ciasteczko) return null;
+  return { Cookie: ciasteczko.split(';')[0] };
 }
