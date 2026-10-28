@@ -306,7 +306,10 @@ export function jakoAgent(token: string = TOKENY.agent): Record<string, string> 
   return { Authorization: `Bearer ${token}` };
 }
 
-export type Odpowiedz = { status: number; dane: Record<string, unknown>; tekst: string; naglowki: Headers };
+// `ponowienia` mowi, ile razy zadanie poszlo ponownie po awarii transportu.
+// Przy zadaniach, ktore cos zakladaja, ma to znaczenie: pierwsza proba mogla
+// sie wykonac, a zgubic sie dopiero odpowiedz.
+export type Odpowiedz = { status: number; dane: Record<string, unknown>; tekst: string; naglowki: Headers; ponowienia: number };
 
 export async function zapytaj(sciezka: string, opcje: RequestInit = {}): Promise<Odpowiedz> {
   for (let proba = 0; ; proba += 1) {
@@ -335,7 +338,7 @@ export async function zapytaj(sciezka: string, opcje: RequestInit = {}): Promise
 
     let dane: unknown = null;
     try { dane = JSON.parse(tekst); } catch { dane = { surowe: tekst }; }
-    return { status: odpowiedz.status, dane: dane as Record<string, unknown>, tekst, naglowki: odpowiedz.headers };
+    return { status: odpowiedz.status, dane: dane as Record<string, unknown>, tekst, naglowki: odpowiedz.headers, ponowienia: proba };
   }
 }
 
