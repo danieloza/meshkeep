@@ -18,7 +18,9 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
+import { ChatMarkdown } from '@/components/chat-markdown';
 import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
+import { type ContextFile, createLineSplitter, parseStreamEvent } from '@/lib/chat-stream';
 import { DEFAULT_DAILY_TOKENS, DEFAULT_MONTHLY_TOKENS, limitsAreCoherent, parseLimitInput } from '@/lib/limits';
 import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch, visibleSections } from '@/lib/navigation';
 import { parseTheme, resolveTheme, THEME_STORAGE_KEY, type Theme } from '@/lib/theme';
@@ -1132,7 +1134,30 @@ function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit
   </section>;
 }
 
-type ChatMessage = { role: 'user' | 'assistant'; content: string };
+// `context` lists what the answer was built from; `pending` marks an answer
+// that is still streaming in.
+type ChatMessage = { role: 'user' | 'assistant'; content: string; context?: ContextFile[]; pending?: boolean; interrupted?: boolean };
+
+const CONTEXT_STATUS: Record<ContextFile['status'], { label: string; className: string }> = {
+  included: { label: '', className: 'bg-[#e2efeb] text-[#2c5c54]' },
+  truncated: { label: 'partial', className: 'bg-amber-50 text-amber-800' },
+  unreadable: { label: 'not readable', className: 'bg-[#eef0ed] text-[#63706d]' },
+  skipped: { label: 'over limit', className: 'bg-[#eef0ed] text-[#63706d]' },
+};
+
+// Shows, per answer, which selected files the model actually received. A file
+// the model did not read in full says so, instead of looking like the rest.
+function ContextChips({ files }: { files: ContextFile[] }) {
+  if (!files.length) return null;
+  return <div className="mt-1.5 flex max-w-[88%] flex-wrap gap-1.5" aria-label="Files used for this answer">
+    {files.map((file) => {
+      const status = CONTEXT_STATUS[file.status];
+      return <span className={cn('flex max-w-[240px] items-center gap-1 rounded-full px-2.5 py-1 text-[10px]', status.className)} key={file.id} title={file.note ? `${file.path} — ${file.note}` : file.path}>
+        <Paperclip className="size-3 shrink-0" /><span className="truncate">{file.path.split('/').pop()}</span>{status.label && <span className="shrink-0 font-medium">· {status.label}</span>}
+      </span>;
+    })}
+  </div>;
+}
 
 function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, conversationId: openConversationId }: { project: Project; models: ModelOption[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; conversationId: string | null }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
@@ -1151,6 +1176,11 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [driveConfigured, setDriveConfigured] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [instructions, setInstructions] = useState('');
+  const [instructionsDraft, setInstructionsDraft] = useState('');
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [instructionsEditable, setInstructionsEditable] = useState(false);
+  const [instructionsSaving, setInstructionsSaving] = useState(false);
   const chatFileInput = useRef<HTMLInputElement>(null);
   const chatFolderInput = useRef<HTMLInputElement>(null);
 
@@ -1174,10 +1204,10 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
         if (!targetId || !active) return;
         const detailResponse = await fetch(`/api/projects/${project.id}/conversations?conversationId=${targetId}`, { cache: 'no-store' });
         if (!detailResponse.ok || !active) return;
-        const detail = (await detailResponse.json()) as { messages: Array<{ role: string; content: string }> };
+        const detail = (await detailResponse.json()) as { messages: Array<{ role: string; content: string; contextFiles?: ContextFile[] }> };
         if (!active) return;
         setConversationId(targetId);
-        setChatMessages(detail.messages.filter((message) => message.role === 'user' || message.role === 'assistant').map((message) => ({ role: message.role as ChatMessage['role'], content: message.content })));
+        setChatMessages(detail.messages.filter((message) => message.role === 'user' || message.role === 'assistant').map((message) => ({ role: message.role as ChatMessage['role'], content: message.content, context: message.contextFiles ?? [] })));
       } catch { /* czat zaczyna od pustej historii */ }
       finally { if (active) setHistoryLoading(false); }
     })();
@@ -1201,6 +1231,35 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     }).catch(() => undefined);
     return () => { active = false; };
   }, [project.id]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/projects/${project.id}/instructions`, { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok || !active) return;
+        const payload = (await response.json()) as { instructions: string; canEdit: boolean };
+        if (!active) return;
+        setInstructions(payload.instructions);
+        setInstructionsDraft(payload.instructions);
+        setInstructionsEditable(payload.canEdit);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [project.id]);
+
+  async function saveInstructions() {
+    if (instructionsSaving) return;
+    setInstructionsSaving(true); setError(null);
+    try {
+      const response = await fetch(`/api/projects/${project.id}/instructions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: instructionsDraft }) });
+      const payload = (await response.json()) as { instructions?: string; error?: string };
+      if (!response.ok || payload.instructions === undefined) throw new Error(payload.error ?? 'Could not save the instructions.');
+      setInstructions(payload.instructions);
+      setInstructionsDraft(payload.instructions);
+      setInstructionsOpen(false);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not save the instructions.'); }
+    finally { setInstructionsSaving(false); }
+  }
 
   async function uploadProjectFiles(selected: File[]) {
     if (!selected.length || uploading) return;
@@ -1257,15 +1316,55 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     const visibleContent = content || 'Analyze the selected project files.';
     const nextMessages = [...chatMessages, { role: 'user' as const, content: visibleContent }];
     setChatMessages(nextMessages); setPrompt(''); setSending(true); setError(null);
+    // The answer is addressed by position, so a late chunk can only ever land
+    // on the message it belongs to.
+    const answerIndex = nextMessages.length;
+    const updateAnswer = (change: (message: ChatMessage) => ChatMessage) =>
+      setChatMessages((current) => current.map((message, index) => index === answerIndex ? change(message) : message));
+    let streaming = false;
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 }) });
-      const payload = (await response.json()) as { conversationId?: string; message?: ChatMessage; usage?: { inputTokens: number; outputTokens: number }; error?: string };
-      if (!response.ok || !payload.message) throw new Error(payload.error ?? 'The model did not respond.');
-      setConversationId(payload.conversationId);
-      setChatMessages((current) => [...current, payload.message!]);
-      setSelectedFileIds([]);
-      onUsage(payload.usage?.inputTokens ?? 0, payload.usage?.outputTokens ?? 0);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not send the message.'); }
+      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 }) });
+      // Anything that fails before the model starts answering comes back as
+      // JSON with a status; only a successful answer is streamed.
+      if (!response.ok || !response.body) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? 'The model did not respond.');
+      }
+      streaming = true;
+      setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const lines = createLineSplitter();
+      let finished = false;
+      const apply = (line: string) => {
+        const event = parseStreamEvent(line);
+        if (!event) return;
+        if (event.type === 'delta') {
+          updateAnswer((message) => ({ ...message, content: message.content + event.text }));
+        } else if (event.type === 'done') {
+          finished = true;
+          setConversationId(event.conversationId);
+          updateAnswer((message) => ({ ...message, pending: false, context: event.context }));
+          setSelectedFileIds([]);
+          onUsage(event.usage.inputTokens, event.usage.outputTokens);
+        } else {
+          finished = true;
+          throw new Error(event.error);
+        }
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        lines.push(decoder.decode(value, { stream: true })).forEach(apply);
+      }
+      lines.flush().forEach(apply);
+      if (!finished) throw new Error('The connection closed before the answer finished.');
+    } catch (caught) {
+      // The server saves an answer only when it completes, so a partial one is
+      // marked as not saved rather than passed off as part of the history.
+      if (streaming) updateAnswer((message) => ({ ...message, pending: false, interrupted: true }));
+      setError(caught instanceof Error ? caught.message : 'Could not send the message.');
+    }
     finally { setSending(false); }
   }
 
@@ -1280,11 +1379,32 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
           {models.length === 0 && <option value="">No models available</option>}
           {models.map((item) => <option key={item.id} title={item.description} value={item.id}>{item.label}{item.tier === 'free' ? ' · FREE' : ''}</option>)}
         </select>
+        <Button aria-expanded={instructionsOpen} aria-label="Project instructions" className="relative" onClick={() => setInstructionsOpen((value) => !value)} size="icon" title={instructions ? 'Project instructions are on' : 'Project instructions'} variant="ghost"><ScrollText />{instructions && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-emerald-600" />}</Button>
         <Button aria-label="Start a new conversation" disabled={historyLoading || !chatMessages.length} onClick={startNewConversation} size="icon" title="New conversation" variant="ghost"><MessageSquarePlus /></Button>
         <Button aria-label="Close chat" onClick={onClose} size="icon" variant="ghost"><X /></Button>
       </header>
+      {instructionsOpen && <div className="border-b border-black/7 bg-[#f8faf8] px-4 py-3 sm:px-5">
+        <div className="mx-auto max-w-3xl">
+          <label className="text-xs font-semibold" htmlFor="project-instructions">Project instructions</label>
+          <p className="mt-0.5 text-[11px] leading-4 text-[#75817e]">Sent to the model before every message in this project, ahead of any selected files. {instructionsEditable ? 'The owner and editors can change them.' : 'Only the owner and editors can change them.'}</p>
+          <textarea className="mt-2 h-28 w-full resize-y rounded-lg border border-black/10 bg-white p-2 text-xs leading-5 outline-none focus:ring-2 focus:ring-[#4d8b80]/30" id="project-instructions" maxLength={4000} onChange={(event) => setInstructionsDraft(event.target.value)} placeholder="For example: Answer in Polish. Prefer TypeScript examples. Name the file when you refer to code." readOnly={!instructionsEditable} value={instructionsDraft} />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] text-[#89928f]">{instructionsDraft.length} / 4000</span>
+            {instructionsEditable && <div className="flex gap-2">
+              <Button onClick={() => { setInstructionsDraft(instructions); setInstructionsOpen(false); }} size="sm" type="button" variant="ghost">Cancel</Button>
+              <Button className="bg-[#173d38] text-white" disabled={instructionsSaving || instructionsDraft.trim() === instructions} onClick={() => void saveInstructions()} size="sm" type="button">{instructionsSaving ? 'Saving…' : 'Save'}</Button>
+            </div>}
+          </div>
+        </div>
+      </div>}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-10">
-        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-[#dff4ed] text-[#2f6e63]"><Bot /></span><h3 className="text-xl font-semibold tracking-tight">What would you like to work on?</h3><p className="mt-2 text-sm leading-6 text-[#707c79]">Ask about code, analyze a project or attach specific files. The model receives this conversation and only the text files you explicitly select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => <div className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')} key={`${message.role}-${index}`}><div className={cn('max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6', message.role === 'user' ? 'rounded-br-md bg-[#173d38] text-white' : 'rounded-bl-md border border-black/6 bg-white text-[#25322f] shadow-sm')}>{message.content}</div></div>)}{sending && <div className="flex items-center gap-2 text-sm text-[#65716e]"><Loader2 className="size-4 animate-spin" /> Model is responding…</div>}</div>}
+        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-[#dff4ed] text-[#2f6e63]"><Bot /></span><h3 className="text-xl font-semibold tracking-tight">What would you like to work on?</h3><p className="mt-2 text-sm leading-6 text-[#707c79]">Ask about code, analyze a project or attach specific files. The model receives this conversation and only the text files you explicitly select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
+          ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[#173d38] px-4 py-3 text-sm leading-6 text-white">{message.content}</div></div>
+          : <div className="flex flex-col items-start" key={`${message.role}-${index}`}>
+            {message.content && <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-black/6 bg-white px-4 py-3 text-sm leading-6 text-[#25322f] shadow-sm"><ChatMarkdown content={message.content} /></div>}
+            {message.interrupted && <p className="mt-1 text-[10px] text-amber-800">Interrupted · this partial answer was not saved</p>}
+            {!message.pending && message.context && <ContextChips files={message.context} />}
+          </div>)}{sending && !chatMessages.some((message) => message.pending && message.content) && <div className="flex items-center gap-2 text-sm text-[#65716e]"><Loader2 className="size-4 animate-spin" /> Model is responding…</div>}</div>}
       </div>
       <footer className="border-t border-black/7 bg-white/80 p-3 sm:p-5">
         {error && <p className="mx-auto mb-2 max-w-3xl rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, messages } from '@/db/schema';
+import { readContextFiles } from '@/lib/chat-stream';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { assertSameOrigin, errorResponse, json } from '@/lib/server/http';
@@ -33,12 +34,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .limit(1);
       if (!conversation) return json({ error: 'Conversation not found.' }, { status: 404 });
       const rows = await db
-        .select({ role: messages.role, content: messages.content, model: messages.model, createdAt: messages.createdAt })
+        .select({ role: messages.role, content: messages.content, model: messages.model, contextFiles: messages.contextFiles, createdAt: messages.createdAt })
         .from(messages)
         .where(eq(messages.conversationId, conversation.id))
         .orderBy(asc(messages.createdAt))
         .limit(MAX_MESSAGES);
-      return json({ conversation, messages: rows });
+      return json({ conversation, messages: rows.map((row) => ({ ...row, contextFiles: readContextFiles(row.contextFiles) })) });
     }
 
     const rows = await db
