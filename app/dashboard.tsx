@@ -19,26 +19,19 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { ChatMarkdown } from '@/components/chat-markdown';
+import { api, ApiRequestError } from '@/lib/api-client';
 import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
 import { type ContextFile, createLineSplitter, parseStreamEvent } from '@/lib/chat-stream';
 // Types only: the browser takes the shapes from the contracts, but not zod.
-import type { BootstrapResponse } from '@/lib/contracts/account';
-import type { AuditEvent, AuditLog, KillSwitchSettings, StorageCheck } from '@/lib/contracts/admin';
-import type { ApiError, ApiReply, ByIdRequest, DeletedResponse, RevokedResponse, Visibility } from '@/lib/contracts/common';
-import type { AllConversations, ChatRequest, ConversationDetail, ConversationRow, ProjectConversations } from '@/lib/contracts/conversations';
-import type { DriveStatus, FileSuggestion, FileSuggestions, IndexRound, ProjectFile, ProjectFiles } from '@/lib/contracts/files';
-import type {
-  ContextImportResponse, CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList, ProjectShare, StorageProvider,
-  UpdateInstructionsRequest, UpdateInstructionsResponse, UpdateSharingRequest, UpdateSharingResponse,
-} from '@/lib/contracts/projects';
-import type {
-  EffectiveProvider, ProviderModel, ProviderOrigin, ProviderState, SaveProviderRequest, SaveProviderResponse,
-} from '@/lib/contracts/providers';
+import type { AuditEvent, StorageCheck } from '@/lib/contracts/admin';
+import type { Visibility } from '@/lib/contracts/common';
+import type { ConversationRow } from '@/lib/contracts/conversations';
+import type { FileSuggestion, ProjectFile } from '@/lib/contracts/files';
+import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
+import type { EffectiveProvider, ProviderModel, ProviderOrigin, ProviderState } from '@/lib/contracts/providers';
 import type { SearchResults } from '@/lib/contracts/search';
-import type { CreateSyncTokenRequest, CreateSyncTokenResponse, SyncCredentials, SyncSetting, UpdateSyncRequest } from '@/lib/contracts/sync';
-import type {
-  InviteRequest, InviteResponse, PendingInvite, TeamMember, TeamResponse, UpdateMemberRequest, UpdateMemberResponse,
-} from '@/lib/contracts/team';
+import type { CreateSyncTokenResponse } from '@/lib/contracts/sync';
+import type { PendingInvite, TeamMember, TeamResponse, UpdateMemberRequest } from '@/lib/contracts/team';
 import type { UsageResponse } from '@/lib/contracts/usage';
 import { DEFAULT_DAILY_TOKENS, DEFAULT_MONTHLY_TOKENS, limitsAreCoherent, parseLimitInput } from '@/lib/limits';
 import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch, visibleSections } from '@/lib/navigation';
@@ -143,20 +136,8 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      fetch('/api/bootstrap', { cache: 'no-store' }),
-      fetch('/api/projects', { cache: 'no-store' }),
-      fetch('/api/team', { cache: 'no-store' }),
-    ])
-      .then(async ([bootstrapResponse, projectsResponse, teamResponse]) => {
-        if ([bootstrapResponse, projectsResponse, teamResponse].some((response) => response.status === 401)) {
-          if (active) setAuthRequired(true);
-          return;
-        }
-        if (!bootstrapResponse.ok || !projectsResponse.ok || !teamResponse.ok) throw new Error('Could not load application data.');
-        const bootstrap = (await bootstrapResponse.json()) as BootstrapResponse;
-        const payload = (await projectsResponse.json()) as ProjectList;
-        const team = (await teamResponse.json()) as TeamResponse;
+    Promise.all([api.bootstrap(), api.projects.list(), api.team.get()])
+      .then(([bootstrap, payload, team]) => {
         if (!active) return;
         setDisplayName(bootstrap.member.displayName.split(' ')[0] || 'Daniel');
         setCurrentRole(bootstrap.member.role);
@@ -173,20 +154,21 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
         setReconnectLinks(team.reconnectLinks ?? []);
         setTeamCapacity(team.capacity ?? { used: team.members.length, total: 4 });
         setProjects(payload.projects.map((project, index) => ({ id: project.id, name: project.name, description: project.description, visibility: project.visibility, files: project.fileCount, conversations: project.conversationCount ?? 0, updated: relativeDate(project.updatedAt), color: ['from-cyan-400/20 via-teal-300/10 to-transparent', 'from-violet-400/20 via-fuchsia-300/10 to-transparent', 'from-amber-300/20 via-orange-300/10 to-transparent'][index % 3], icon: index % 3 === 0 ? 'code' : index % 3 === 1 ? 'folder' : 'lab', members: ['DS'] })));
-        void fetch('/api/auth/claim', { method: 'POST' }).catch(() => undefined);
+        void api.auth.claim().catch(() => undefined);
       })
-      .catch((error) => { if (active) setNotice(error instanceof Error ? error.message : 'Could not load application data.'); })
+      .catch((error) => {
+        if (!active) return;
+        // All three need a session, so a missing one fails them together.
+        if (error instanceof ApiRequestError && error.status === 401) { setAuthRequired(true); return; }
+        setNotice(error instanceof Error && !(error instanceof ApiRequestError) ? error.message : 'Could not load application data.');
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    Promise.all([fetch('/api/sync', { cache: 'no-store' }), fetch('/api/storage/google-drive/status', { cache: 'no-store' })])
-      .then(async ([syncResponse, driveResponse]) => {
-        if (syncResponse.ok) setSyncEnabled(Boolean(((await syncResponse.json()) as SyncSetting).enabled));
-        if (driveResponse.ok) setDriveConfigured(Boolean(((await driveResponse.json()) as DriveStatus).configured));
-      })
-      .catch(() => undefined);
+    api.sync.get().then((setting) => setSyncEnabled(setting.enabled)).catch(() => undefined);
+    api.driveStatus().then((status) => setDriveConfigured(status.configured)).catch(() => undefined);
   }, []);
 
   // Adres jest źródłem prawdy dla wybranego widoku: odczyt przy wejściu plus
@@ -213,9 +195,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   // więc licznik „x z 4” nie da się poprawnie policzyć po stronie przeglądarki.
   async function refreshTeam() {
     try {
-      const response = await fetch('/api/team', { cache: 'no-store' });
-      if (!response.ok) return;
-      const team = (await response.json()) as TeamResponse;
+      const team = await api.team.get();
       setTeamMembers(team.members);
       setPendingInvites(team.pendingInvites);
       setReconnectLinks(team.reconnectLinks ?? []);
@@ -227,8 +207,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     const previous = syncEnabled;
     setSyncEnabled(enabled);
     try {
-      const response = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled } satisfies UpdateSyncRequest) });
-      if (!response.ok) throw new Error();
+      await api.sync.update({ enabled });
       setNotice(enabled ? 'Automatic sync has been enabled.' : 'Automatic sync has been disabled.');
     } catch { setSyncEnabled(previous); setNotice('Could not save the sync setting.'); }
   }
@@ -257,9 +236,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     if (term.length < 2) return;
     let active = true;
     const timer = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(term)}`, { cache: 'no-store' })
-        .then(async (response) => { if (response.ok && active) setSearchResults((await response.json()) as SearchResults); })
-        .catch(() => undefined);
+      api.search(term).then((results) => { if (active) setSearchResults(results); }).catch(() => undefined);
     }, 300);
     return () => { active = false; clearTimeout(timer); };
   }, [query]);
@@ -291,20 +268,14 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     if (!name) return;
     setSaving(true); setNotice(null);
     try {
-      const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description: importedFile ? `Import: ${importedFile}` : '', visibility, selectedMembers: [], members: projectShares, storageProvider } satisfies CreateProjectRequest) });
-      const payload = (await response.json()) as ApiReply<CreateProjectResponse>;
-      if (!response.ok || !payload.project) throw new Error(payload.error ?? 'Could not create the project.');
+      const { project } = await api.projects.create({ name, description: importedFile ? `Import: ${importedFile}` : '', visibility, selectedMembers: [], members: projectShares, storageProvider });
       if (pendingFiles.length) {
         const form = new FormData();
         pendingFiles.forEach((file) => form.append('files', file));
         form.append('paths', JSON.stringify(pendingFiles.map((file) => file.webkitRelativePath || file.name)));
-        const upload = await fetch(`/api/projects/${payload.project.id}/files`, { method: 'POST', body: form });
-        if (!upload.ok) {
-          const uploadPayload = (await upload.json()) as ApiReply<ProjectFiles>;
-          throw new Error(uploadPayload.error ?? 'The project was created, but its files could not be imported.');
-        }
+        await api.projects.upload(project.id, form);
       }
-      setProjects((current) => [{ id: payload.project!.id, name, description: importedFile ? `Imported: ${importedFile}` : 'New project workspace.', visibility, files: pendingFiles.length, conversations: 0, updated: 'now', color: 'from-emerald-400/20 via-cyan-300/10 to-transparent', icon: 'folder', members: visibility === 'private' ? ['DS'] : ['DS', 'MK'] }, ...current]);
+      setProjects((current) => [{ id: project.id, name, description: importedFile ? `Imported: ${importedFile}` : 'New project workspace.', visibility, files: pendingFiles.length, conversations: 0, updated: 'now', color: 'from-emerald-400/20 via-cyan-300/10 to-transparent', icon: 'folder', members: visibility === 'private' ? ['DS'] : ['DS', 'MK'] }, ...current]);
       setProjectName(''); setImportedFile(null); setPendingFiles([]); setVisibility('private'); setProjectShares([]); setStorageProvider('r2'); setShowCreate(false); setNotice(storageProvider === 'google_drive' ? 'The project was saved to the cloud and connected to Google Drive.' : 'The project was saved to the private cloud.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save the project.');
@@ -316,11 +287,9 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     try {
       const form = new FormData();
       form.append('context', file);
-      const response = await fetch('/api/context/import', { method: 'POST', body: form });
-      const payload = (await response.json()) as ApiReply<ContextImportResponse>;
-      if (!response.ok || !payload.project) throw new Error(payload.error ?? 'Could not import the context.');
-      setProjects((current) => [{ id: payload.project!.id, name: payload.project!.name, description: `${payload.project!.conversations} imported conversations`, visibility: payload.project!.visibility, files: 0, conversations: payload.project!.conversations, updated: 'now', color: 'from-sky-400/20 via-cyan-300/10 to-transparent', icon: 'lab', members: ['DS'] }, ...current]);
-      setNotice(payload.message ?? 'Context imported.');
+      const { project, message } = await api.projects.importContext(form);
+      setProjects((current) => [{ id: project.id, name: project.name, description: `${project.conversations} imported conversations`, visibility: project.visibility, files: 0, conversations: project.conversations, updated: 'now', color: 'from-sky-400/20 via-cyan-300/10 to-transparent', icon: 'lab', members: ['DS'] }, ...current]);
+      setNotice(message);
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Context import failed.'); }
     finally { setSaving(false); }
   }
@@ -328,9 +297,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   async function makeProjectPrivate(project: Project) {
     if (project.visibility === 'private') return;
     try {
-      const response = await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visibility: 'private', members: [] } satisfies UpdateSharingRequest) });
-      const payload = (await response.json()) as ApiReply<UpdateSharingResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not make the project private.');
+      await api.projects.updateSharing(project.id, { visibility: 'private', members: [] });
       setProjects((current) => current.map((item) => item.id === project.id ? { ...item, visibility: 'private', members: ['DS'], updated: 'now' } : item));
       setNotice('The project is now visible only to you.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not make the project private.'); }
@@ -339,16 +306,14 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   async function deleteProject(project: Project) {
     if (!window.confirm(`Delete “${project.name}” with all of its files and conversations? This cannot be undone.`)) return;
     try {
-      const response = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
-      const payload = (await response.json()) as ApiReply<DeletedResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not delete the project.');
+      await api.projects.remove(project.id);
       setProjects((current) => current.filter((item) => item.id !== project.id));
       setNotice('The project and its data were deleted.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not delete the project.'); }
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    await api.auth.logout().catch(() => undefined);
     window.location.replace('/');
   }
 
@@ -559,12 +524,8 @@ function useEffectiveProvider(): { effective: EffectiveProvider | null; loaded: 
 
   useEffect(() => {
     let active = true;
-    fetch('/api/provider', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = (await response.json()) as ProviderState;
-        if (active) setEffective(payload.effective);
-      })
+    api.provider.get()
+      .then((payload) => { if (active) setEffective(payload.effective); })
       .catch(() => undefined)
       .finally(() => { if (active) setLoaded(true); });
     return () => { active = false; };
@@ -596,21 +557,21 @@ function SyncAgentPanel({ onNotice }: { onNotice: (message: string) => void }) {
   const [tokens, setTokens] = useState<SyncCredentialSummary[]>([]);
   const [rawToken, setRawToken] = useState('');
   const [creating, setCreating] = useState(false);
-  useEffect(() => { fetch('/api/sync/token', { cache: 'no-store' }).then(async (response) => { if (response.ok) setTokens(((await response.json()) as SyncCredentials).tokens); }).catch(() => undefined); }, []);
+  useEffect(() => { api.sync.tokens().then((payload) => setTokens(payload.tokens)).catch(() => undefined); }, []);
   async function createToken() {
     setCreating(true); setRawToken('');
     try {
-      const response = await fetch('/api/sync/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: `Windows · ${new Date().toLocaleDateString('en-US')}` } satisfies CreateSyncTokenRequest) });
-      const payload = (await response.json()) as ApiReply<CreateSyncTokenResponse>;
-      if (!response.ok || !payload.token || !payload.credential) throw new Error(payload.error ?? 'Could not create an agent key.');
-      setRawToken(payload.token); setTokens((current) => [payload.credential!, ...current]);
+      const payload = await api.sync.createToken({ label: `Windows · ${new Date().toLocaleDateString('en-US')}` });
+      setRawToken(payload.token); setTokens((current) => [payload.credential, ...current]);
       onNotice('Agent key created. It is shown only once.');
     } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not create an agent key.'); }
     finally { setCreating(false); }
   }
   async function revoke(id: string) {
-    const response = await fetch('/api/sync/token', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id } satisfies ByIdRequest) });
-    if (response.ok) { setTokens((current) => current.filter((token) => token.id !== id)); setRawToken(''); onNotice('Agent key revoked.'); }
+    try {
+      await api.sync.revokeToken({ id });
+      setTokens((current) => current.filter((token) => token.id !== id)); setRawToken(''); onNotice('Agent key revoked.');
+    } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not revoke the agent key.'); }
   }
   return <Card className="border-0 bg-white/90 shadow-none ring-black/6"><CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Local folder<Hint text="An agent key lets one machine upload and delete files in projects you can edit. It grants no model access and is shown once, because the server keeps only its hash. Revoking it stops that machine immediately." /></CardTitle><CardDescription>The agent copies changed files only to the selected project.</CardDescription></CardHeader><CardContent className="space-y-3"><a className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-medium hover:bg-black/[0.03]" download href="/meshkeep-sync.ps1"><Download className="size-3.5" /> Download Windows agent</a><Button disabled={creating} onClick={() => void createToken()} size="sm" variant="outline"><KeyRound /> {creating ? 'Creating…' : 'New agent key'}</Button>{rawToken && <div className="rounded-xl border border-amber-700/10 bg-amber-50 p-3"><p className="mb-2 text-[11px] leading-4 text-amber-900/75">Copy it now. The key will not be shown again and grants no model access.</p><div className="flex gap-2"><Input aria-label="Sync agent key" className="h-8 min-w-0 bg-white text-[10px]" readOnly value={rawToken} /><Button onClick={() => { void navigator.clipboard.writeText(rawToken); onNotice('Agent key copied.'); }} size="icon-sm" type="button" variant="outline"><Copy /></Button></div></div>}{tokens.map((token) => <div className="flex items-center gap-2 rounded-lg bg-[#f4f6f3] px-3 py-2 text-[11px]" key={token.id}><div className="min-w-0 flex-1"><p className="truncate font-medium">{token.label}</p><p className="text-[#7c8784]">expires {new Date(token.expiresAt).toLocaleDateString('en-US')}</p></div><Button aria-label={`Revoke ${token.label}`} onClick={() => void revoke(token.id)} size="icon-xs" variant="ghost"><Trash2 /></Button></div>)}</CardContent></Card>;
 }
@@ -630,9 +591,7 @@ function MemberRow({ member, colorIndex, isOwnerView, currentMemberId, onChanged
   async function patch(body: UpdateMemberRequest, message: string) {
     setBusy(true);
     try {
-      const response = await fetch(`/api/team/members/${member.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const payload = (await response.json()) as ApiReply<UpdateMemberResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not save the change.');
+      await api.team.updateMember(member.id, body);
       onChanged();
       onNotice(message);
     } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not save the change.'); }
@@ -695,13 +654,11 @@ function TeamPanel({ members, pendingInvites, reconnectLinks, capacity, canInvit
     if (!normalized || inviting) return;
     setInviting(true);
     try {
-      const response = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalized } satisfies InviteRequest) });
-      const payload = (await response.json()) as ApiReply<InviteResponse>;
-      if (!response.ok || !payload.invite) throw new Error(payload.error ?? 'Could not create the invitation.');
-      if (!payload.invite.joinPath.startsWith('/join?token=')) throw new Error('The server returned an invalid invitation link.');
-      const kind = payload.invite.kind ?? 'invite';
+      const { invite } = await api.team.invite({ email: normalized });
+      if (!invite.joinPath.startsWith('/join?token=')) throw new Error('The server returned an invalid invitation link.');
+      const kind = invite.kind;
       setInviteKind(kind);
-      setInviteLink(new URL(payload.invite.joinPath, window.location.origin).toString());
+      setInviteLink(new URL(invite.joinPath, window.location.origin).toString());
       setEmail('');
       onTeamChanged();
       onNotice(kind === 'reconnect' ? 'The reconnect link is ready. It restores the existing account without using another seat.' : 'The one-time link is ready. Copy it and send it directly to the invitee.');
@@ -710,9 +667,7 @@ function TeamPanel({ members, pendingInvites, reconnectLinks, capacity, canInvit
   }
   async function revokeInvite(inviteId: string) {
     try {
-      const response = await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inviteId } satisfies ByIdRequest) });
-      const payload = (await response.json()) as ApiReply<RevokedResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not revoke the invitation.');
+      await api.team.revokeInvite({ id: inviteId });
       onTeamChanged();
       onNotice('Invitation revoked. The seat is available again.');
     } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not revoke the invitation.'); }
@@ -731,13 +686,9 @@ function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConv
 
   useEffect(() => {
     let active = true;
-    fetch('/api/conversations', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Could not load conversations.');
-        const payload = (await response.json()) as AllConversations;
-        if (active) setRows(payload.conversations);
-      })
-      .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load conversations.'); });
+    api.conversations()
+      .then((payload) => { if (active) setRows(payload.conversations); })
+      .catch(() => { if (active) setError('Could not load conversations.'); });
     return () => { active = false; };
   }, []);
 
@@ -748,11 +699,7 @@ function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConv
     if (!window.confirm(`Delete “${row.title}” with ${row.messageCount} messages? This cannot be undone.`)) return;
     setDeletingId(row.id);
     try {
-      const response = await fetch(`/api/projects/${row.projectId}/conversations?conversationId=${row.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as ApiReply<DeletedResponse>;
-        throw new Error(payload.error ?? 'Could not delete the conversation.');
-      }
+      await api.projects.removeConversation(row.projectId, row.id);
       setRows((current) => (current ?? []).filter((item) => item.id !== row.id));
       onNotice('Conversation deleted.');
     } catch (caught) { onNotice(caught instanceof Error ? caught.message : 'Could not delete the conversation.'); }
@@ -793,37 +740,24 @@ function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => 
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    const response = await fetch('/api/provider', { cache: 'no-store' });
-    if (response.ok) setState((await response.json()) as ProviderState);
+    try { setState(await api.provider.get()); } catch { /* the card keeps what it showed */ }
   }
   // Ten sam wzorzec, co pozostale pobrania w tym pliku: flaga `active` chroni
   // przed zapisem stanu po odmontowaniu, a setState dzieje sie w wywolaniu
   // zwrotnym obietnicy, nie w ciele efektu.
   useEffect(() => {
     let active = true;
-    fetch('/api/provider', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = (await response.json()) as ProviderState;
-        if (active) setState(payload);
-      })
-      .catch(() => undefined);
+    api.provider.get().then((payload) => { if (active) setState(payload); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
 
   async function save() {
     setBusy(true); setError(null);
     try {
-      const response = await fetch('/api/provider', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label, baseUrl, apiKey, scope: forTeam ? 'team' : 'mine' } satisfies SaveProviderRequest),
-      });
-      const payload = (await response.json()) as ApiReply<SaveProviderResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not save the provider.');
+      const payload = await api.provider.save({ label, baseUrl, apiKey, scope: forTeam ? 'team' : 'mine' });
       // The key is never echoed back, so there is nothing to keep in the form.
       setApiKey('');
-      onNotice(`Provider connected. ${payload.modelCount ?? 0} models available.`);
+      onNotice(`Provider connected. ${payload.modelCount} models available.`);
       await load();
       onChanged();
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not save the provider.'); }
@@ -834,8 +768,7 @@ function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => 
     if (!window.confirm(scope === 'team' ? 'Remove the provider for the whole team?' : 'Remove your own provider and fall back to the team default?')) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/provider?scope=${scope}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Could not remove the provider.');
+      await api.provider.remove(scope);
       onNotice('Provider removed.');
       await load();
       onChanged();
@@ -899,13 +832,7 @@ function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/admin/settings', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = (await response.json()) as KillSwitchSettings;
-        if (active) setBlocked(Boolean(payload.apiKillSwitch));
-      })
-      .catch(() => undefined);
+    api.admin.settings().then((payload) => { if (active) setBlocked(payload.apiKillSwitch); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
 
@@ -913,8 +840,7 @@ function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
     const previous = blocked;
     setBlocked(next);
     try {
-      const response = await fetch('/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKillSwitch: next } satisfies KillSwitchSettings) });
-      if (!response.ok) throw new Error();
+      await api.admin.updateSettings({ apiKillSwitch: next });
       onNotice(next ? 'Models disabled for the entire team.' : 'Model access restored.');
     } catch { setBlocked(previous); onNotice('Could not update the setting.'); }
   }
@@ -942,9 +868,7 @@ function BackupCard({ onNotice }: { onNotice: (message: string) => void }) {
   async function verifyStorage() {
     setBusy(true);
     try {
-      const response = await fetch('/api/admin/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-      if (!response.ok) throw new Error('Could not verify file storage.');
-      setCheck((await response.json()) as StorageCheck);
+      setCheck(await api.admin.checkStorage());
     } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not verify file storage.'); }
     finally { setBusy(false); }
   }
@@ -996,13 +920,9 @@ function AuditView({ onNotice }: { onNotice: (message: string) => void }) {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/admin/audit', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Could not load the activity log.');
-        const payload = (await response.json()) as AuditLog;
-        if (active) setRows(payload.events);
-      })
-      .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load the activity log.'); });
+    api.admin.audit()
+      .then((payload) => { if (active) setRows(payload.events); })
+      .catch(() => { if (active) setError('Could not load the activity log.'); });
     return () => { active = false; };
   }, []);
 
@@ -1066,13 +986,9 @@ function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit
 
   useEffect(() => {
     let active = true;
-    fetch('/api/usage', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Could not load usage.');
-        const payload = (await response.json()) as UsageResponse;
-        if (active) setData(payload);
-      })
-      .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load usage.'); });
+    api.usage()
+      .then((payload) => { if (active) setData(payload); })
+      .catch(() => { if (active) setError('Could not load usage.'); });
     return () => { active = false; };
   }, []);
 
@@ -1207,10 +1123,8 @@ function SearchPanel({ results, onOpen, onBlur, onFocus }: { results: SearchResu
 // the browser busy; whatever is left is picked up the next time.
 async function indexProjectFiles(projectId: string) {
   for (let round = 0; round < 5; round += 1) {
-    const response = await fetch(`/api/projects/${projectId}/search-index`, { method: 'POST' }).catch(() => null);
-    if (!response?.ok) return;
-    const { remaining } = (await response.json()) as IndexRound;
-    if (!remaining) return;
+    const round = await api.projects.indexRound(projectId).catch(() => null);
+    if (!round?.remaining) return;
   }
 }
 
@@ -1277,15 +1191,12 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
         // Wskazana rozmowa ma pierwszenstwo; bez niej wracamy do najnowszej.
         let targetId = openConversationId;
         if (!targetId) {
-          const listResponse = await fetch(`/api/projects/${project.id}/conversations`, { cache: 'no-store' });
-          if (!listResponse.ok || !active) return;
-          const list = (await listResponse.json()) as ProjectConversations;
+          const list = await api.projects.conversations(project.id);
+          if (!active) return;
           targetId = list.conversations[0]?.id ?? null;
         }
         if (!targetId || !active) return;
-        const detailResponse = await fetch(`/api/projects/${project.id}/conversations?conversationId=${targetId}`, { cache: 'no-store' });
-        if (!detailResponse.ok || !active) return;
-        const detail = (await detailResponse.json()) as ConversationDetail;
+        const detail = await api.projects.conversation(project.id, targetId);
         if (!active) return;
         setConversationId(targetId);
         setChatMessages(detail.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content, context: message.contextFiles }]));
@@ -1297,28 +1208,15 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      fetch(`/api/projects/${project.id}/files`, { cache: 'no-store' }),
-      fetch('/api/storage/google-drive/status', { cache: 'no-store' }),
-    ]).then(async ([filesResponse, driveResponse]) => {
-      if (filesResponse.ok) {
-        const payload = (await filesResponse.json()) as ProjectFiles;
-        if (active) setProjectFiles(payload.files);
-      }
-      if (driveResponse.ok) {
-        const payload = (await driveResponse.json()) as DriveStatus;
-        if (active) setDriveConfigured(Boolean(payload.configured));
-      }
-    }).catch(() => undefined);
+    api.projects.files(project.id).then((payload) => { if (active) setProjectFiles(payload.files); }).catch(() => undefined);
+    api.driveStatus().then((status) => { if (active) setDriveConfigured(status.configured); }).catch(() => undefined);
     return () => { active = false; };
   }, [project.id]);
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/projects/${project.id}/instructions`, { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok || !active) return;
-        const payload = (await response.json()) as InstructionsResponse;
+    api.projects.instructions(project.id)
+      .then((payload) => {
         if (!active) return;
         setInstructions(payload.instructions);
         setInstructionsDraft(payload.instructions);
@@ -1332,9 +1230,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     if (instructionsSaving) return;
     setInstructionsSaving(true); setError(null);
     try {
-      const response = await fetch(`/api/projects/${project.id}/instructions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: instructionsDraft } satisfies UpdateInstructionsRequest) });
-      const payload = (await response.json()) as ApiReply<UpdateInstructionsResponse>;
-      if (!response.ok || payload.instructions === undefined) throw new Error(payload.error ?? 'Could not save the instructions.');
+      const payload = await api.projects.updateInstructions(project.id, { instructions: instructionsDraft });
       setInstructions(payload.instructions);
       setInstructionsDraft(payload.instructions);
       setInstructionsOpen(false);
@@ -1353,8 +1249,8 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     if (question.length < 12) return;
     let active = true;
     const timer = setTimeout(() => {
-      fetch(`/api/projects/${project.id}/suggest-files?q=${encodeURIComponent(question.slice(0, 500))}`, { cache: 'no-store' })
-        .then(async (response) => { if (response.ok && active) setSuggestions(((await response.json()) as FileSuggestions).files); })
+      api.projects.suggestFiles(project.id, question.slice(0, 500))
+        .then((payload) => { if (active) setSuggestions(payload.files); })
         .catch(() => undefined);
     }, 500);
     return () => { active = false; clearTimeout(timer); };
@@ -1368,11 +1264,9 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       const form = new FormData();
       selected.forEach((file) => form.append('files', file));
       form.append('paths', JSON.stringify(selected.map((file) => file.webkitRelativePath || file.name)));
-      const response = await fetch(`/api/projects/${project.id}/files`, { method: 'POST', body: form });
-      const payload = (await response.json()) as ApiReply<ProjectFiles>;
-      if (!response.ok || !payload.files) throw new Error(payload.error ?? 'Could not add files.');
-      setProjectFiles((current) => [...payload.files!, ...current]);
-      setSelectedFileIds((current) => [...new Set([...current, ...payload.files!.map((file) => file.id)])].slice(0, 8));
+      const { files } = await api.projects.upload(project.id, form);
+      setProjectFiles((current) => [...files, ...current]);
+      setSelectedFileIds((current) => [...new Set([...current, ...files.map((file) => file.id)])].slice(0, 8));
       setConnectionsOpen(true);
       void indexProjectFiles(project.id);
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not add files.'); }
@@ -1386,11 +1280,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     if (!window.confirm(`Delete “${file.relativePath}” from the cloud? This cannot be undone.`)) return;
     setDeletingFileId(file.id); setError(null);
     try {
-      const response = await fetch(`/api/files/${file.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as ApiReply<DeletedResponse>;
-        throw new Error(payload.error ?? 'Could not delete the file.');
-      }
+      await api.files.remove(file.id);
       const next = projectFiles.filter((item) => item.id !== file.id);
       setProjectFiles(next);
       // Zaznaczenie trzeba wyczyścić razem z plikiem, inaczej następna
@@ -1424,16 +1314,10 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       setChatMessages((current) => current.map((message, index) => index === answerIndex ? change(message) : message));
     let streaming = false;
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 } satisfies ChatRequest) });
-      // Anything that fails before the model starts answering comes back as
-      // JSON with a status; only a successful answer is streamed.
-      if (!response.ok || !response.body) {
-        const payload = (await response.json().catch(() => ({}))) as Partial<ApiError>;
-        throw new Error(payload.error ?? 'The model did not respond.');
-      }
+      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 });
       streaming = true;
       setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
-      const reader = response.body.getReader();
+      const reader = answer.getReader();
       const decoder = new TextDecoder();
       const lines = createLineSplitter();
       let finished = false;
