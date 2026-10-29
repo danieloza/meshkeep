@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { JoinRequest, JoinResponse } from '@/lib/contracts/account';
-import type { ApiReply } from '@/lib/contracts/common';
+import { api } from '@/lib/api-client';
 
 export function JoinForm({ token }: { token: string }) {
   const [displayName, setDisplayName] = useState('');
@@ -16,13 +15,7 @@ export function JoinForm({ token }: { token: string }) {
     if (!token || displayName.trim().length < 2 || saving) return;
     setSaving(true); setError(null);
     try {
-      const response = await fetch('/api/auth/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, displayName: displayName.trim() } satisfies JoinRequest),
-      });
-      const payload = (await response.json()) as ApiReply<JoinResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not join the team.');
+      await api.auth.join({ token, displayName: displayName.trim() });
       window.location.replace('/');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not join the team.'); }
     finally { setSaving(false); }

@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { SetupRequest, SetupResponse } from '@/lib/contracts/account';
-import type { ApiReply } from '@/lib/contracts/common';
+import { api } from '@/lib/api-client';
 
 export function SetupForm() {
   const [token, setToken] = useState('');
@@ -18,13 +17,7 @@ export function SetupForm() {
     if (!ready || saving) return;
     setSaving(true); setError(null);
     try {
-      const response = await fetch('/api/auth/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token.trim(), displayName: displayName.trim() || undefined } satisfies SetupRequest),
-      });
-      const payload = (await response.json()) as ApiReply<SetupResponse>;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not sign in as the owner.');
+      await api.auth.setup({ token: token.trim(), displayName: displayName.trim() || undefined });
       window.location.replace('/');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not sign in as the owner.'); }
     finally { setSaving(false); }
