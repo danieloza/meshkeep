@@ -4,15 +4,13 @@ import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, files, messages, usageEvents } from '@/db/schema';
 import { type ChatStreamEvent, type ContextFile, createSseParser, estimateTokens } from '@/lib/chat-stream';
+import { chatRequest } from '@/lib/contracts/conversations';
 import { requireMember } from '@/lib/server/auth';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { requireProjectAccess } from '@/lib/server/access';
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
 import { readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
 import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';
-
-const messageSchema = z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string().trim().min(1).max(32_000) });
-const chatSchema = z.object({ projectId: z.uuid(), conversationId: z.uuid().optional(), model: z.string().trim().min(1).max(200), messages: z.array(messageSchema).min(1).max(30), attachmentIds: z.array(z.uuid()).max(8).default([]), temperature: z.number().min(0).max(1.5).default(0.4), maxTokens: z.number().int().min(64).max(4096).default(2048) });
 
 const MAX_ATTACHMENT_CONTEXT_CHARS = 80_000;
 const MAX_ANSWER_CHARS = 200_000;
@@ -90,7 +88,7 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const member = await requireMember();
-    const input = chatSchema.parse(await readJson(request, 1_000_000));
+    const input = chatRequest.parse(await readJson(request, 1_000_000));
     const access = await requireProjectAccess(member, input.projectId, 'edit');
     await assertChatAllowed(member);
     const db = getDb();

@@ -1,6 +1,8 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { type ChatRequest, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
+import { instructionsResponse, updateInstructionsResponse } from '@/lib/contracts/projects';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Czat od poczatku do konca, ale z falszywym dostawca modelu postawionym w tym
@@ -59,7 +61,7 @@ async function czat(token: string, pytanie: string, zalaczniki: string[] = []) {
   const odp = await zapytaj('/api/chat', {
     method: 'POST',
     headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId: ID.projektWspolny, model: 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki }),
+    body: JSON.stringify({ projectId: ID.projektWspolny, model: 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki } satisfies ChatRequest),
   });
   const zdarzenia = odp.tekst.split('\n').filter((linia) => linia.trim()).map((linia) => JSON.parse(linia) as Zdarzenie);
   return { odp, zdarzenia, tekst: zdarzenia.filter((z) => z.type === 'delta').map((z) => z.text).join('') };
@@ -92,7 +94,7 @@ describe('instrukcje projektu', () => {
   it('czytelnik je widzi, ale nie moze ich zmienic', async () => {
     const odczyt = await zapytaj(`/api/projects/${ID.projektWspolny}/instructions`, { headers: jako(TOKENY.czytelnik) });
     expect(odczyt.status).toBe(200);
-    expect(odczyt.dane.canEdit).toBe(false);
+    expect(instructionsResponse.parse(odczyt.dane).canEdit).toBe(false);
 
     const zmiana = await zapytaj(`/api/projects/${ID.projektWspolny}/instructions`, {
       method: 'PUT',
@@ -116,7 +118,7 @@ describe('instrukcje projektu', () => {
       body: JSON.stringify({ instructions: '  Odpowiadaj po polsku.  ' }),
     });
     expect(zapis.status).toBe(200);
-    expect(zapis.dane.instructions).toBe('Odpowiadaj po polsku.');
+    expect(updateInstructionsResponse.parse(zapis.dane).instructions).toBe('Odpowiadaj po polsku.');
   });
 });
 
@@ -151,8 +153,7 @@ describe('strumien odpowiedzi', () => {
     const rozmowa = zdarzenia.at(-1)!.conversationId!;
     const szczegoly = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${rozmowa}`, { headers: jako(TOKENY.wlasciciel) });
     expect(szczegoly.status).toBe(200);
-    const wiadomosci = szczegoly.dane.messages as Array<{ role: string; content: string; contextFiles: unknown[] }>;
-    const odpowiedz = wiadomosci.find((w) => w.role === 'assistant')!;
+    const odpowiedz = conversationDetail.parse(szczegoly.dane).messages.find((w) => w.role === 'assistant')!;
     expect(odpowiedz.content).toBe('Hello **world**');
     expect(odpowiedz.contextFiles).toEqual([{ id: ID.plikWspolny, path: 'wspolne/notatka.txt', status: 'included' }]);
   });
@@ -174,6 +175,6 @@ describe('strumien odpowiedzi', () => {
     expect(zdarzenia.some((z) => z.type === 'done')).toBe(false);
 
     const po = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations`, { headers: jako(TOKENY.wlasciciel) });
-    expect((po.dane.conversations as unknown[]).length).toBe((przed.dane.conversations as unknown[]).length);
+    expect(projectConversations.parse(po.dane).conversations.length).toBe(projectConversations.parse(przed.dane).conversations.length);
   });
 });

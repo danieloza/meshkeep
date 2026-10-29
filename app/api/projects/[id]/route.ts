@@ -3,21 +3,17 @@ import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { files, members, projectMembers, projects } from '@/db/schema';
+import { updateSharingRequest } from '@/lib/contracts/projects';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
-
-const updateSchema = z.object({
-  visibility: z.enum(['private', 'selected', 'team']),
-  members: z.array(z.object({ memberId: z.uuid(), role: z.enum(['reader', 'editor']) })).max(3).default([]),
-});
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     assertSameOrigin(request);
     const member = await requireMember();
     const { id } = await context.params;
-    const input = updateSchema.parse(await readJson(request));
+    const input = updateSharingRequest.parse(await readJson(request));
     const db = getDb();
     const [project] = await db.select().from(projects).where(and(eq(projects.id, id), eq(projects.ownerId, member.id))).limit(1);
     if (!project) throw new ApiError(404, 'No project owned by you was found.');

@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { deletedResponse } from '@/lib/contracts/common';
+import { fileSuggestions, indexRound, projectFiles } from '@/lib/contracts/files';
+import { searchResults } from '@/lib/contracts/search';
 import { MARK_START } from '@/lib/search';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
@@ -6,12 +9,6 @@ import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJes
 // regula: wynik nigdy nie pokazuje tresci z projektu, do ktorego pytajacy nie
 // ma dostepu. Kazdy test odmowy ma obok test, ze ta sama tresc jest widoczna
 // dla kogos uprawnionego - inaczej pusty wynik niczego by nie dowodzil.
-
-type Wyniki = {
-  conversations: Array<{ conversationId: string; projectId: string; snippet: string }>;
-  files: Array<{ fileId: string; path: string; snippet: string }>;
-  unindexedFiles: number;
-};
 
 const t = Date.now();
 const wiadomosc = (id: string, rozmowa: string, autor: string, tresc: string) =>
@@ -36,7 +33,7 @@ async function szukaj(token: string, fraza: string, projekt?: string) {
   const parametry = new URLSearchParams({ q: fraza, ...(projekt ? { projectId: projekt } : {}) });
   const odp = await zapytaj(`/api/search?${parametry}`, { headers: jako(token) });
   expect(odp.status, odp.tekst).toBe(200);
-  return odp.dane as unknown as Wyniki;
+  return searchResults.parse(odp.dane);
 }
 
 function indeksuj(token: string, projekt: string) {
@@ -49,7 +46,7 @@ beforeAll(async () => {
   zbudujJesliTrzeba();
   await startWorkera({ dodatkowySql: DODATKOWE_WIADOMOSCI });
   const odp = await wyslij(TOKENY.wlasciciel, ID.projektWspolny, [{ sciezka: 'docs/wdrozenie.md', tresc: 'Agent synchronizacji działa co pięć minut. Żółw jest maskotką projektu.' }]);
-  plikWdrozenia = (odp.dane.files as Array<{ id: string }>)[0].id;
+  plikWdrozenia = projectFiles.parse(odp.dane).files[0].id;
 }, 300_000);
 
 afterAll(() => {
@@ -64,7 +61,7 @@ describe('wysylka wielu plikow naraz', () => {
     const pliki = Array.from({ length: 12 }, (_, i) => ({ sciezka: `import/plik-${i}.txt`, tresc: `zawartosc ${i}` }));
     const odp = await wyslij(TOKENY.wlasciciel, ID.projektWspolny, pliki);
     expect(odp.status, odp.tekst).toBe(201);
-    expect((odp.dane.files as unknown[]).length).toBe(12);
+    expect(projectFiles.parse(odp.dane).files.length).toBe(12);
   });
 });
 
@@ -97,7 +94,7 @@ describe('wyszukiwanie w plikach', () => {
     for (let runda = 0; runda < 10 && pozostalo > 0; runda += 1) {
       const odp = await indeksuj(TOKENY.wlasciciel, ID.projektWspolny);
       expect(odp.status, odp.tekst).toBe(200);
-      pozostalo = odp.dane.remaining as number;
+      pozostalo = indexRound.parse(odp.dane).remaining;
     }
     const po = await szukaj(TOKENY.wlasciciel, 'tresc', ID.projektWspolny);
     expect(po.unindexedFiles).toBe(0);
@@ -147,6 +144,7 @@ describe('wyszukiwanie w rozmowach', () => {
     expect((await szukaj(TOKENY.edytor, 'kolibrach')).conversations.map((r) => r.conversationId)).toContain(ID.rozmowaKasowanaPrzezAutora);
     const kasowanie = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${ID.rozmowaKasowanaPrzezAutora}`, { method: 'DELETE', headers: { ...ORIGIN, ...jako(TOKENY.edytor) } });
     expect(kasowanie.status).toBe(200);
+    deletedResponse.parse(kasowanie.dane);
     expect((await szukaj(TOKENY.edytor, 'kolibrach')).conversations).toEqual([]);
   });
 
@@ -166,7 +164,7 @@ describe('podpowiedzi plikow do pytania', () => {
   it('proponuje plik pasujacy do pytania, tylko z tego projektu', async () => {
     const odp = await zapytaj(`/api/projects/${ID.projektWspolny}/suggest-files?q=${encodeURIComponent('Jak działa kolejka i ponowienia?')}`, { headers: jako(TOKENY.edytor) });
     expect(odp.status).toBe(200);
-    expect((odp.dane.files as Array<{ path: string }>).map((plik) => plik.path)).toContain('docs/wdrozenie.md');
+    expect(fileSuggestions.parse(odp.dane).files.map((plik) => plik.path)).toContain('docs/wdrozenie.md');
   });
 
   it('nie podpowiada z projektu, do ktorego pytajacy nie ma dostepu', async () => {

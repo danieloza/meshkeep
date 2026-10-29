@@ -1,4 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { deletedResponse } from '@/lib/contracts/common';
+import { allConversations, conversationDetail } from '@/lib/contracts/conversations';
+import { projectFiles, pruneFilesResponse } from '@/lib/contracts/files';
+import {
+  type CreateProjectRequest, createProjectResponse, instructionsResponse, projectList, type UpdateSharingRequest, updateSharingResponse,
+} from '@/lib/contracts/projects';
 import {
   ID, ORIGIN, TOKENY, jako, jakoAgent, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba,
 } from './harness';
@@ -64,7 +70,7 @@ describe('widocznosc projektow', () => {
   async function widoczneProjekty(token: string): Promise<string[]> {
     const odp = await zapytaj('/api/projects', { headers: jako(token) });
     expect(odp.status).toBe(200);
-    return (odp.dane.projects as Array<{ id: string }>).map((p) => p.id);
+    return projectList.parse(odp.dane).projects.map((p) => p.id);
   }
 
   it('udostepniony projekt widza edytor i czytelnik', async () => {
@@ -87,6 +93,26 @@ describe('widocznosc projektow', () => {
     expect(odp.status).toBe(404);
   });
 
+  it('przelaczenie projektu na prywatny odbiera dostep osobie, ktorej go udostepniono', async () => {
+    const naglowki = { ...jako(TOKENY.wlasciciel), ...ORIGIN, 'Content-Type': 'application/json' };
+    const zalozenie = await zapytaj('/api/projects', {
+      method: 'POST', headers: naglowki,
+      body: JSON.stringify({ name: 'Projekt do odebrania', visibility: 'selected', members: [{ memberId: ID.czytelnik, role: 'reader' }] } satisfies CreateProjectRequest),
+    });
+    expect(zalozenie.status, zalozenie.tekst).toBe(201);
+    const { project } = createProjectResponse.parse(zalozenie.dane);
+    expect(await widoczneProjekty(TOKENY.czytelnik)).toContain(project.id);
+
+    const zmiana = await zapytaj(`/api/projects/${project.id}`, {
+      method: 'PATCH', headers: naglowki, body: JSON.stringify({ visibility: 'private' } satisfies UpdateSharingRequest),
+    });
+    expect(zmiana.status, zmiana.tekst).toBe(200);
+    expect(updateSharingResponse.parse(zmiana.dane).project).toEqual({ id: project.id, visibility: 'private', members: [] });
+    expect(await widoczneProjekty(TOKENY.czytelnik)).not.toContain(project.id);
+    // Wlasciciel nadal go widzi, wiec projekt zniknal czytelnikowi, a nie z bazy.
+    expect(await widoczneProjekty(TOKENY.wlasciciel)).toContain(project.id);
+  });
+
   // Jedna regula, trzy drogi do niej: lista projektow, pojedynczy projekt i
   // lista rozmow. Tablica mowi, co kto MA moc, a petla sprawdza, ze kazda droga
   // mowi to samo. Wyszukiwanie ma wlasne testy w `search.test.ts`.
@@ -107,10 +133,10 @@ describe('widocznosc projektow', () => {
     for (const [kto, token, prawa] of PRAWA) {
       const lista = await zapytaj('/api/projects', { headers: jako(token) });
       expect(lista.status).toBe(200);
-      const naLiscie = new Map((lista.dane.projects as Array<{ id: string; canEdit: boolean }>).map((p) => [p.id, p.canEdit]));
+      const naLiscie = new Map(projectList.parse(lista.dane).projects.map((p) => [p.id, p.canEdit]));
       const rozmowy = await zapytaj('/api/conversations', { headers: jako(token) });
       expect(rozmowy.status).toBe(200);
-      const projektyRozmow = new Set((rozmowy.dane.conversations as Array<{ projectId: string }>).map((r) => r.projectId));
+      const projektyRozmow = new Set(allConversations.parse(rozmowy.dane).conversations.map((r) => r.projectId));
 
       for (const [i, projekt] of projekty.entries()) {
         const oczekiwane = prawa[i];
@@ -122,7 +148,7 @@ describe('widocznosc projektow', () => {
         // Instrukcje przechodza przez `requireProjectAccess`, oddaja `canEdit`
         // i niczego nie zmieniaja, wiec sprawdzaja odczyt i edycje naraz.
         const pojedynczy = await zapytaj(`/api/projects/${projekt}/instructions`, { headers: jako(token) });
-        const zTrasy = pojedynczy.status === 200 ? (pojedynczy.dane.canEdit ? 'edytuje' : 'czyta') : pojedynczy.status;
+        const zTrasy = pojedynczy.status === 200 ? (instructionsResponse.parse(pojedynczy.dane).canEdit ? 'edytuje' : 'czyta') : pojedynczy.status;
         expect(zTrasy, `${opis}: pojedynczy projekt`).toBe(oczekiwane ?? 404);
 
         if (zRozmowami.has(projekt)) expect(projektyRozmow.has(projekt), `${opis}: lista rozmow`).toBe(oczekiwane !== null);
@@ -147,6 +173,7 @@ describe('pliki', () => {
       method: 'DELETE', headers: { ...jako(TOKENY.edytor), ...ORIGIN },
     });
     expect(odp.status).toBe(200);
+    deletedResponse.parse(odp.dane);
   });
 
   it('wlasciciel aplikacji nie siega po plik z cudzego prywatnego projektu', async () => {
@@ -174,6 +201,7 @@ describe('rozmowy', () => {
   it('edytor czyta cudza rozmowe, ale jej nie kasuje', async () => {
     const odczyt = await zapytaj(trasa(ID.projektWspolny, ID.rozmowaWlasciciela), { headers: jako(TOKENY.edytor) });
     expect(odczyt.status, 'edytor ma dostep do odczytu').toBe(200);
+    expect(conversationDetail.parse(odczyt.dane).conversation.id).toBe(ID.rozmowaWlasciciela);
 
     const kasowanie = await zapytaj(trasa(ID.projektWspolny, ID.rozmowaWlasciciela), {
       method: 'DELETE', headers: { ...jako(TOKENY.edytor), ...ORIGIN },
@@ -187,6 +215,7 @@ describe('rozmowy', () => {
       method: 'DELETE', headers: { ...jako(TOKENY.edytor), ...ORIGIN },
     });
     expect(odp.status).toBe(200);
+    deletedResponse.parse(odp.dane);
   });
 
   it('wlasciciel projektu kasuje cudza rozmowe w swoim projekcie', async () => {
@@ -259,7 +288,7 @@ describe('agent synchronizacji', () => {
 
   it('sufit chroni przed skasowaniem wiekszosci projektu', async () => {
     const lista = await zapytaj(`/api/projects/${ID.projektDoPrzyciecia}/files`, { headers: jako(TOKENY.wlasciciel) });
-    const sciezki = (lista.dane.files as Array<{ relativePath: string }>).map((p) => p.relativePath);
+    const sciezki = projectFiles.parse(lista.dane).files.map((p) => p.relativePath);
     expect(sciezki.length, 'zasiew ma dac wiecej plikow niz prog dziesieciu').toBeGreaterThan(10);
 
     const zaDuzo = await zapytaj(`/api/projects/${ID.projektDoPrzyciecia}/files`, {
@@ -276,9 +305,10 @@ describe('agent synchronizacji', () => {
     // Po awarii transportu pierwsza proba juz skasowala te pliki, a ponowienie
     // zglasza je jako `notFound`. Dlatego rozstrzyga stan projektu, a licznik
     // z odpowiedzi tylko wtedy, gdy zadanie poszlo raz.
-    if (w_sam_raz.ponowienia === 0) expect(w_sam_raz.dane.deleted).toBe(3);
+    const wynik = pruneFilesResponse.parse(w_sam_raz.dane);
+    if (w_sam_raz.ponowienia === 0) expect(wynik.deleted).toBe(3);
     const po = await zapytaj(`/api/projects/${ID.projektDoPrzyciecia}/files`, { headers: jako(TOKENY.wlasciciel) });
-    const zostalo = (po.dane.files as Array<{ relativePath: string }>).map((p) => p.relativePath);
+    const zostalo = projectFiles.parse(po.dane).files.map((p) => p.relativePath);
     expect(zostalo.toSorted()).toEqual(sciezki.slice(3).toSorted());
   });
 

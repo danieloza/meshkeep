@@ -7,16 +7,11 @@
 //   carries the session cookie and the same-origin rules the rest of the API
 //   relies on.
 
-// What happened to a selected file on its way into the model context. The
-// answer shows this per file, so "the model saw your file" is never a guess.
-export type ContextFileStatus = 'included' | 'truncated' | 'unreadable' | 'skipped';
+import type { ContextFile } from './contracts/conversations';
 
-export type ContextFile = {
-  id: string;
-  path: string;
-  status: ContextFileStatus;
-  note?: string;
-};
+// Defined with the conversation contracts, because stored messages carry it
+// too. Re-exported for the code that already imports it from here.
+export type { ContextFile, ContextFileStatus } from './contracts/conversations';
 
 export type ChatUsage = { inputTokens: number; outputTokens: number; estimated: boolean };
 

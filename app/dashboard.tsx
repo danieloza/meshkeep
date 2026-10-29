@@ -21,14 +21,21 @@ import { Switch } from '@/components/ui/switch';
 import { ChatMarkdown } from '@/components/chat-markdown';
 import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
 import { type ContextFile, createLineSplitter, parseStreamEvent } from '@/lib/chat-stream';
+// Types only: the browser takes the shapes from the contracts, but not zod.
+import type { ApiError, ApiReply, DeletedResponse, Visibility } from '@/lib/contracts/common';
+import type { AllConversations, ChatRequest, ConversationDetail, ConversationRow, ProjectConversations } from '@/lib/contracts/conversations';
+import type { FileSuggestion, FileSuggestions, IndexRound, ProjectFile, ProjectFiles } from '@/lib/contracts/files';
+import type {
+  CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList, ProjectShare, StorageProvider,
+  UpdateInstructionsRequest, UpdateInstructionsResponse, UpdateSharingRequest, UpdateSharingResponse,
+} from '@/lib/contracts/projects';
+import type { SearchResults } from '@/lib/contracts/search';
 import { DEFAULT_DAILY_TOKENS, DEFAULT_MONTHLY_TOKENS, limitsAreCoherent, parseLimitInput } from '@/lib/limits';
 import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch, visibleSections } from '@/lib/navigation';
-import { type SearchResults, splitHighlights } from '@/lib/search';
+import { splitHighlights } from '@/lib/search';
 import { parseTheme, resolveTheme, THEME_STORAGE_KEY, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-type Visibility = 'private' | 'selected' | 'team';
-type StorageProvider = 'r2' | 'google_drive';
 type Project = { id: string; name: string; description: string; visibility: Visibility; files: number; conversations: number; updated: string; color: string; icon: 'code' | 'folder' | 'lab'; members: string[] };
 // `email` przychodzi wyłącznie do ownera — reszcie zespołu serwer go nie wysyła.
 type TeamMember = { id: string; displayName: string; email?: string; role: 'owner' | 'member'; status: string; dailyTokens?: number; monthlyTokens?: number; apiEnabled?: boolean };
@@ -38,8 +45,6 @@ type TeamCapacity = { used: number; total: number };
 // w `/api/bootstrap`. Dopisanie kolejnego modelu to jedna linia po stronie
 // serwera — UI nie ma własnej, rozjeżdżającej się kopii.
 type ModelOption = { id: string; label: string; tier: string; family: string; description: string };
-type ProjectShare = { memberId: string; role: 'reader' | 'editor' };
-type ProjectFile = { id: string; relativePath: string; name: string; mimeType: string; sizeBytes: number; createdAt: string };
 
 const PROJECT_FILE_ACCEPT = '.txt,.md,.json,.csv,.ts,.tsx,.js,.jsx,.mjs,.cjs,.py,.go,.rs,.java,.kt,.swift,.css,.scss,.html,.xml,.yaml,.yml,.toml,.sql,.sh,.ps1,.bat,.zip,.pdf,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.bmp';
 
@@ -147,7 +152,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
         }
         if (!bootstrapResponse.ok || !projectsResponse.ok || !teamResponse.ok) throw new Error('Could not load application data.');
         const bootstrap = (await bootstrapResponse.json()) as { member: { id: string; displayName: string; role: 'owner' | 'member' }; limits?: { dailyTokens: number; monthlyTokens: number }; usage?: { inputTokens: number; outputTokens: number; monthlyTokens: number }; models?: ModelOption[] };
-        const payload = (await projectsResponse.json()) as { projects: Array<{ id: string; name: string; description: string; visibility: Visibility; fileCount: number; conversationCount: number; updatedAt: string }> };
+        const payload = (await projectsResponse.json()) as ProjectList;
         const team = (await teamResponse.json()) as { members: TeamMember[]; pendingInvites: PendingInvite[]; reconnectLinks?: PendingInvite[]; capacity: TeamCapacity };
         if (!active) return;
         setDisplayName(bootstrap.member.displayName.split(' ')[0] || 'Daniel');
@@ -283,8 +288,8 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     if (!name) return;
     setSaving(true); setNotice(null);
     try {
-      const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description: importedFile ? `Import: ${importedFile}` : '', visibility, selectedMembers: [], members: projectShares, storageProvider }) });
-      const payload = (await response.json()) as { project?: { id: string }; error?: string };
+      const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description: importedFile ? `Import: ${importedFile}` : '', visibility, selectedMembers: [], members: projectShares, storageProvider } satisfies CreateProjectRequest) });
+      const payload = (await response.json()) as ApiReply<CreateProjectResponse>;
       if (!response.ok || !payload.project) throw new Error(payload.error ?? 'Could not create the project.');
       if (pendingFiles.length) {
         const form = new FormData();
@@ -292,7 +297,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
         form.append('paths', JSON.stringify(pendingFiles.map((file) => file.webkitRelativePath || file.name)));
         const upload = await fetch(`/api/projects/${payload.project.id}/files`, { method: 'POST', body: form });
         if (!upload.ok) {
-          const uploadPayload = (await upload.json()) as { error?: string };
+          const uploadPayload = (await upload.json()) as ApiReply<ProjectFiles>;
           throw new Error(uploadPayload.error ?? 'The project was created, but its files could not be imported.');
         }
       }
@@ -320,8 +325,8 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   async function makeProjectPrivate(project: Project) {
     if (project.visibility === 'private') return;
     try {
-      const response = await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visibility: 'private', members: [] }) });
-      const payload = (await response.json()) as { error?: string };
+      const response = await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visibility: 'private', members: [] } satisfies UpdateSharingRequest) });
+      const payload = (await response.json()) as ApiReply<UpdateSharingResponse>;
       if (!response.ok) throw new Error(payload.error ?? 'Could not make the project private.');
       setProjects((current) => current.map((item) => item.id === project.id ? { ...item, visibility: 'private', members: ['DS'], updated: 'now' } : item));
       setNotice('The project is now visible only to you.');
@@ -332,7 +337,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     if (!window.confirm(`Delete “${project.name}” with all of its files and conversations? This cannot be undone.`)) return;
     try {
       const response = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as ApiReply<DeletedResponse>;
       if (!response.ok) throw new Error(payload.error ?? 'Could not delete the project.');
       setProjects((current) => current.filter((item) => item.id !== project.id));
       setNotice('The project and its data were deleted.');
@@ -712,8 +717,6 @@ function TeamPanel({ members, pendingInvites, reconnectLinks, capacity, canInvit
   return <Card className="border-0 bg-white/90 shadow-none ring-black/6"><CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Team<Hint text="Reusing an email that already belongs to a member creates a reconnect link rather than a second account, and takes no extra seat. Revoking an unused invitation frees its seat immediately." /></CardTitle><CardDescription>{used} of {capacity.total} seats used or reserved</CardDescription></CardHeader><CardContent className="space-y-3">{members.map((member, index) => <MemberRow key={member.id} colorIndex={index} currentMemberId={currentMemberId} isOwnerView={canInvite} member={member} onChanged={onTeamChanged} onNotice={onNotice} />)}{pendingInvites.map((invite) => <div className="flex items-center gap-3 text-xs" key={invite.id}><Avatar className="bg-stone-100" size="sm"><AvatarFallback className="bg-transparent text-[9px]">?</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate font-medium">{invite.email}</p><p className="text-[11px] text-[#929b98]">Waiting for link use · expires {new Date(invite.expiresAt).toLocaleDateString('en-US')}</p></div>{canInvite ? <Button aria-label={`Revoke invitation for ${invite.email}`} onClick={() => void revokeInvite(invite.id)} size="icon-xs" title="Revoke invitation and release seat" variant="ghost"><Trash2 /></Button> : <span className="size-2 rounded-full bg-amber-300" />}</div>)}{reconnectLinks.map((link) => <div className="flex items-center gap-3 text-xs" key={link.id}><Avatar className="bg-sky-50" size="sm"><AvatarFallback className="bg-transparent text-[9px]">↻</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate font-medium">{link.email}</p><p className="text-[11px] text-[#929b98]">Unused reconnect link · does not use a seat</p></div><Button aria-label={`Invalidate reconnect link for ${link.email}`} onClick={() => void revokeInvite(link.id)} size="icon-xs" title="Invalidate link" variant="ghost"><Trash2 /></Button></div>)}{canInvite && <form className="space-y-2 pt-2" onSubmit={(event) => { event.preventDefault(); void invite(); }}><div className="flex gap-2"><Input aria-label="Invitee email" className="h-8 min-w-0 text-xs" onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" type="email" value={email} /><Button disabled={!email.trim() || inviting} size="sm" type="submit">{inviting ? '…' : isReconnect ? 'Reconnect' : 'Invite'}</Button></div><p className="text-[10px] leading-4 text-[#8b9491]">{isReconnect ? 'This address already belongs to a member. You will receive a reconnect link for the existing account.' : used >= capacity.total ? 'All seats are occupied. Revoke an invitation above or enter an existing member’s address.' : 'A new invitation reserves one available seat.'}</p></form>}{canInvite && inviteLink && <div className="rounded-xl border border-emerald-800/10 bg-emerald-50 p-3"><p className="mb-2 text-[11px] leading-4 text-emerald-900/75">{inviteKind === 'reconnect' ? 'Reconnect link for an existing account. Treat it like a password and send it directly.' : 'This is a one-time link. Send it directly to your teammate and never publish it.'}</p><div className="flex gap-2"><Input aria-label="One-time invitation link" className="h-8 min-w-0 bg-white text-[10px]" readOnly value={inviteLink} /><Button onClick={() => { void navigator.clipboard.writeText(inviteLink); onNotice('Invitation link copied.'); }} size="icon-sm" title="Copy link" type="button" variant="outline"><Copy /></Button></div></div>}</CardContent></Card>;
 }
 
-type ConversationRow = { id: string; title: string; updatedAt: string; projectId: string; projectName: string; projectVisibility: Visibility; messageCount: number };
-
 function ViewPlaceholder({ icon: Icon, title, detail }: { icon: typeof Folder; title: string; detail: string }) {
   return <div className="rounded-2xl border border-dashed border-black/10 bg-white/50 p-12 text-center"><Icon className="mx-auto mb-3 text-[#6f7b78]" /><p className="font-medium">{title}</p><p className="mt-1 text-sm text-[#75817e]">{detail}</p></div>;
 }
@@ -728,7 +731,7 @@ function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConv
     fetch('/api/conversations', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load conversations.');
-        const payload = (await response.json()) as { conversations: ConversationRow[] };
+        const payload = (await response.json()) as AllConversations;
         if (active) setRows(payload.conversations);
       })
       .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load conversations.'); });
@@ -744,7 +747,7 @@ function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConv
     try {
       const response = await fetch(`/api/projects/${row.projectId}/conversations?conversationId=${row.id}`, { method: 'DELETE' });
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        const payload = (await response.json().catch(() => ({}))) as ApiReply<DeletedResponse>;
         throw new Error(payload.error ?? 'Could not delete the conversation.');
       }
       setRows((current) => (current ?? []).filter((item) => item.id !== row.id));
@@ -1224,7 +1227,7 @@ async function indexProjectFiles(projectId: string) {
   for (let round = 0; round < 5; round += 1) {
     const response = await fetch(`/api/projects/${projectId}/search-index`, { method: 'POST' }).catch(() => null);
     if (!response?.ok) return;
-    const { remaining } = (await response.json()) as { remaining: number };
+    const { remaining } = (await response.json()) as IndexRound;
     if (!remaining) return;
   }
 }
@@ -1266,7 +1269,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
   const [error, setError] = useState<string | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>(initialFileIds);
-  const [suggestions, setSuggestions] = useState<Array<{ fileId: string; path: string }>>([]);
+  const [suggestions, setSuggestions] = useState<FileSuggestion[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
@@ -1294,16 +1297,16 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
         if (!targetId) {
           const listResponse = await fetch(`/api/projects/${project.id}/conversations`, { cache: 'no-store' });
           if (!listResponse.ok || !active) return;
-          const list = (await listResponse.json()) as { conversations: Array<{ id: string }> };
+          const list = (await listResponse.json()) as ProjectConversations;
           targetId = list.conversations[0]?.id ?? null;
         }
         if (!targetId || !active) return;
         const detailResponse = await fetch(`/api/projects/${project.id}/conversations?conversationId=${targetId}`, { cache: 'no-store' });
         if (!detailResponse.ok || !active) return;
-        const detail = (await detailResponse.json()) as { messages: Array<{ role: string; content: string; contextFiles?: ContextFile[] }> };
+        const detail = (await detailResponse.json()) as ConversationDetail;
         if (!active) return;
         setConversationId(targetId);
-        setChatMessages(detail.messages.filter((message) => message.role === 'user' || message.role === 'assistant').map((message) => ({ role: message.role as ChatMessage['role'], content: message.content, context: message.contextFiles ?? [] })));
+        setChatMessages(detail.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content, context: message.contextFiles }]));
       } catch { /* czat zaczyna od pustej historii */ }
       finally { if (active) setHistoryLoading(false); }
     })();
@@ -1317,8 +1320,8 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       fetch('/api/storage/google-drive/status', { cache: 'no-store' }),
     ]).then(async ([filesResponse, driveResponse]) => {
       if (filesResponse.ok) {
-        const payload = (await filesResponse.json()) as { files?: ProjectFile[] };
-        if (active) setProjectFiles(payload.files ?? []);
+        const payload = (await filesResponse.json()) as ProjectFiles;
+        if (active) setProjectFiles(payload.files);
       }
       if (driveResponse.ok) {
         const payload = (await driveResponse.json()) as { configured?: boolean };
@@ -1333,7 +1336,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     fetch(`/api/projects/${project.id}/instructions`, { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok || !active) return;
-        const payload = (await response.json()) as { instructions: string; canEdit: boolean };
+        const payload = (await response.json()) as InstructionsResponse;
         if (!active) return;
         setInstructions(payload.instructions);
         setInstructionsDraft(payload.instructions);
@@ -1347,8 +1350,8 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     if (instructionsSaving) return;
     setInstructionsSaving(true); setError(null);
     try {
-      const response = await fetch(`/api/projects/${project.id}/instructions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: instructionsDraft }) });
-      const payload = (await response.json()) as { instructions?: string; error?: string };
+      const response = await fetch(`/api/projects/${project.id}/instructions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: instructionsDraft } satisfies UpdateInstructionsRequest) });
+      const payload = (await response.json()) as ApiReply<UpdateInstructionsResponse>;
       if (!response.ok || payload.instructions === undefined) throw new Error(payload.error ?? 'Could not save the instructions.');
       setInstructions(payload.instructions);
       setInstructionsDraft(payload.instructions);
@@ -1369,7 +1372,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     let active = true;
     const timer = setTimeout(() => {
       fetch(`/api/projects/${project.id}/suggest-files?q=${encodeURIComponent(question.slice(0, 500))}`, { cache: 'no-store' })
-        .then(async (response) => { if (response.ok && active) setSuggestions(((await response.json()) as { files: Array<{ fileId: string; path: string }> }).files); })
+        .then(async (response) => { if (response.ok && active) setSuggestions(((await response.json()) as FileSuggestions).files); })
         .catch(() => undefined);
     }, 500);
     return () => { active = false; clearTimeout(timer); };
@@ -1384,7 +1387,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       selected.forEach((file) => form.append('files', file));
       form.append('paths', JSON.stringify(selected.map((file) => file.webkitRelativePath || file.name)));
       const response = await fetch(`/api/projects/${project.id}/files`, { method: 'POST', body: form });
-      const payload = (await response.json()) as { files?: ProjectFile[]; error?: string };
+      const payload = (await response.json()) as ApiReply<ProjectFiles>;
       if (!response.ok || !payload.files) throw new Error(payload.error ?? 'Could not add files.');
       setProjectFiles((current) => [...payload.files!, ...current]);
       setSelectedFileIds((current) => [...new Set([...current, ...payload.files!.map((file) => file.id)])].slice(0, 8));
@@ -1403,7 +1406,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     try {
       const response = await fetch(`/api/files/${file.id}`, { method: 'DELETE' });
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        const payload = (await response.json().catch(() => ({}))) as ApiReply<DeletedResponse>;
         throw new Error(payload.error ?? 'Could not delete the file.');
       }
       const next = projectFiles.filter((item) => item.id !== file.id);
@@ -1439,11 +1442,11 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       setChatMessages((current) => current.map((message, index) => index === answerIndex ? change(message) : message));
     let streaming = false;
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 }) });
+      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 } satisfies ChatRequest) });
       // Anything that fails before the model starts answering comes back as
       // JSON with a status; only a successful answer is streamed.
       if (!response.ok || !response.body) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        const payload = (await response.json().catch(() => ({}))) as Partial<ApiError>;
         throw new Error(payload.error ?? 'The model did not respond.');
       }
       streaming = true;

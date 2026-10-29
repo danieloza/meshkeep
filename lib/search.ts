@@ -83,7 +83,3 @@ export function splitHighlights(snippet: string): SnippetPart[] {
   }
   return parts;
 }
-
-export type ConversationHit = { conversationId: string; projectId: string; projectName: string; title: string; role: string; snippet: string };
-export type FileHit = { fileId: string; projectId: string; projectName: string; path: string; snippet: string };
-export type SearchResults = { conversations: ConversationHit[]; files: FileHit[]; unindexedFiles: number };

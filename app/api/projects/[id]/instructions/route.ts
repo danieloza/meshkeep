@@ -2,16 +2,13 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { projects } from '@/db/schema';
+import { MAX_INSTRUCTIONS_CHARS, updateInstructionsRequest } from '@/lib/contracts/projects';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { requireProjectAccess } from '@/lib/server/access';
 
 export const dynamic = 'force-dynamic';
-
-const MAX_INSTRUCTIONS_CHARS = 4_000;
-
-const updateSchema = z.object({ instructions: z.string().max(MAX_INSTRUCTIONS_CHARS) });
 
 // Anyone who can read the project sees the instructions, because they shape
 // every answer in it. Only people who can edit the project may change them:
@@ -31,7 +28,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const member = await requireMember();
     const { id } = await context.params;
     const access = await requireProjectAccess(member, id, 'edit');
-    const input = updateSchema.parse(await readJson(request));
+    const input = updateInstructionsRequest.parse(await readJson(request));
     const instructions = input.instructions.trim();
     await getDb().update(projects).set({ instructions, updatedAt: new Date() }).where(eq(projects.id, id));
     // The audit log records that the instructions changed and how long they
