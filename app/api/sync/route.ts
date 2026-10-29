@@ -2,11 +2,10 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { appSettings } from '@/db/schema';
+import { updateSyncRequest } from '@/lib/contracts/sync';
 import { requireMember } from '@/lib/server/auth';
 import { assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { requireSyncToken } from '@/lib/server/session';
-
-const syncSchema = z.object({ enabled: z.boolean() });
 
 export async function GET(request: Request) {
   try {
@@ -23,7 +22,7 @@ export async function PUT(request: Request) {
   try {
     assertSameOrigin(request);
     const member = await requireMember();
-    const { enabled } = syncSchema.parse(await readJson(request));
+    const { enabled } = updateSyncRequest.parse(await readJson(request));
     const key = `context_sync:${member.id}`;
     await getDb().insert(appSettings).values({ key, value: enabled ? 'on' : 'off', updatedAt: new Date() }).onConflictDoUpdate({ target: appSettings.key, set: { value: enabled ? 'on' : 'off', updatedAt: new Date() } });
     return json({ enabled });

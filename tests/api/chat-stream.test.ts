@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ChatRequest, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
 import { instructionsResponse, updateInstructionsResponse } from '@/lib/contracts/projects';
+import { type SaveProviderRequest, saveProviderResponse } from '@/lib/contracts/providers';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Czat od poczatku do konca, ale z falszywym dostawca modelu postawionym w tym
@@ -80,9 +81,10 @@ beforeAll(async () => {
   const zapis = await zapytaj('/api/provider', {
     method: 'PUT',
     headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ label: 'Falszywy', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY, scope: 'mine' }),
+    body: JSON.stringify({ label: 'Falszywy', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY, scope: 'mine' } satisfies SaveProviderRequest),
   });
   if (zapis.status >= 300) throw new Error(`Zapis dostawcy nie powiodl sie: ${zapis.status} ${zapis.tekst}`);
+  saveProviderResponse.parse(zapis.dane);
 }, 300_000);
 
 afterAll(() => {

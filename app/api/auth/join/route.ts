@@ -2,19 +2,15 @@ import { and, count, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { invites, memberLimits, members, sessions } from '@/db/schema';
+import { joinRequest } from '@/lib/contracts/account';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { recordAudit } from '@/lib/server/audit';
 import { newSession, sha256 } from '@/lib/server/session';
 
-const joinSchema = z.object({
-  token: z.string().regex(/^[A-Za-z0-9_-]{40,100}$/),
-  displayName: z.string().trim().min(2).max(100),
-});
-
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
-    const input = joinSchema.parse(await readJson(request));
+    const input = joinRequest.parse(await readJson(request));
     const db = getDb();
     const tokenHash = await sha256(input.token);
     const [invite] = await db

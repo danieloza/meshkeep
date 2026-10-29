@@ -1,10 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { bootstrapResponse } from '@/lib/contracts/account';
+import { auditLog, killSwitchSettings, storageCheck } from '@/lib/contracts/admin';
 import { deletedResponse } from '@/lib/contracts/common';
 import { allConversations, conversationDetail } from '@/lib/contracts/conversations';
 import { projectFiles, pruneFilesResponse } from '@/lib/contracts/files';
 import {
   type CreateProjectRequest, createProjectResponse, instructionsResponse, projectList, type UpdateSharingRequest, updateSharingResponse,
 } from '@/lib/contracts/projects';
+import { type UpdateSyncRequest, updateSyncRequest } from '@/lib/contracts/sync';
+import { teamResponse } from '@/lib/contracts/team';
+import { usageResponse } from '@/lib/contracts/usage';
 import {
   ID, ORIGIN, TOKENY, jako, jakoAgent, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba,
 } from './harness';
@@ -43,7 +48,7 @@ describe('tozsamosc i tryb', () => {
     for (const [token, id, rola] of oczekiwane) {
       const odp = await zapytaj('/api/bootstrap', { headers: jako(token) });
       expect(odp.status).toBe(200);
-      const czlonek = odp.dane.member as { id: string; role: string };
+      const czlonek = bootstrapResponse.parse(odp.dane).member;
       expect(czlonek.id).toBe(id);
       expect(czlonek.role).toBe(rola);
     }
@@ -232,7 +237,8 @@ describe('rozmowy', () => {
 });
 
 describe('trasy administracyjne', () => {
-  const trasy = ['/api/admin/audit', '/api/admin/settings'];
+  const kontrakty = { '/api/admin/audit': auditLog, '/api/admin/settings': killSwitchSettings };
+  const trasy = Object.keys(kontrakty) as Array<keyof typeof kontrakty>;
 
   it('czlonek nie ma do nich dostepu', async () => {
     for (const sciezka of trasy) {
@@ -247,9 +253,38 @@ describe('trasy administracyjne', () => {
     for (const sciezka of trasy) {
       const odp = await zapytaj(sciezka, { headers: jako(TOKENY.wlasciciel) });
       expect(odp.status, sciezka).toBe(200);
+      kontrakty[sciezka].parse(odp.dane);
     }
     const kopia = await zapytaj('/api/admin/backup', { headers: jako(TOKENY.wlasciciel) });
     expect(kopia.status).toBe(200);
+    const spojnosc = await zapytaj('/api/admin/backup', { method: 'POST', headers: jako(TOKENY.wlasciciel) });
+    expect(spojnosc.status).toBe(200);
+    storageCheck.parse(spojnosc.dane);
+  });
+
+  it('zuzycie calego zespolu widzi tylko wlasciciel', async () => {
+    const wlasciciel = await zapytaj('/api/usage', { headers: jako(TOKENY.wlasciciel) });
+    expect(wlasciciel.status).toBe(200);
+    // Piec kont z zasiewu, razem z zawieszonym.
+    expect(usageResponse.parse(wlasciciel.dane).team.map((w) => w.memberId).toSorted())
+      .toEqual([ID.wlasciciel, ID.edytor, ID.czytelnik, ID.obcy, ID.zawieszony].toSorted());
+
+    const edytor = await zapytaj('/api/usage', { headers: jako(TOKENY.edytor) });
+    expect(edytor.status).toBe(200);
+    expect(usageResponse.parse(edytor.dane).team).toEqual([]);
+  });
+
+  it('adresy e-mail i limity zespolu widzi tylko wlasciciel', async () => {
+    const wlasciciel = teamResponse.parse((await zapytaj('/api/team', { headers: jako(TOKENY.wlasciciel) })).dane);
+    expect(wlasciciel.members.every((czlonek) => czlonek.email?.endsWith('@test.local'))).toBe(true);
+    expect(wlasciciel.members.find((czlonek) => czlonek.id === ID.edytor)?.dailyTokens).toBe(400_000);
+
+    const edytor = teamResponse.parse((await zapytaj('/api/team', { headers: jako(TOKENY.edytor) })).dane);
+    // Ta sama lista ludzi, ale bez adresow i limitow.
+    expect(edytor.members.map((czlonek) => czlonek.id).toSorted()).toEqual(wlasciciel.members.map((czlonek) => czlonek.id).toSorted());
+    for (const czlonek of edytor.members) {
+      expect(Object.keys(czlonek).toSorted(), czlonek.displayName).toEqual(['displayName', 'id', 'role', 'status']);
+    }
   });
 
   it('kopia zapasowa nie zawiera skrotow tokenow', async () => {
@@ -317,9 +352,10 @@ describe('agent synchronizacji', () => {
       const odp = await zapytaj('/api/sync', {
         method: 'PUT',
         headers: { ...jako(TOKENY.wlasciciel), ...ORIGIN, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: wlaczony }),
+        body: JSON.stringify({ enabled: wlaczony } satisfies UpdateSyncRequest),
       });
       expect(odp.status).toBe(200);
+      expect(updateSyncRequest.parse(odp.dane).enabled).toBe(wlaczony);
     };
 
     await przelacz(false);

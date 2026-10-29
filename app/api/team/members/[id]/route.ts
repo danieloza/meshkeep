@@ -2,26 +2,19 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { memberLimits, members, sessions, syncTokens } from '@/db/schema';
+import { updateMemberRequest } from '@/lib/contracts/team';
 import { requireOwner } from '@/lib/server/auth';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
-import { MAX_DAILY_TOKENS, MAX_MONTHLY_TOKENS } from '@/lib/limits';
 import { recordAudit } from '@/lib/server/audit';
 
 export const dynamic = 'force-dynamic';
-
-const updateSchema = z.object({
-  status: z.enum(['active', 'suspended']).optional(),
-  dailyTokens: z.number().int().min(0).max(MAX_DAILY_TOKENS).optional(),
-  monthlyTokens: z.number().int().min(0).max(MAX_MONTHLY_TOKENS).optional(),
-  apiEnabled: z.boolean().optional(),
-}).refine((value) => Object.keys(value).length > 0, { message: 'pusta zmiana' });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     assertSameOrigin(request);
     const owner = await requireOwner();
     const { id } = await context.params;
-    const input = updateSchema.parse(await readJson(request));
+    const input = updateMemberRequest.parse(await readJson(request));
     const db = getDb();
 
     const [target] = await db.select().from(members).where(eq(members.id, id)).limit(1);

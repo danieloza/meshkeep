@@ -19,6 +19,12 @@ export type Visibility = z.infer<typeof visibility>;
 export const shareRole = z.enum(['reader', 'editor']);
 export type ShareRole = z.infer<typeof shareRole>;
 
+export const memberRole = z.enum(['owner', 'member']);
+export type MemberRole = z.infer<typeof memberRole>;
+
+export const memberStatus = z.enum(['active', 'suspended']);
+export type MemberStatus = z.infer<typeof memberStatus>;
+
 // Every route answers a failure with this shape.
 export const apiError = z.object({ error: z.string() });
 export type ApiError = z.infer<typeof apiError>;
@@ -29,3 +35,10 @@ export type ApiReply<T> = Partial<T> & Partial<ApiError>;
 
 export const deletedResponse = z.object({ deleted: z.literal(true) });
 export type DeletedResponse = z.infer<typeof deletedResponse>;
+
+export const revokedResponse = z.object({ revoked: z.literal(true) });
+export type RevokedResponse = z.infer<typeof revokedResponse>;
+
+// Body of a DELETE that names one record.
+export const byIdRequest = z.object({ id });
+export type ByIdRequest = z.input<typeof byIdRequest>;

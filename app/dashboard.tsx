@@ -22,14 +22,24 @@ import { ChatMarkdown } from '@/components/chat-markdown';
 import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
 import { type ContextFile, createLineSplitter, parseStreamEvent } from '@/lib/chat-stream';
 // Types only: the browser takes the shapes from the contracts, but not zod.
-import type { ApiError, ApiReply, DeletedResponse, Visibility } from '@/lib/contracts/common';
+import type { BootstrapResponse } from '@/lib/contracts/account';
+import type { AuditEvent, AuditLog, KillSwitchSettings, StorageCheck } from '@/lib/contracts/admin';
+import type { ApiError, ApiReply, ByIdRequest, DeletedResponse, RevokedResponse, Visibility } from '@/lib/contracts/common';
 import type { AllConversations, ChatRequest, ConversationDetail, ConversationRow, ProjectConversations } from '@/lib/contracts/conversations';
-import type { FileSuggestion, FileSuggestions, IndexRound, ProjectFile, ProjectFiles } from '@/lib/contracts/files';
+import type { DriveStatus, FileSuggestion, FileSuggestions, IndexRound, ProjectFile, ProjectFiles } from '@/lib/contracts/files';
 import type {
-  CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList, ProjectShare, StorageProvider,
+  ContextImportResponse, CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList, ProjectShare, StorageProvider,
   UpdateInstructionsRequest, UpdateInstructionsResponse, UpdateSharingRequest, UpdateSharingResponse,
 } from '@/lib/contracts/projects';
+import type {
+  EffectiveProvider, ProviderModel, ProviderOrigin, ProviderState, SaveProviderRequest, SaveProviderResponse,
+} from '@/lib/contracts/providers';
 import type { SearchResults } from '@/lib/contracts/search';
+import type { CreateSyncTokenRequest, CreateSyncTokenResponse, SyncCredentials, SyncSetting, UpdateSyncRequest } from '@/lib/contracts/sync';
+import type {
+  InviteRequest, InviteResponse, PendingInvite, TeamMember, TeamResponse, UpdateMemberRequest, UpdateMemberResponse,
+} from '@/lib/contracts/team';
+import type { UsageResponse } from '@/lib/contracts/usage';
 import { DEFAULT_DAILY_TOKENS, DEFAULT_MONTHLY_TOKENS, limitsAreCoherent, parseLimitInput } from '@/lib/limits';
 import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch, visibleSections } from '@/lib/navigation';
 import { splitHighlights } from '@/lib/search';
@@ -37,14 +47,7 @@ import { parseTheme, resolveTheme, THEME_STORAGE_KEY, type Theme } from '@/lib/t
 import { cn } from '@/lib/utils';
 
 type Project = { id: string; name: string; description: string; visibility: Visibility; files: number; conversations: number; updated: string; color: string; icon: 'code' | 'folder' | 'lab'; members: string[] };
-// `email` przychodzi wyłącznie do ownera — reszcie zespołu serwer go nie wysyła.
-type TeamMember = { id: string; displayName: string; email?: string; role: 'owner' | 'member'; status: string; dailyTokens?: number; monthlyTokens?: number; apiEnabled?: boolean };
-type PendingInvite = { id: string; email: string; expiresAt: string };
-type TeamCapacity = { used: number; total: number };
-// Lista modeli pochodzi wyłącznie z `FREE_MODELS` na serwerze i przyjeżdża
-// w `/api/bootstrap`. Dopisanie kolejnego modelu to jedna linia po stronie
-// serwera — UI nie ma własnej, rozjeżdżającej się kopii.
-type ModelOption = { id: string; label: string; tier: string; family: string; description: string };
+type TeamCapacity = TeamResponse['capacity'];
 
 const PROJECT_FILE_ACCEPT = '.txt,.md,.json,.csv,.ts,.tsx,.js,.jsx,.mjs,.cjs,.py,.go,.rs,.java,.kt,.swift,.css,.scss,.html,.xml,.yaml,.yml,.toml,.sql,.sh,.ps1,.bat,.zip,.pdf,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.bmp';
 
@@ -133,7 +136,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [reconnectLinks, setReconnectLinks] = useState<PendingInvite[]>([]);
   const [teamCapacity, setTeamCapacity] = useState<TeamCapacity>({ used: 1, total: 4 });
-  const [models, setModels] = useState<ModelOption[]>([]);
+  const [models, setModels] = useState<ProviderModel[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const contextInput = useRef<HTMLInputElement>(null);
@@ -151,9 +154,9 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
           return;
         }
         if (!bootstrapResponse.ok || !projectsResponse.ok || !teamResponse.ok) throw new Error('Could not load application data.');
-        const bootstrap = (await bootstrapResponse.json()) as { member: { id: string; displayName: string; role: 'owner' | 'member' }; limits?: { dailyTokens: number; monthlyTokens: number }; usage?: { inputTokens: number; outputTokens: number; monthlyTokens: number }; models?: ModelOption[] };
+        const bootstrap = (await bootstrapResponse.json()) as BootstrapResponse;
         const payload = (await projectsResponse.json()) as ProjectList;
-        const team = (await teamResponse.json()) as { members: TeamMember[]; pendingInvites: PendingInvite[]; reconnectLinks?: PendingInvite[]; capacity: TeamCapacity };
+        const team = (await teamResponse.json()) as TeamResponse;
         if (!active) return;
         setDisplayName(bootstrap.member.displayName.split(' ')[0] || 'Daniel');
         setCurrentRole(bootstrap.member.role);
@@ -180,8 +183,8 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   useEffect(() => {
     Promise.all([fetch('/api/sync', { cache: 'no-store' }), fetch('/api/storage/google-drive/status', { cache: 'no-store' })])
       .then(async ([syncResponse, driveResponse]) => {
-        if (syncResponse.ok) setSyncEnabled(Boolean(((await syncResponse.json()) as { enabled?: boolean }).enabled));
-        if (driveResponse.ok) setDriveConfigured(Boolean(((await driveResponse.json()) as { configured?: boolean }).configured));
+        if (syncResponse.ok) setSyncEnabled(Boolean(((await syncResponse.json()) as SyncSetting).enabled));
+        if (driveResponse.ok) setDriveConfigured(Boolean(((await driveResponse.json()) as DriveStatus).configured));
       })
       .catch(() => undefined);
   }, []);
@@ -212,7 +215,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     try {
       const response = await fetch('/api/team', { cache: 'no-store' });
       if (!response.ok) return;
-      const team = (await response.json()) as { members: TeamMember[]; pendingInvites: PendingInvite[]; reconnectLinks?: PendingInvite[]; capacity: TeamCapacity };
+      const team = (await response.json()) as TeamResponse;
       setTeamMembers(team.members);
       setPendingInvites(team.pendingInvites);
       setReconnectLinks(team.reconnectLinks ?? []);
@@ -224,7 +227,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     const previous = syncEnabled;
     setSyncEnabled(enabled);
     try {
-      const response = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) });
+      const response = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled } satisfies UpdateSyncRequest) });
       if (!response.ok) throw new Error();
       setNotice(enabled ? 'Automatic sync has been enabled.' : 'Automatic sync has been disabled.');
     } catch { setSyncEnabled(previous); setNotice('Could not save the sync setting.'); }
@@ -314,7 +317,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
       const form = new FormData();
       form.append('context', file);
       const response = await fetch('/api/context/import', { method: 'POST', body: form });
-      const payload = (await response.json()) as { project?: { id: string; name: string; visibility: Visibility; conversations: number }; message?: string; error?: string };
+      const payload = (await response.json()) as ApiReply<ContextImportResponse>;
       if (!response.ok || !payload.project) throw new Error(payload.error ?? 'Could not import the context.');
       setProjects((current) => [{ id: payload.project!.id, name: payload.project!.name, description: `${payload.project!.conversations} imported conversations`, visibility: payload.project!.visibility, files: 0, conversations: payload.project!.conversations, updated: 'now', color: 'from-sky-400/20 via-cyan-300/10 to-transparent', icon: 'lab', members: ['DS'] }, ...current]);
       setNotice(payload.message ?? 'Context imported.');
@@ -541,9 +544,7 @@ function ProjectCard({ project, onExport, onOpen, onMakePrivate, onDelete, onCop
   return <Card className="group relative min-h-[220px] overflow-hidden border-0 bg-white/85 shadow-[0_8px_30px_rgba(24,48,44,.045)] ring-black/6 transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(24,48,44,.08)]"><div className={cn('pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br', project.color)} /><CardHeader className="relative"><div className="mb-4 flex items-start justify-between"><button aria-label={`Open project ${project.name}`} className="grid size-11 place-items-center rounded-xl border border-black/6 bg-white/90 text-[#2c5b54] shadow-sm" onClick={onOpen} type="button"><Icon className="size-5" /></button><div className="flex"><Button aria-label={`Copy project ID for ${project.name}`} onClick={onCopyId} size="icon-sm" title="Copy ID for agent" variant="ghost"><Copy /></Button><Button aria-label={`Export context for ${project.name}`} onClick={onExport} size="icon-sm" variant="ghost"><Download /></Button>{project.visibility === 'private' ? <Button aria-label={`Delete project ${project.name}`} onClick={onDelete} size="icon-sm" variant="ghost"><Trash2 /></Button> : <Button aria-label={`Make project ${project.name} private`} onClick={onMakePrivate} size="icon-sm" variant="ghost"><LockKeyhole /></Button>}</div></div><button className="text-left" onClick={onOpen} type="button"><CardTitle className="text-base">{project.name}</CardTitle><CardDescription className="min-h-10 leading-5">{project.description}</CardDescription></button></CardHeader><CardContent className="mt-auto flex items-center justify-between"><Badge className={cn('gap-1.5 font-medium', project.visibility === 'private' ? 'border-[#82604d]/15 bg-[#f6ede7] text-[#795b49]' : 'border-[#387267]/15 bg-[#e4f2ee] text-[#32665d]')} variant="outline"><VisibilityIcon /> {visibilityLabels[project.visibility]}</Badge><AvatarGroup>{project.members.map((member, index) => <Avatar className={cn('size-7', ['bg-[#d7ece7]', 'bg-[#f1e4d7]', 'bg-[#e5e1f1]', 'bg-[#dfe7f1]'][index])} key={member} size="sm"><AvatarFallback className="bg-transparent text-[9px] font-semibold text-[#354a46]">{member}</AvatarFallback></Avatar>)}</AvatarGroup></CardContent><CardFooter className="justify-between border-black/5 bg-black/[0.015] py-2 text-[11px] text-[#818b89]"><span>{project.files} files · {project.updated}</span><Button onClick={onOpen} size="sm" variant="ghost">Open chat</Button></CardFooter></Card>;
 }
 
-type EffectiveProvider = { label: string; origin: 'member' | 'team' | 'environment'; modelCount: number } | null;
-
-const ORIGIN_LABEL: Record<'member' | 'team' | 'environment', string> = {
+const ORIGIN_LABEL: Record<ProviderOrigin, string> = {
   member: 'your own key',
   team: "the team's key",
   environment: 'a key set on the server',
@@ -552,8 +553,8 @@ const ORIGIN_LABEL: Record<'member' | 'team' | 'environment', string> = {
 // The dashboard and usage view describe the same provider, so they read the
 // same server state. The dashboard used to hard-code a provider name and could
 // contradict the provider card after bring-your-own-provider was configured.
-function useEffectiveProvider(): { effective: EffectiveProvider; loaded: boolean } {
-  const [effective, setEffective] = useState<EffectiveProvider>(null);
+function useEffectiveProvider(): { effective: EffectiveProvider | null; loaded: boolean } {
+  const [effective, setEffective] = useState<EffectiveProvider | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -587,18 +588,20 @@ function UsagePanel({ dailyLimit, inputUsage, monthlyLimit, monthlyUsage, output
   return <Card className="border-0 bg-white/90 shadow-[0_8px_30px_rgba(24,48,44,.045)] ring-black/6"><CardHeader><CardDescription className="flex items-center gap-2"><Bot className="size-4" /> API usage</CardDescription><CardTitle className="flex items-center gap-2 text-base">Your limits <Badge className="bg-[#dff4ed] text-[#286057]" variant="secondary">FREE</Badge></CardTitle></CardHeader><CardContent className="space-y-5"><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Daily limit</p><p className="mt-0.5 text-lg font-semibold">{formatTokens(total)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(dailyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{percent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#2c766a] [&_[data-slot=progress-track]]:h-1.5" value={percent} /></div><div><div className="mb-2 flex items-end justify-between"><div><p className="text-xs text-[#75817e]">Monthly limit</p><p className="mt-0.5 text-sm font-semibold">{formatTokens(monthlyUsage)} <span className="text-xs font-normal text-[#88928f]">/ {formatTokens(monthlyLimit)}</span></p></div><span className="text-xs font-medium text-[#396b62]">{monthlyPercent}%</span></div><Progress className="[&_[data-slot=progress-indicator]]:bg-[#4d8b80] [&_[data-slot=progress-track]]:h-1" value={monthlyPercent} /></div><div className="grid grid-cols-2 gap-3 rounded-xl bg-[#f3f5f2] p-3 text-xs"><div><p className="text-[#7a8582]">Wire format</p><p className="mt-1 font-semibold">OpenAI-compatible</p></div><div><p className="text-[#7a8582]">Provider</p><p className="mt-1 truncate font-semibold" title={providerName}>{providerName}</p></div><div><p className="text-[#7a8582]">Input today</p><p className="mt-1 font-semibold">{formatTokens(inputUsage)}</p></div><div><p className="text-[#7a8582]">Output today</p><p className="mt-1 font-semibold">{formatTokens(outputUsage)}</p></div></div><p className="flex items-start gap-2 text-[11px] leading-4 text-[#7a8582]"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[#3c756b]" /> {keyNote}</p></CardContent></Card>;
 }
 
-type SyncCredential = { id: string; label: string; expiresAt: string; lastUsedAt: string | null };
+// A new key comes back without `lastUsedAt` and `createdAt`, and the list
+// shows neither, so it holds only what both responses have.
+type SyncCredentialSummary = CreateSyncTokenResponse['credential'];
 
 function SyncAgentPanel({ onNotice }: { onNotice: (message: string) => void }) {
-  const [tokens, setTokens] = useState<SyncCredential[]>([]);
+  const [tokens, setTokens] = useState<SyncCredentialSummary[]>([]);
   const [rawToken, setRawToken] = useState('');
   const [creating, setCreating] = useState(false);
-  useEffect(() => { fetch('/api/sync/token', { cache: 'no-store' }).then(async (response) => { if (response.ok) setTokens(((await response.json()) as { tokens: SyncCredential[] }).tokens); }).catch(() => undefined); }, []);
+  useEffect(() => { fetch('/api/sync/token', { cache: 'no-store' }).then(async (response) => { if (response.ok) setTokens(((await response.json()) as SyncCredentials).tokens); }).catch(() => undefined); }, []);
   async function createToken() {
     setCreating(true); setRawToken('');
     try {
-      const response = await fetch('/api/sync/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: `Windows · ${new Date().toLocaleDateString('en-US')}` }) });
-      const payload = (await response.json()) as { token?: string; credential?: SyncCredential; error?: string };
+      const response = await fetch('/api/sync/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: `Windows · ${new Date().toLocaleDateString('en-US')}` } satisfies CreateSyncTokenRequest) });
+      const payload = (await response.json()) as ApiReply<CreateSyncTokenResponse>;
       if (!response.ok || !payload.token || !payload.credential) throw new Error(payload.error ?? 'Could not create an agent key.');
       setRawToken(payload.token); setTokens((current) => [payload.credential!, ...current]);
       onNotice('Agent key created. It is shown only once.');
@@ -606,7 +609,7 @@ function SyncAgentPanel({ onNotice }: { onNotice: (message: string) => void }) {
     finally { setCreating(false); }
   }
   async function revoke(id: string) {
-    const response = await fetch('/api/sync/token', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    const response = await fetch('/api/sync/token', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id } satisfies ByIdRequest) });
     if (response.ok) { setTokens((current) => current.filter((token) => token.id !== id)); setRawToken(''); onNotice('Agent key revoked.'); }
   }
   return <Card className="border-0 bg-white/90 shadow-none ring-black/6"><CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Local folder<Hint text="An agent key lets one machine upload and delete files in projects you can edit. It grants no model access and is shown once, because the server keeps only its hash. Revoking it stops that machine immediately." /></CardTitle><CardDescription>The agent copies changed files only to the selected project.</CardDescription></CardHeader><CardContent className="space-y-3"><a className="inline-flex h-8 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-medium hover:bg-black/[0.03]" download href="/meshkeep-sync.ps1"><Download className="size-3.5" /> Download Windows agent</a><Button disabled={creating} onClick={() => void createToken()} size="sm" variant="outline"><KeyRound /> {creating ? 'Creating…' : 'New agent key'}</Button>{rawToken && <div className="rounded-xl border border-amber-700/10 bg-amber-50 p-3"><p className="mb-2 text-[11px] leading-4 text-amber-900/75">Copy it now. The key will not be shown again and grants no model access.</p><div className="flex gap-2"><Input aria-label="Sync agent key" className="h-8 min-w-0 bg-white text-[10px]" readOnly value={rawToken} /><Button onClick={() => { void navigator.clipboard.writeText(rawToken); onNotice('Agent key copied.'); }} size="icon-sm" type="button" variant="outline"><Copy /></Button></div></div>}{tokens.map((token) => <div className="flex items-center gap-2 rounded-lg bg-[#f4f6f3] px-3 py-2 text-[11px]" key={token.id}><div className="min-w-0 flex-1"><p className="truncate font-medium">{token.label}</p><p className="text-[#7c8784]">expires {new Date(token.expiresAt).toLocaleDateString('en-US')}</p></div><Button aria-label={`Revoke ${token.label}`} onClick={() => void revoke(token.id)} size="icon-xs" variant="ghost"><Trash2 /></Button></div>)}</CardContent></Card>;
@@ -624,11 +627,11 @@ function MemberRow({ member, colorIndex, isOwnerView, currentMemberId, onChanged
   // pokazuje takiej możliwości — inaczej kusiłby przyciskiem, który zwraca błąd.
   const canModerate = isOwnerView && member.role !== 'owner' && member.id !== currentMemberId;
 
-  async function patch(body: Record<string, unknown>, message: string) {
+  async function patch(body: UpdateMemberRequest, message: string) {
     setBusy(true);
     try {
       const response = await fetch(`/api/team/members/${member.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as ApiReply<UpdateMemberResponse>;
       if (!response.ok) throw new Error(payload.error ?? 'Could not save the change.');
       onChanged();
       onNotice(message);
@@ -692,8 +695,8 @@ function TeamPanel({ members, pendingInvites, reconnectLinks, capacity, canInvit
     if (!normalized || inviting) return;
     setInviting(true);
     try {
-      const response = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalized }) });
-      const payload = (await response.json()) as { invite?: { id: string; email: string; expiresInDays: number; joinPath: string; kind?: 'invite' | 'reconnect' }; error?: string };
+      const response = await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalized } satisfies InviteRequest) });
+      const payload = (await response.json()) as ApiReply<InviteResponse>;
       if (!response.ok || !payload.invite) throw new Error(payload.error ?? 'Could not create the invitation.');
       if (!payload.invite.joinPath.startsWith('/join?token=')) throw new Error('The server returned an invalid invitation link.');
       const kind = payload.invite.kind ?? 'invite';
@@ -707,8 +710,8 @@ function TeamPanel({ members, pendingInvites, reconnectLinks, capacity, canInvit
   }
   async function revokeInvite(inviteId: string) {
     try {
-      const response = await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inviteId }) });
-      const payload = (await response.json()) as { error?: string };
+      const response = await fetch('/api/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inviteId } satisfies ByIdRequest) });
+      const payload = (await response.json()) as ApiReply<RevokedResponse>;
       if (!response.ok) throw new Error(payload.error ?? 'Could not revoke the invitation.');
       onTeamChanged();
       onNotice('Invitation revoked. The seat is available again.');
@@ -780,25 +783,6 @@ function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConv
   </section>;
 }
 
-type UsagePayload = {
-  historyDays: number;
-  limits: { dailyTokens: number; monthlyTokens: number; enabled: boolean };
-  today: { inputTokens: number; outputTokens: number; requests: number };
-  month: { inputTokens: number; outputTokens: number; requests: number };
-  byDay: Array<{ day: string; inputTokens: number; outputTokens: number; requests: number }>;
-  byModel: Array<{ model: string; label: string; inputTokens: number; outputTokens: number; requests: number }>;
-  // Pusta dla każdego poza ownerem — serwer w ogóle nie liczy tych wierszy.
-  team: Array<{ memberId: string; displayName: string; role: 'owner' | 'member'; status: 'active' | 'suspended'; dailyTokens: number | null; monthlyTokens: number | null; apiEnabled: boolean | null; todayTokens: number; monthTokens: number; monthRequests: number }>;
-};
-
-type ProviderSummary = { label: string; baseUrl: string; keyPreview: string; modelCount: number } | null;
-type ProviderState = {
-  mine: ProviderSummary;
-  team: ProviderSummary;
-  canSetTeam: boolean;
-  effective: EffectiveProvider;
-};
-
 function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => void; onChanged: () => void }) {
   const [state, setState] = useState<ProviderState | null>(null);
   const [label, setLabel] = useState('');
@@ -833,9 +817,9 @@ function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => 
       const response = await fetch('/api/provider', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label, baseUrl, apiKey, scope: forTeam ? 'team' : 'mine' }),
+        body: JSON.stringify({ label, baseUrl, apiKey, scope: forTeam ? 'team' : 'mine' } satisfies SaveProviderRequest),
       });
-      const payload = (await response.json()) as { error?: string; modelCount?: number };
+      const payload = (await response.json()) as ApiReply<SaveProviderResponse>;
       if (!response.ok) throw new Error(payload.error ?? 'Could not save the provider.');
       // The key is never echoed back, so there is nothing to keep in the form.
       setApiKey('');
@@ -918,7 +902,7 @@ function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
     fetch('/api/admin/settings', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) return;
-        const payload = (await response.json()) as { apiKillSwitch?: boolean };
+        const payload = (await response.json()) as KillSwitchSettings;
         if (active) setBlocked(Boolean(payload.apiKillSwitch));
       })
       .catch(() => undefined);
@@ -929,7 +913,7 @@ function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
     const previous = blocked;
     setBlocked(next);
     try {
-      const response = await fetch('/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKillSwitch: next }) });
+      const response = await fetch('/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKillSwitch: next } satisfies KillSwitchSettings) });
       if (!response.ok) throw new Error();
       onNotice(next ? 'Models disabled for the entire team.' : 'Model access restored.');
     } catch { setBlocked(previous); onNotice('Could not update the setting.'); }
@@ -952,7 +936,7 @@ function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
 }
 
 function BackupCard({ onNotice }: { onNotice: (message: string) => void }) {
-  const [check, setCheck] = useState<{ inDatabase: number; inStorage: number; missingInStorage: string[]; orphanInStorage: string[]; truncated: boolean } | null>(null);
+  const [check, setCheck] = useState<StorageCheck | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function verifyStorage() {
@@ -960,7 +944,7 @@ function BackupCard({ onNotice }: { onNotice: (message: string) => void }) {
     try {
       const response = await fetch('/api/admin/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!response.ok) throw new Error('Could not verify file storage.');
-      setCheck(await response.json());
+      setCheck((await response.json()) as StorageCheck);
     } catch (error) { onNotice(error instanceof Error ? error.message : 'Could not verify file storage.'); }
     finally { setBusy(false); }
   }
@@ -989,8 +973,6 @@ function BackupCard({ onNotice }: { onNotice: (message: string) => void }) {
   </Card>;
 }
 
-type AuditRow = { id: string; actorLabel: string; action: string; targetType: string | null; targetLabel: string | null; detail: string | null; createdAt: string };
-
 // Szczegoly przychodza jako JSON zapisany przez `serializeDetail` - zawsze
 // plaski obiekt prostych wartosci. Renderujemy je po ludzku, ale gdyby kiedys
 // przyszlo cos innego, pokazujemy surowy napis zamiast wywracac widok.
@@ -1007,7 +989,7 @@ function AuditDetail({ detail }: { detail: string }) {
 }
 
 function AuditView({ onNotice }: { onNotice: (message: string) => void }) {
-  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [rows, setRows] = useState<AuditEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filtrAkcji, setFiltrAkcji] = useState('wszystkie');
   const [filtrAutora, setFiltrAutora] = useState('wszyscy');
@@ -1017,7 +999,7 @@ function AuditView({ onNotice }: { onNotice: (message: string) => void }) {
     fetch('/api/admin/audit', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load the activity log.');
-        const payload = (await response.json()) as { events: AuditRow[] };
+        const payload = (await response.json()) as AuditLog;
         if (active) setRows(payload.events);
       })
       .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load the activity log.'); });
@@ -1079,7 +1061,7 @@ function AuditView({ onNotice }: { onNotice: (message: string) => void }) {
   </section>;
 }
 function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit: number; isOwner: boolean; monthlyLimit: number; onNotice: (message: string) => void }) {
-  const [data, setData] = useState<UsagePayload | null>(null);
+  const [data, setData] = useState<UsageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1087,7 +1069,7 @@ function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit
     fetch('/api/usage', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load usage.');
-        const payload = (await response.json()) as UsagePayload;
+        const payload = (await response.json()) as UsageResponse;
         if (active) setData(payload);
       })
       .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load usage.'); });
@@ -1257,7 +1239,7 @@ function ContextChips({ files }: { files: ContextFile[] }) {
   </div>;
 }
 
-function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, conversationId: openConversationId, initialFileIds }: { project: Project; models: ModelOption[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; conversationId: string | null; initialFileIds: string[] }) {
+function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, conversationId: openConversationId, initialFileIds }: { project: Project; models: ProviderModel[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; conversationId: string | null; initialFileIds: string[] }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
   const [model, setModel] = useState('');
@@ -1324,7 +1306,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
         if (active) setProjectFiles(payload.files);
       }
       if (driveResponse.ok) {
-        const payload = (await driveResponse.json()) as { configured?: boolean };
+        const payload = (await driveResponse.json()) as DriveStatus;
         if (active) setDriveConfigured(Boolean(payload.configured));
       }
     }).catch(() => undefined);
@@ -1496,7 +1478,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
         <label className="hidden text-xs text-[#697572] sm:block" htmlFor="chat-model">Model</label>
         <select className="h-9 max-w-[210px] rounded-lg border border-black/10 bg-white px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#4d8b80]/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
           {models.length === 0 && <option value="">No models available</option>}
-          {models.map((item) => <option key={item.id} title={item.description} value={item.id}>{item.label}{item.tier === 'free' ? ' · FREE' : ''}</option>)}
+          {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
         <Button aria-expanded={instructionsOpen} aria-label="Project instructions" className="relative" onClick={() => setInstructionsOpen((value) => !value)} size="icon" title={instructions ? 'Project instructions are on' : 'Project instructions'} variant="ghost"><ScrollText />{instructions && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-emerald-600" />}</Button>
         <Button aria-label="Start a new conversation" disabled={historyLoading || !chatMessages.length} onClick={startNewConversation} size="icon" title="New conversation" variant="ghost"><MessageSquarePlus /></Button>

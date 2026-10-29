@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { saveProviderRequest } from '@/lib/contracts/providers';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
@@ -9,14 +10,6 @@ import { providers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
-
-const saveSchema = z.object({
-  label: z.string().trim().min(1).max(60),
-  baseUrl: z.string().trim().min(1).max(400),
-  apiKey: z.string().trim().min(8).max(400),
-  // Only the owner may write the team default; anyone may write their own.
-  scope: z.enum(['team', 'mine']).default('mine'),
-});
 
 // The stored key is the one secret this application keeps in its own database.
 // It is never returned here — the caller gets a mask, which is enough to tell
@@ -48,7 +41,7 @@ export async function PUT(request: Request) {
   try {
     assertSameOrigin(request);
     const member = await requireMember();
-    const input = saveSchema.parse(await readJson(request));
+    const input = saveProviderRequest.parse(await readJson(request));
     if (input.scope === 'team' && member.role !== 'owner') {
       throw new ApiError(403, 'Only the owner can set the provider for the team.');
     }
