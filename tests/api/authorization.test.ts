@@ -230,7 +230,13 @@ describe('agent synchronizacji', () => {
       method: 'DELETE', headers: { ...jakoAgent(), 'Content-Type': 'application/json' }, body: cialo(sciezki.slice(0, 3)),
     });
     expect(w_sam_raz.status).toBe(200);
-    expect(w_sam_raz.dane.deleted).toBe(3);
+    // Po awarii transportu pierwsza proba juz skasowala te pliki, a ponowienie
+    // zglasza je jako `notFound`. Dlatego rozstrzyga stan projektu, a licznik
+    // z odpowiedzi tylko wtedy, gdy zadanie poszlo raz.
+    if (w_sam_raz.ponowienia === 0) expect(w_sam_raz.dane.deleted).toBe(3);
+    const po = await zapytaj(`/api/projects/${ID.projektDoPrzyciecia}/files`, { headers: jako(TOKENY.wlasciciel) });
+    const zostalo = (po.dane.files as Array<{ relativePath: string }>).map((p) => p.relativePath);
+    expect(zostalo.toSorted()).toEqual(sciezki.slice(3).toSorted());
   });
 
   it('wylaczony przelacznik synchronizacji blokuje takze kasowanie', async () => {
