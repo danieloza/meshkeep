@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { bootstrapResponse, type SetupRequest, setupResponse } from '@/lib/contracts/account';
+import { auditLog } from '@/lib/contracts/admin';
+import { teamResponse } from '@/lib/contracts/team';
 import { ORIGIN, sesjaZOdpowiedzi, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Tryb samodzielny, czyli instalacja poza OpenAI Sites. Nikt tu nie ustawia
@@ -21,7 +24,7 @@ function zalozenie(token: string, naglowki: Record<string, string> = ORIGIN) {
   return zapytaj('/api/auth/setup', {
     method: 'POST',
     headers: { ...naglowki, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, displayName: 'Wlasciciel' }),
+    body: JSON.stringify({ token, displayName: 'Wlasciciel' } satisfies SetupRequest),
   });
 }
 
@@ -67,36 +70,38 @@ describe('tryb samodzielny: klucz wlasciciela', () => {
     // dziennik ma wpis o zalozeniu, sprawdzaja kolejne testy.
     if (odp.ponowienia === 0) expect(odp.status).toBe(201);
     else expect([200, 201]).toContain(odp.status);
+    expect(setupResponse.parse(odp.dane).member.displayName).toBe('Wlasciciel');
     const sesja = sesjaZOdpowiedzi(odp);
     expect(sesja).not.toBeNull();
 
     const bootstrap = await zapytaj('/api/bootstrap', { headers: sesja! });
     expect(bootstrap.status).toBe(200);
-    expect((bootstrap.dane.member as { role: string }).role).toBe('owner');
+    expect(bootstrapResponse.parse(bootstrap.dane).member.role).toBe('owner');
   });
 
   it('ponowne uzycie klucza przywraca dostep temu samemu wlascicielowi', async () => {
     const pierwsza = sesjaZOdpowiedzi(await zalozenie(KLUCZ));
     const kto = await zapytaj('/api/bootstrap', { headers: pierwsza! });
-    const idPierwszego = (kto.dane.member as { id: string }).id;
+    const idPierwszego = bootstrapResponse.parse(kto.dane).member.id;
 
     const ponowna = await zalozenie(KLUCZ);
     expect(ponowna.status).toBe(200);
+    expect(setupResponse.parse(ponowna.dane).created).toBe(false);
     const druga = sesjaZOdpowiedzi(ponowna);
     const ponownie = await zapytaj('/api/bootstrap', { headers: druga! });
-    expect((ponownie.dane.member as { id: string }).id).toBe(idPierwszego);
+    expect(bootstrapResponse.parse(ponownie.dane).member.id).toBe(idPierwszego);
 
     // Drugie konto wlasciciela nie powstalo: w zespole jest jedna osoba.
     const zespol = await zapytaj('/api/team', { headers: druga! });
     expect(zespol.status).toBe(200);
-    expect((zespol.dane.members as unknown[]).length).toBe(1);
+    expect(teamResponse.parse(zespol.dane).members.length).toBe(1);
   });
 
   it('dziennik zapisuje zalozenie i odzyskanie dostepu', async () => {
     const sesja = sesjaZOdpowiedzi(await zalozenie(KLUCZ));
     const dziennik = await zapytaj('/api/admin/audit', { headers: sesja! });
     expect(dziennik.status).toBe(200);
-    const akcje = (dziennik.dane.events as Array<{ action: string }>).map((e) => e.action);
+    const akcje = auditLog.parse(dziennik.dane).events.map((e) => e.action);
     expect(akcje).toContain('owner.setup');
     expect(akcje).toContain('owner.recovered');
   });

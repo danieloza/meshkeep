@@ -10,6 +10,12 @@
 // rules that matter for safety can be tested without a worker, the same way
 // the file guards and the audit barrier are.
 
+import type { ProviderModel } from './contracts/providers';
+
+// Defined with the provider contracts, because the browser receives the same
+// shape. Re-exported for the code that already imports it from here.
+export type { ProviderModel };
+
 export type UrlCheck = { ok: true; url: string } | { ok: false; reason: string };
 
 // Hosts that must never be reachable from a user-supplied base URL. Letting
@@ -74,8 +80,6 @@ export function maskKey(key: string): string {
   if (clean.length <= 8) return '••••';
   return `${clean.slice(0, 4)}••••${clean.slice(-4)}`;
 }
-
-export type ProviderModel = { id: string; label: string };
 
 const MAX_MODELS = 200;
 

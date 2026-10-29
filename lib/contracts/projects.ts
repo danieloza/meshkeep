@@ -60,6 +60,13 @@ export const updateSharingResponse = z.object({
 });
 export type UpdateSharingResponse = z.infer<typeof updateSharingResponse>;
 
+// POST /api/context/import: a context file becomes a new private project.
+export const contextImportResponse = z.object({
+  project: z.object({ id, name: z.string(), visibility: z.literal('private'), conversations: z.number().int() }),
+  message: z.string(),
+});
+export type ContextImportResponse = z.infer<typeof contextImportResponse>;
+
 // GET and PUT /api/projects/[id]/instructions
 export const MAX_INSTRUCTIONS_CHARS = 4_000;
 

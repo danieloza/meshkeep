@@ -3,21 +3,16 @@ import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { members, sessions } from '@/db/schema';
+import { MIN_SETUP_TOKEN_LENGTH, setupRequest } from '@/lib/contracts/account';
 import { auditInsert } from '@/lib/server/audit';
 import { newOwnerMember, ownerInserts } from '@/lib/server/auth';
 import { getAuthMode } from '@/lib/server/auth-mode';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { newSession, sha256 } from '@/lib/server/session';
 
-const MIN_TOKEN_LENGTH = 32;
 // A fixed provider key makes the unique index the arbiter: two parallel setup
 // requests on an empty database cannot both create an owner.
 const SETUP_OWNER_PROVIDER_ID = 'standalone:owner';
-
-const setupSchema = z.object({
-  token: z.string().min(MIN_TOKEN_LENGTH).max(200),
-  displayName: z.string().trim().min(2).max(100).optional(),
-});
 
 // Hashing first gives both sides the same length, and the loop has no early
 // exit, so the response time does not reveal how much of the key matched.
@@ -37,10 +32,10 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
     if (getAuthMode() !== 'standalone') throw new ApiError(404, 'Not found.');
     const expected = env.OWNER_SETUP_TOKEN?.trim() ?? '';
-    if (expected.length < MIN_TOKEN_LENGTH) {
+    if (expected.length < MIN_SETUP_TOKEN_LENGTH) {
       throw new ApiError(503, 'Owner setup is not configured on this server.');
     }
-    const input = setupSchema.parse(await readJson(request));
+    const input = setupRequest.parse(await readJson(request));
     if (!(await matchesSecret(input.token, expected))) {
       throw new ApiError(401, 'The owner setup key is incorrect.');
     }

@@ -41,3 +41,13 @@ export type FileSuggestion = z.infer<typeof fileSuggestion>;
 
 export const fileSuggestions = z.object({ files: z.array(fileSuggestion) });
 export type FileSuggestions = z.infer<typeof fileSuggestions>;
+
+// GET /api/storage/google-drive/status: whether projects can store files in
+// Google Drive on this deployment.
+export const driveStatus = z.object({
+  configured: z.boolean(),
+  mode: z.literal('server-owned'),
+  authorization: z.literal('application-acl'),
+  scope: z.literal('drive.file'),
+});
+export type DriveStatus = z.infer<typeof driveStatus>;

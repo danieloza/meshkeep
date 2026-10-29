@@ -2,6 +2,8 @@ import { and, asc, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { invites, memberLimits, members } from '@/db/schema';
+import { byIdRequest } from '@/lib/contracts/common';
+import { inviteRequest } from '@/lib/contracts/team';
 import { requireMember, requireOwner } from '@/lib/server/auth';
 import { getAuthMode } from '@/lib/server/auth-mode';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
@@ -11,8 +13,6 @@ import { newInviteToken, sha256 } from '@/lib/server/session';
 export const dynamic = 'force-dynamic';
 const TEAM_LIMIT = 4;
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
-const inviteSchema = z.object({ email: z.email().trim().toLowerCase().max(254) });
-const revokeInviteSchema = z.object({ id: z.uuid() });
 
 // Zaproszenia, które wygasły, nie blokują już miejsca. Wcześniej GET liczył je
 // inaczej niż POST, więc panel pokazywał wolne miejsce, a serwer odbijał 409.
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const owner = await requireOwner();
-    const { email } = inviteSchema.parse(await readJson(request));
+    const { email } = inviteRequest.parse(await readJson(request));
     const db = getDb();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITE_LIFETIME_MS);
@@ -111,7 +111,7 @@ export async function DELETE(request: Request) {
   try {
     assertSameOrigin(request);
     const owner = await requireOwner();
-    const { id } = revokeInviteSchema.parse(await readJson(request));
+    const { id } = byIdRequest.parse(await readJson(request));
     const db = getDb();
     const [invite] = await db.select({ id: invites.id }).from(invites).where(and(eq(invites.id, id), isNull(invites.acceptedAt))).limit(1);
     if (!invite) throw new ApiError(404, 'No unused invitation was found.');
