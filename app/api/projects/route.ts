@@ -2,21 +2,13 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, files, members, projectMembers, projects } from '@/db/schema';
+import { createProjectRequest } from '@/lib/contracts/projects';
 import { canEditProject, readableBy, shareRoleOf } from '@/lib/server/access';
 import { requireMember } from '@/lib/server/auth';
 import { assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { createDriveFolder, googleDriveConfigured } from '@/lib/server/google-drive';
 
 export const dynamic = 'force-dynamic';
-
-const createProjectSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  description: z.string().trim().max(500).default(''),
-  visibility: z.enum(['private', 'selected', 'team']).default('private'),
-  selectedMembers: z.array(z.uuid()).max(3).default([]),
-  members: z.array(z.object({ memberId: z.uuid(), role: z.enum(['reader', 'editor']) })).max(3).default([]),
-  storageProvider: z.enum(['r2', 'google_drive']).default('r2'),
-});
 
 export async function GET() {
   try {
@@ -48,7 +40,7 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const member = await requireMember();
-    const input = createProjectSchema.parse(await readJson(request));
+    const input = createProjectRequest.parse(await readJson(request));
     const db = getDb();
     const now = new Date();
     const id = crypto.randomUUID();

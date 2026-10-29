@@ -3,6 +3,7 @@ import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { appSettings, files, projects } from '@/db/schema';
+import { MAX_PRUNE_PATHS, pruneFilesRequest } from '@/lib/contracts/files';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
@@ -137,15 +138,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 // na cudzym dysku i można go zmienić. Chroni przed najczęstszą awarią narzędzi
 // synchronizujących: katalog przestaje być widoczny (odmontowany dysk, zmieniona
 // litera, brak uprawnień), agent uznaje, że skasowano wszystko, i czyści projekt.
-const MAX_PRUNE_PATHS = 200;
+// Liczbę ścieżek w jednym żądaniu ogranicza `MAX_PRUNE_PATHS` w kontrakcie.
+//
 // Poniżej tego progu nie ma czego chronić — skasowanie 3 z 4 files to normalna
 // praca, a nie awaria.
 const PRUNE_FLOOR = 10;
 const MAX_PRUNE_SHARE = 0.5;
-
-const pruneSchema = z.object({
-  paths: z.array(z.string().min(1).max(400)).min(1).max(MAX_PRUNE_PATHS),
-});
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -165,7 +163,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     // Domyslny limit readJson to 64 kB, a 200 sciezek po 400 znakow to ~82 kB —
     // bez tego zadanie na gornej granicy schematu odbijaloby sie od 413 zamiast
     // przejsc walidacje. Limity musza sie zgadzac, inaczej jeden z nich klamie.
-    const { paths } = pruneSchema.parse(await readJson(request, 128_000));
+    const { paths } = pruneFilesRequest.parse(await readJson(request, 128_000));
     const db = getDb();
     const unique = [...new Set(paths)];
     // Up to 200 paths, so the lookup goes in chunks below D1's limit of 100
