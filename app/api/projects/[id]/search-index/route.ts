@@ -1,6 +1,6 @@
 import { requireMember } from '@/lib/server/auth';
 import { assertSameOrigin, errorResponse, json } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
+import { requireProjectAccess } from '@/lib/server/access';
 import { indexPendingFiles } from '@/lib/server/search-index';
 
 export const dynamic = 'force-dynamic';

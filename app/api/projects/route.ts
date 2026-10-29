@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, files, members, projectMembers, projects } from '@/db/schema';
+import { canEditProject, readableBy, shareRoleOf } from '@/lib/server/access';
 import { requireMember } from '@/lib/server/auth';
 import { assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { createDriveFolder, googleDriveConfigured } from '@/lib/server/google-drive';
@@ -30,15 +31,14 @@ export async function GET() {
         visibility: projects.visibility,
         storageProvider: projects.storageProvider,
         updatedAt: projects.updatedAt,
-        memberRole: projectMembers.role,
+        memberRole: shareRoleOf(member.id),
         fileCount: sql<number>`(select count(*) from ${files} where ${files.projectId} = ${projects.id})`,
         conversationCount: sql<number>`(select count(*) from ${conversations} where ${conversations.projectId} = ${projects.id})`,
       })
       .from(projects)
-      .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.memberId, member.id)))
-      .where(or(eq(projects.ownerId, member.id), eq(projects.visibility, 'team'), eq(projectMembers.memberId, member.id)))
+      .where(readableBy(member.id))
       .orderBy(desc(projects.updatedAt));
-    return json({ projects: rows.map((row) => ({ ...row, canEdit: row.ownerId === member.id || row.memberRole === 'editor' })) });
+    return json({ projects: rows.map((row) => ({ ...row, canEdit: canEditProject(row.ownerId, member.id, row.memberRole) })) });
   } catch (error) {
     return errorResponse(error);
   }

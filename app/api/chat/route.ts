@@ -6,7 +6,7 @@ import { conversations, files, messages, usageEvents } from '@/db/schema';
 import { type ChatStreamEvent, type ContextFile, createSseParser, estimateTokens } from '@/lib/chat-stream';
 import { requireMember } from '@/lib/server/auth';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
+import { requireProjectAccess } from '@/lib/server/access';
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
 import { readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
 import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';

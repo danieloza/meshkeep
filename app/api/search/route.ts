@@ -1,11 +1,11 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
+import { projects } from '@/db/schema';
 import { buildMatchQuery, type ConversationHit, type FileHit, type SearchResults } from '@/lib/search';
+import { readableBy, requireProjectAccess } from '@/lib/server/access';
 import { requireMember } from '@/lib/server/auth';
 import { errorResponse, json } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
-import { readableBy } from '@/lib/server/search-index';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,14 +27,16 @@ export async function GET(request: Request) {
       if (!z.uuid().safeParse(projectId).success) return json({ error: 'Invalid project ID.' }, { status: 400 });
       await requireProjectAccess(member, projectId, 'read');
     }
-    const scope = projectId ? sql`p.id = ${projectId}` : readableBy(member);
+    // `projects` keeps its own name in the queries below, without an alias,
+    // because `readableBy` refers to it by that name.
+    const scope = projectId ? eq(projects.id, projectId) : readableBy(member.id);
     const db = getDb();
 
     // Files waiting for indexing cannot be found yet. Saying how many keeps an
     // empty result from reading as "this is not in any file".
     const [{ n: unindexedFiles }] = await db.all<{ n: number }>(sql`
       SELECT count(*) AS n FROM files f
-      JOIN projects p ON p.id = f.project_id
+      JOIN projects ON projects.id = f.project_id
       LEFT JOIN file_texts t ON t.file_id = f.id
       WHERE t.file_id IS NULL AND ${scope}`);
 
@@ -42,12 +44,12 @@ export async function GET(request: Request) {
     if (!match) return json({ conversations: [], files: [], unindexedFiles } satisfies SearchResults);
 
     const messageRows = await db.all<ConversationHit>(sql`
-      SELECT c.id AS conversationId, c.project_id AS projectId, p.name AS projectName, c.title AS title, m.role AS role,
+      SELECT c.id AS conversationId, c.project_id AS projectId, projects.name AS projectName, c.title AS title, m.role AS role,
              snippet(messages_fts, 0, char(2), char(3), '…', 14) AS snippet
       FROM messages_fts
       JOIN messages m ON m.rowid = messages_fts.rowid
       JOIN conversations c ON c.id = m.conversation_id
-      JOIN projects p ON p.id = c.project_id
+      JOIN projects ON projects.id = c.project_id
       WHERE messages_fts MATCH ${match} AND ${scope}
       ORDER BY bm25(messages_fts)
       LIMIT ${MAX_MESSAGE_ROWS}`);
@@ -57,12 +59,12 @@ export async function GET(request: Request) {
     // A match in the path counts four times a match in the text: a file named
     // after the search term is usually the one being looked for.
     const files = await db.all<FileHit>(sql`
-      SELECT f.id AS fileId, f.project_id AS projectId, p.name AS projectName, f.relative_path AS path,
+      SELECT f.id AS fileId, f.project_id AS projectId, projects.name AS projectName, f.relative_path AS path,
              snippet(file_texts_fts, -1, char(2), char(3), '…', 14) AS snippet
       FROM file_texts_fts
       JOIN file_texts t ON t.rowid = file_texts_fts.rowid
       JOIN files f ON f.id = t.file_id
-      JOIN projects p ON p.id = f.project_id
+      JOIN projects ON projects.id = f.project_id
       WHERE file_texts_fts MATCH ${match} AND ${scope}
       ORDER BY bm25(file_texts_fts, 4.0, 1.0)
       LIMIT ${MAX_RESULTS}`);

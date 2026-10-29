@@ -6,7 +6,7 @@ import { appSettings, files, projects } from '@/db/schema';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
+import { requireProjectAccess } from '@/lib/server/access';
 import { requireSyncToken } from '@/lib/server/session';
 import { uploadDriveFile } from '@/lib/server/google-drive';
 import { inChunks } from '@/lib/server/d1';
