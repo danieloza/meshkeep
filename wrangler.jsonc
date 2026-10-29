@@ -1,0 +1,31 @@
+// Deployment on your own Cloudflare account, used by the "Deploy to Cloudflare"
+// button and by `npm run deploy`. Resource IDs are left out on purpose:
+// Cloudflare creates the D1 database and the R2 bucket on first deploy and
+// links them by binding name.
+//
+// OpenAI Sites builds do not use these bindings. vite.config.ts replaces them
+// with the placeholders that Sites fills in, unless the build runs on Workers
+// Builds or with MESHKEEP_TARGET=cloudflare.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meshkeep",
+  "main": "vinext/server/fetch-handler",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "meshkeep",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "meshkeep-files"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,26 +1,37 @@
-# Copy this file to .dev.vars. Never share or commit .dev.vars.
-APP_ORIGIN=http://127.0.0.1:3080
+# Worker secrets. Copy this file to .dev.vars for local development, and never
+# share or commit .dev.vars. The "Deploy to Cloudflare" button asks for every
+# key that is not commented out below.
+#
+# The placeholders are deliberately shorter than 32 characters. A deployment
+# that keeps them refuses owner setup and saved provider keys until real values
+# are set, instead of running with a value anyone can read in this repository.
+# Generate each value with `openssl rand -hex 32`.
 
-# `standalone` (default) for any host other than OpenAI Sites; `sites` only
-# when Sites sets the identity headers. See "Authentication modes" in README.
-AUTH_MODE=standalone
-# Standalone mode: at least 32 random characters. Opens /setup for the owner.
-OWNER_SETUP_TOKEN=replace-me-with-random-secret-of-32-plus-chars
+# Creates the owner account at /setup, and restores owner access later.
+OWNER_SETUP_TOKEN=change-me
+# Encrypts the model-provider API keys that members save.
+PROVIDER_KEY_ENCRYPTION_KEY=change-me
+
+# --- Optional -----------------------------------------------------------------
+
+# Canonical origin, used for metadata and social cards.
+# APP_ORIGIN=http://127.0.0.1:3080
+
+# `standalone` (default) for any host other than OpenAI Sites; `sites` only when
+# Sites sets the identity headers. See "Authentication modes" in README.
+# AUTH_MODE=sites
 
 # Sites mode only: first-owner bootstrap through the hosting identity.
-OWNER_ACCOUNT_USER_ID=your_chatgpt_account_user_id
-OWNER_EMAIL=owner@example.com
-ALLOW_FIRST_USER_BOOTSTRAP=false
+# OWNER_ACCOUNT_USER_ID=your_chatgpt_account_user_id
+# OWNER_EMAIL=owner@example.com
+# ALLOW_FIRST_USER_BOOTSTRAP=false
 
-# Required only when users save their own provider credentials. Use a unique,
-# randomly generated value with at least 32 characters.
-PROVIDER_KEY_ENCRYPTION_KEY=replace-me-with-random-secret
+# Team provider key used when nobody has configured a provider. Leave unset for
+# bring-your-own-provider mode.
+# TOKENROUTER_API_KEY=
 
-# Optional legacy team provider. Leave blank for bring-your-own-provider mode.
-TOKENROUTER_API_KEY=
-
-# Optional shared Google Drive storage (OAuth with the drive.file scope).
-GOOGLE_DRIVE_CLIENT_ID=
-GOOGLE_DRIVE_CLIENT_SECRET=
-GOOGLE_DRIVE_REFRESH_TOKEN=
-GOOGLE_DRIVE_ROOT_FOLDER_ID=
+# Shared Google Drive storage (OAuth with the drive.file scope).
+# GOOGLE_DRIVE_CLIENT_ID=
+# GOOGLE_DRIVE_CLIENT_SECRET=
+# GOOGLE_DRIVE_REFRESH_TOKEN=
+# GOOGLE_DRIVE_ROOT_FOLDER_ID=

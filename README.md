@@ -6,9 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2f6f64.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-339933?logo=nodedotjs&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
-[![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-6b7280)](#local-development)
+[![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-6b7280)](#deploy-to-cloudflare)
 
 MeshKeep is a private, self-hostable AI workspace for teams of up to four people. Projects are private by default and can be shared with selected teammates or the entire team.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danieloza/meshkeep)
 
 The repository contains source code and placeholders only. It does not include a hosted model key, user conversations, uploaded files, email addresses, sessions, or production database exports.
 
@@ -87,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File scripts\ensure-local-db.ps1
 npm run dev -- --host 127.0.0.1 --port 3080
 ```
 
-Open `http://127.0.0.1:3080/`. Development mode creates a local placeholder owner. Production uses the hosting platform identity headers and should authorize the first owner with `OWNER_ACCOUNT_USER_ID`.
+Open `http://127.0.0.1:3080/`. Development mode creates a local placeholder owner. A deployment signs the owner in at `/setup` with `OWNER_SETUP_TOKEN`, or with ChatGPT behind OpenAI Sites; see [Authentication modes](#authentication-modes).
 
 Generate a strong provider-encryption secret before saving provider credentials:
 
@@ -98,6 +100,42 @@ $bytes = New-Object byte[] 32
 ```
 
 Copy the generated value into `.dev.vars` as `PROVIDER_KEY_ENCRYPTION_KEY`. Never commit `.dev.vars`.
+
+## Deploy to Cloudflare
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danieloza/meshkeep)
+
+The button copies this repository to your GitHub or GitLab account and connects it to Workers Builds, so later pushes deploy automatically. During setup Cloudflare:
+
+- **Creates storage:** the D1 database (`DB`) and the R2 bucket (`FILES`) described in `wrangler.jsonc`.
+- **Asks for two secrets:** `OWNER_SETUP_TOKEN` and `PROVIDER_KEY_ENCRYPTION_KEY`. Generate each with `openssl rand -hex 32`. The `change-me` placeholders in `.dev.vars.example` are deliberately too short, so owner setup and saved provider keys stay disabled until real values are set.
+- **Builds and deploys:** `npm run build`, then `npm run deploy`, which applies the D1 migrations in `drizzle/` before the new version goes live.
+
+After the first deploy:
+
+1. Open `/setup` on your Worker's address and enter the setup key. This creates the owner account.
+2. Connect a model provider in Settings.
+3. Invite up to three people from Team.
+
+The deployment uses standalone authentication by default.
+
+To deploy from your own machine instead:
+
+```bash
+npm ci
+npx wrangler login
+npm run build:cloudflare
+npx wrangler deploy
+npm run db:migrate
+npx wrangler secret put OWNER_SETUP_TOKEN
+npx wrangler secret put PROVIDER_KEY_ENCRYPTION_KEY
+```
+
+- **First run:** the first `wrangler deploy` creates the D1 database and the R2 bucket, and `db:migrate` then creates the tables.
+- **Later releases:** `npm run build:cloudflare && npm run deploy`.
+- **Build targets:** `build:cloudflare` and Workers Builds use the bindings in `wrangler.jsonc`. A plain `npm run build` keeps the OpenAI Sites placeholders, as before.
+
+The build and a `wrangler deploy --dry-run` are checked in this repository. A full deployment on a real Cloudflare account has not been verified yet, so please report any step that fails.
 
 ## Configuration
 
@@ -118,7 +156,7 @@ Copy the generated value into `.dev.vars` as `PROVIDER_KEY_ENCRYPTION_KEY`. Neve
 
 The Drive adapter does not include an in-app OAuth setup flow. Treat it as experimental until your deployment supplies and manages OAuth credentials independently.
 
-Before deploying, replace the placeholder `project_id` in `.openai/hosting.json` and inject production values through the hosting secret store.
+To deploy on OpenAI Sites instead of your own Cloudflare account, replace the placeholder `project_id` in `.openai/hosting.json`, set `AUTH_MODE=sites`, and inject production values through the hosting secret store.
 
 ### Authentication modes
 

@@ -231,9 +231,11 @@ function podnieProces() {
 
 // `wrangler dev` na Windowsie potrafi zerwac polaczenie miedzy swoim proxy a
 // procesem workerd. Objawia sie to odpowiedzia 500, ktorej tresc pochodzi z
-// `miniflare/.../entry.worker.js`, a nie z naszego kodu - handler nawet sie nie
-// wykonuje. Zdiagnozowane osobno: to samo zadanie powtorzone recznie zwraca
-// poprawny status.
+// `miniflare/.../entry.worker.js`, a nie z naszego kodu. Zdiagnozowane osobno:
+// to samo zadanie powtorzone recznie zwraca poprawny status. Handler mogl sie
+// jednak wykonac, a zgubic dopiero odpowiedz - kasowanie plikow z zestawu
+// autoryzacji trafia na to regularnie - wiec zadania zmieniajace stan musza
+// sprawdzac `ponowienia`.
 //
 // Ponawiamy WYLACZNIE ta sygnature. Ponawianie kazdego 500 zamaskowaloby
 // prawdziwy blad serwera, czyli dokladnie to, co te testy maja lapac.

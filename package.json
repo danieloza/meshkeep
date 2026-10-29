@@ -7,9 +7,28 @@
   "engines": {
     "node": ">=22.13.0"
   },
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "D1 database for accounts, projects, conversations and the search index."
+      },
+      "FILES": {
+        "description": "R2 bucket for uploaded project files."
+      },
+      "OWNER_SETUP_TOKEN": {
+        "description": "**At least 32 random characters**, for example from `openssl rand -hex 32`. After deploying, open `/setup` and enter it to create the owner account. Keep it: it also restores owner access later."
+      },
+      "PROVIDER_KEY_ENCRYPTION_KEY": {
+        "description": "Encrypts the model-provider API keys that members save. **At least 32 random characters**, for example from `openssl rand -hex 32`. Changing it later makes saved keys unreadable."
+      }
+    }
+  },
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run db:migrate && wrangler deploy",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint app lib db proxy.ts",
     "test": "vitest run",
