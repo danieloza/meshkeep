@@ -35,6 +35,8 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 - Streamed answers rendered as Markdown, with copyable code blocks
 - Each answer lists the files the model received, and whether each arrived in full, in part, or not at all
 - Project instructions sent ahead of every message in the project
+- Full-text search across conversations and file contents, limited to projects the member can open
+- File suggestions for the question being typed, added to the context only when picked
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
 - JSON context import from other assistants
@@ -60,6 +62,15 @@ Uploaded objects use random R2 keys. Invitation, session, and sync-agent credent
 MeshKeep accepts services that expose OpenAI-compatible `/models` and `/chat/completions` endpoints. A personal provider overrides the optional team default. Without either one, the optional `TOKENROUTER_API_KEY` environment fallback can be used by a self-hosted deployment.
 
 Provider URLs must use HTTPS. Plain HTTP is accepted only for loopback addresses so a locally running Ollama or LM Studio instance can be used. Redirects, credential-bearing URLs, IP literals, and private-network hostnames are rejected to reduce SSRF and credential-forwarding risk.
+
+## Search
+
+The search box covers project names, conversation messages and the text of project files. It uses SQLite FTS5 in D1.
+
+- **Access:** results come only from projects the signed-in member can open. The access rule is part of the SQL query, so other projects' content never leaves the database.
+- **Indexing:** plain text and code are indexed as they are uploaded. PDF and Office documents are extracted in small rounds when a project is opened or files are imported. Files uploaded before search existed become searchable the first time their project is opened.
+- **Polish text:** words match without diacritics, including `ł` typed as `l`.
+- **File suggestions:** while a question is being typed, the chat suggests up to five project files that match it. A suggestion only offers the file; nothing joins the model context until it is picked.
 
 ## Local development
 
@@ -156,7 +167,7 @@ npm run smoke -- https://your-meshkeep.example
 
 The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` only add tables and columns; apply them in order before deploying a release that includes them.
 
-Owners can export D1 data as JSON from the Activity log. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, and R2 object bytes. Convert a reviewed export into restoration SQL with:
+Owners can export D1 data as JSON from the Activity log. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, R2 object bytes, and the search index. The index is derived data: restored messages are indexed again as they are inserted, and files are indexed again when their project is opened. Convert a reviewed export into restoration SQL with:
 
 ```powershell
 node scripts/backup-to-sql.mjs backup.json restore.sql

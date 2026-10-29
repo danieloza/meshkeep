@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { env, waitUntil } from 'cloudflare:workers';
+import { waitUntil } from 'cloudflare:workers';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, files, messages, usageEvents } from '@/db/schema';
@@ -9,61 +9,16 @@ import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib
 import { requireProjectAccess } from '@/lib/server/projects';
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
 import { readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
-import { ROZSZERZENIA_BEZ_WSPARCIA, ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu, type WynikEkstrakcji } from '@/lib/document-text';
-import { wydobadzTekstPdf } from '@/lib/server/pdf-text';
+import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';
 
 const messageSchema = z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string().trim().min(1).max(32_000) });
 const chatSchema = z.object({ projectId: z.uuid(), conversationId: z.uuid().optional(), model: z.string().trim().min(1).max(200), messages: z.array(messageSchema).min(1).max(30), attachmentIds: z.array(z.uuid()).max(8).default([]), temperature: z.number().min(0).max(1.5).default(0.4), maxTokens: z.number().int().min(64).max(4096).default(2048) });
 
-// `rtf` bylo tu wczesniej, wiec model dostawal `\\rtf1\\ansi\\deff0{\\fonttbl...`
-// zamiast tresci. Teraz idzie przez ekstrakcje razem z pozostalymi dokumentami.
-const TEXT_CONTEXT_EXTENSIONS = new Set([
-  'txt', 'md', 'json', 'csv', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'py',
-  'go', 'rs', 'java', 'kt', 'swift', 'css', 'scss', 'html', 'xml', 'yaml',
-  'yml', 'toml', 'sql', 'sh', 'ps1', 'bat',
-]);
-const MAX_CONTEXT_FILE_BYTES = 300_000;
-// Dokumenty sa skompresowane, wiec limit bajtow moze byc znacznie wyzszy niz
-// przy zwyklym tekscie: kilkumegabajtowy DOCX rozpakowuje sie do kilkudziesieciu
-// tysiecy znakow. O rozmiarze kontekstu i tak decyduje MAX_ATTACHMENT_CONTEXT_CHARS.
-const MAX_DOCUMENT_BYTES = 8_000_000;
 const MAX_ATTACHMENT_CONTEXT_CHARS = 80_000;
 const MAX_ANSWER_CHARS = 200_000;
 // A provider that stops sending mid-answer would otherwise hold the request
 // open until the platform kills it, and the answer would never be saved.
 const IDLE_TIMEOUT_MS = 60_000;
-
-type PlikProjektu = { objectKey: string; sizeBytes: number };
-
-// Zwraca tresc albo powod, dla ktorego jej nie ma. Powod trafia do kontekstu
-// zamiast tresci, zeby model wiedzial, ze plik istnieje, ale jest nieczytelny -
-// bez tego zgaduje, czemu zalacznik jest pusty.
-async function trescZalacznika(plik: PlikProjektu, rozszerzenie: string): Promise<WynikEkstrakcji> {
-  const zwykly = TEXT_CONTEXT_EXTENSIONS.has(rozszerzenie);
-  const dokument = ROZSZERZENIA_DOKUMENTOW.has(rozszerzenie) || rozszerzenie === 'pdf';
-
-  if (ROZSZERZENIA_BEZ_WSPARCIA.has(rozszerzenie)) {
-    return { tekst: '', powod: `Legacy binary format (.${rozszerzenie}) cannot be read. Save it as .docx, .xlsx or .pptx.` };
-  }
-  if (!zwykly && !dokument) {
-    return { tekst: '', powod: 'This file type is not converted to text. The file remains stored in the project.' };
-  }
-
-  const limit = zwykly ? MAX_CONTEXT_FILE_BYTES : MAX_DOCUMENT_BYTES;
-  if (plik.sizeBytes > limit) {
-    return { tekst: '', powod: `The file exceeds the ${Math.round(limit / 1000)} kB limit for this type.` };
-  }
-
-  const obiekt = await env.FILES.get(plik.objectKey);
-  if (!obiekt) return { tekst: '', powod: 'The file is no longer in storage.' };
-
-  if (zwykly) return { tekst: (await obiekt.text()).replaceAll('\0', '') };
-
-  const bajty = new Uint8Array(await obiekt.arrayBuffer());
-  return rozszerzenie === 'pdf'
-    ? wydobadzTekstPdf(bajty)
-    : wydobadzTekstDokumentu(rozszerzenie, bajty);
-}
 
 // Returns the context text and, per file, what actually reached the model.
 // Before this, files past the size budget were dropped without a trace, and
@@ -92,8 +47,7 @@ async function buildAttachmentContext(projectId: string, attachmentIds: string[]
       manifest.push({ id: file.id, path: file.relativePath, status: 'skipped', note });
       continue;
     }
-    const extension = file.name.split('.').pop()?.toLocaleLowerCase('en-US') ?? '';
-    const { tekst, powod } = await trescZalacznika(file, extension);
+    const { tekst, powod } = await trescPliku(file, rozszerzeniePliku(file.name));
 
     if (!tekst) {
       const note = powod ?? 'No readable content found.';

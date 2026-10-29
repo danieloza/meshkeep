@@ -9,6 +9,8 @@ import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib
 import { requireProjectAccess } from '@/lib/server/projects';
 import { requireSyncToken } from '@/lib/server/session';
 import { uploadDriveFile } from '@/lib/server/google-drive';
+import { inChunks } from '@/lib/server/d1';
+import { insertIndexRows, uploadIndexRow } from '@/lib/server/search-index';
 import {
   contentMatchesExtension,
   isAllowedUpload,
@@ -75,6 +77,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (total > MAX_REQUEST_BYTES) throw new ApiError(413, 'An import can be up to 50 MB.');
 
     const rows = [];
+    const indexRows = [];
     for (let index = 0; index < uploaded.length; index += 1) {
       const file = uploaded[index];
       const relativePath = checkedRelativePath(paths[index] as string);
@@ -89,28 +92,33 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         await uploadDriveFile({ name: relativePath, parentId: access.project.driveFolderId, bytes, mimeType: file.type || 'application/octet-stream' });
       }
       storedKeys.push(objectKey);
-      rows.push({ id: crypto.randomUUID(), projectId: id, uploadedBy: member.id, objectKey, relativePath, name: relativePath.split('/').at(-1) ?? file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size, sha256: hash, createdAt: new Date() });
+      const row = { id: crypto.randomUUID(), projectId: id, uploadedBy: member.id, objectKey, relativePath, name: relativePath.split('/').at(-1) ?? file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size, sha256: hash, createdAt: new Date() };
+      rows.push(row);
+      const indexRow = await uploadIndexRow(row, byteView);
+      if (indexRow) indexRows.push(indexRow);
     }
     const db = getDb();
     // Zastępowanie pliku o tej samej ścieżce dotyczyło wcześniej tylko agenta,
     // więc ponowny import tego samego folderu z przeglądarki mnożył wiersze.
-    const existing = await db
-      .select({ id: files.id, objectKey: files.objectKey })
-      .from(files)
-      .where(and(eq(files.projectId, id), inArray(files.relativePath, rows.map((row) => row.relativePath))));
-    if (existing.length) {
-      await db.batch([
-        db.delete(files).where(inArray(files.id, existing.map((row) => row.id))),
-        db.insert(files).values(rows),
-        db.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, id)),
-      ]);
-    } else {
-      await db.batch([
-        db.insert(files).values(rows),
-        db.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, id)),
-      ]);
+    const existing = [];
+    for (const paths of inChunks(rows.map((row) => row.relativePath))) {
+      existing.push(...await db
+        .select({ id: files.id, objectKey: files.objectKey })
+        .from(files)
+        .where(and(eq(files.projectId, id), inArray(files.relativePath, paths))));
     }
+    // One INSERT per file: D1 allows 100 parameters per statement, and a file
+    // row has ten columns, so a single INSERT for all of them failed at the
+    // eleventh file. The batch keeps the whole import atomic.
+    await db.batch([
+      db.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, id)),
+      ...inChunks(existing.map((row) => row.id)).map((ids) => db.delete(files).where(inArray(files.id, ids))),
+      ...rows.map((row) => db.insert(files).values(row)),
+    ]);
     if (existing.length) await Promise.allSettled(existing.map((row) => env.FILES.delete(row.objectKey)));
+    // The files are saved either way. Text that fails to index is picked up by
+    // the next indexing round, so it is not worth failing the import over.
+    await insertIndexRows(indexRows).catch(() => undefined);
     return json({ files: rows.map(({ objectKey: _objectKey, uploadedBy: _uploadedBy, ...row }) => row) }, { status: 201 });
   } catch (error) {
     await Promise.allSettled(storedKeys.map((key) => env.FILES.delete(key)));
@@ -160,10 +168,15 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { paths } = pruneSchema.parse(await readJson(request, 128_000));
     const db = getDb();
     const unique = [...new Set(paths)];
-    const matched = await db
-      .select({ id: files.id, objectKey: files.objectKey, relativePath: files.relativePath })
-      .from(files)
-      .where(and(eq(files.projectId, id), inArray(files.relativePath, unique)));
+    // Up to 200 paths, so the lookup goes in chunks below D1's limit of 100
+    // parameters per statement.
+    const matched = [];
+    for (const chunk of inChunks(unique)) {
+      matched.push(...await db
+        .select({ id: files.id, objectKey: files.objectKey, relativePath: files.relativePath })
+        .from(files)
+        .where(and(eq(files.projectId, id), inArray(files.relativePath, chunk))));
+    }
     if (!matched.length) return json({ deleted: 0, notFound: unique.length });
 
     const [{ value: total }] = await db.select({ value: count() }).from(files).where(eq(files.projectId, id));
@@ -175,7 +188,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     }
 
     // Baza przed magazynem — jak przy kasowaniu pojedynczego pliku.
-    await db.delete(files).where(inArray(files.id, matched.map((row) => row.id)));
+    const [first, ...rest] = inChunks(matched.map((row) => row.id)).map((ids) => db.delete(files).where(inArray(files.id, ids)));
+    await db.batch([first, ...rest]);
     await Promise.allSettled(matched.map((row) => env.FILES.delete(row.objectKey)));
     await db.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, id));
 
