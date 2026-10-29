@@ -86,6 +86,49 @@ describe('widocznosc projektow', () => {
     // 404, a nie 403: 403 potwierdzaloby istnienie projektu.
     expect(odp.status).toBe(404);
   });
+
+  // Jedna regula, trzy drogi do niej: lista projektow, pojedynczy projekt i
+  // lista rozmow. Tablica mowi, co kto MA moc, a petla sprawdza, ze kazda droga
+  // mowi to samo. Wyszukiwanie ma wlasne testy w `search.test.ts`.
+  it('lista projektow, pojedynczy projekt i lista rozmow stosuja te sama regule', async () => {
+    type Prawo = 'edytuje' | 'czyta' | null;
+    const projekty = [ID.projektWspolny, ID.projektPrywatnyWlasciciela, ID.projektPrywatnyObcego, ID.projektZespolowy];
+    const PRAWA: Array<[string, string, Prawo[]]> = [
+      //                              wspolny    prywatny wl.  prywatny obcego  zespolowy
+      ['wlasciciel', TOKENY.wlasciciel, ['edytuje', 'edytuje', null, 'czyta']],
+      ['edytor', TOKENY.edytor, ['edytuje', null, null, 'czyta']],
+      ['czytelnik', TOKENY.czytelnik, ['czyta', null, null, 'czyta']],
+      ['obcy', TOKENY.obcy, [null, null, 'edytuje', 'edytuje']],
+    ];
+    // Prywatny projekt wlasciciela nie ma w zasiewie zadnej rozmowy, wiec lista
+    // rozmow nic o nim nie mowi.
+    const zRozmowami = new Set([ID.projektWspolny, ID.projektPrywatnyObcego, ID.projektZespolowy]);
+
+    for (const [kto, token, prawa] of PRAWA) {
+      const lista = await zapytaj('/api/projects', { headers: jako(token) });
+      expect(lista.status).toBe(200);
+      const naLiscie = new Map((lista.dane.projects as Array<{ id: string; canEdit: boolean }>).map((p) => [p.id, p.canEdit]));
+      const rozmowy = await zapytaj('/api/conversations', { headers: jako(token) });
+      expect(rozmowy.status).toBe(200);
+      const projektyRozmow = new Set((rozmowy.dane.conversations as Array<{ projectId: string }>).map((r) => r.projectId));
+
+      for (const [i, projekt] of projekty.entries()) {
+        const oczekiwane = prawa[i];
+        const opis = `${kto}, projekt nr ${i + 1}`;
+
+        const zListy: Prawo = naLiscie.has(projekt) ? (naLiscie.get(projekt) ? 'edytuje' : 'czyta') : null;
+        expect(zListy, `${opis}: lista projektow`).toBe(oczekiwane);
+
+        // Instrukcje przechodza przez `requireProjectAccess`, oddaja `canEdit`
+        // i niczego nie zmieniaja, wiec sprawdzaja odczyt i edycje naraz.
+        const pojedynczy = await zapytaj(`/api/projects/${projekt}/instructions`, { headers: jako(token) });
+        const zTrasy = pojedynczy.status === 200 ? (pojedynczy.dane.canEdit ? 'edytuje' : 'czyta') : pojedynczy.status;
+        expect(zTrasy, `${opis}: pojedynczy projekt`).toBe(oczekiwane ?? 404);
+
+        if (zRozmowami.has(projekt)) expect(projektyRozmow.has(projekt), `${opis}: lista rozmow`).toBe(oczekiwane !== null);
+      }
+    }
+  });
 });
 
 describe('pliki', () => {

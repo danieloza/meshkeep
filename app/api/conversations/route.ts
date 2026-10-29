@@ -1,6 +1,7 @@
-import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { conversations, messages, projectMembers, projects } from '@/db/schema';
+import { conversations, messages, projects } from '@/db/schema';
+import { readableBy } from '@/lib/server/access';
 import { requireMember } from '@/lib/server/auth';
 import { errorResponse, json } from '@/lib/server/http';
 
@@ -9,9 +10,9 @@ export const dynamic = 'force-dynamic';
 const MAX_CONVERSATIONS = 200;
 
 // Conversations ze wszystkich projektów, do których członek ma dostęp. Warunek
-// widoczności jest ten sam co w `GET /api/projects`: własny projekt, projekt
-// zespołowy albo jawne udostępnienie. Filtrujemy w SQL, a nie po pobraniu,
-// żeby nie było ścieżki, którą cudza rozmowa wychodzi z bazy.
+// widoczności to `readableBy`, ten sam co w `GET /api/projects`. Filtrujemy
+// w SQL, a nie po pobraniu, żeby nie było ścieżki, którą cudza rozmowa
+// wychodzi z bazy.
 export async function GET() {
   try {
     const member = await requireMember();
@@ -27,8 +28,7 @@ export async function GET() {
       })
       .from(conversations)
       .innerJoin(projects, eq(projects.id, conversations.projectId))
-      .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.memberId, member.id)))
-      .where(or(eq(projects.ownerId, member.id), eq(projects.visibility, 'team'), eq(projectMembers.memberId, member.id)))
+      .where(readableBy(member.id))
       .orderBy(desc(conversations.updatedAt))
       .limit(MAX_CONVERSATIONS);
     return json({ conversations: rows });

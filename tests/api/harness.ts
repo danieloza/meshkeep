@@ -55,6 +55,9 @@ export const ID = {
   rozmowaKasowanaPrzezWlasciciela: '40000000-0000-4000-8000-000000000005',
   projektDoPrzyciecia: '20000000-0000-4000-8000-000000000004',
   plikPdf: '30000000-0000-4000-8000-000000000009',
+  // Projekt calego zespolu, nalezacy do obcego: kazdy go czyta, edytuje tylko on.
+  projektZespolowy: '20000000-0000-4000-8000-000000000005',
+  rozmowaZespolowa: '40000000-0000-4000-8000-000000000006',
 };
 
 const sha = (v: string) => createHash('sha256').update(v, 'utf8').digest('hex');
@@ -107,7 +110,7 @@ export function zbudujJesliTrzeba() {
 
 // Scenariusz pokrywa role, ktore maja rozne prawa: wlasciciel aplikacji, edytor
 // i czytelnik w tym samym projekcie, ktos zupelnie obcy z wlasnym prywatnym
-// projektem oraz konto zawieszone.
+// projektem i projektem calego zespolu oraz konto zawieszone.
 function seedSql(): string {
   const t = Date.now();
   const wygasa = t + 30 * 24 * 3600 * 1000;
@@ -137,12 +140,14 @@ function seedSql(): string {
     projekt(ID.projektWspolny, ID.wlasciciel, 'Projekt wspolny', 'selected'),
     projekt(ID.projektPrywatnyWlasciciela, ID.wlasciciel, 'Prywatny wlasciciela', 'private'),
     projekt(ID.projektPrywatnyObcego, ID.obcy, 'Prywatny obcego', 'private'),
+    projekt(ID.projektZespolowy, ID.obcy, 'Projekt zespolu', 'team'),
     `INSERT INTO project_members (project_id,member_id,role,created_at) VALUES ('${ID.projektWspolny}','${ID.edytor}','editor',${t}),('${ID.projektWspolny}','${ID.czytelnik}','reader',${t});`,
     plik(ID.plikWspolny, ID.projektWspolny, ID.wlasciciel, 'wspolne/notatka.txt'),
     plik(ID.plikObcego, ID.projektPrywatnyObcego, ID.obcy, 'obce/sekret.txt'),
     rozmowa(ID.rozmowaWlasciciela, ID.projektWspolny, ID.wlasciciel, 'Rozmowa wlasciciela'),
     rozmowa(ID.rozmowaEdytora, ID.projektWspolny, ID.edytor, 'Rozmowa edytora'),
     rozmowa(ID.rozmowaObcego, ID.projektPrywatnyObcego, ID.obcy, 'Rozmowa obcego'),
+    rozmowa(ID.rozmowaZespolowa, ID.projektZespolowy, ID.obcy, 'Rozmowa zespolu'),
     plik(ID.plikKasowanyPrzezEdytora, ID.projektWspolny, ID.wlasciciel, 'wspolne/do-skasowania.txt'),
     plik(ID.plikPdf, ID.projektWspolny, ID.wlasciciel, 'wspolne/umowa.pdf'),
     rozmowa(ID.rozmowaKasowanaPrzezAutora, ID.projektWspolny, ID.edytor, 'Rozmowa edytora do skasowania'),

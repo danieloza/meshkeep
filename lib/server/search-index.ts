@@ -1,9 +1,8 @@
 import 'server-only';
 
-import { and, count, eq, isNull, sql } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { files, fileTexts } from '@/db/schema';
-import type { CurrentMember } from './auth';
 import { jestDokumentem, jestZwyklymTekstem, rozszerzeniePliku, trescPliku } from './file-text';
 
 // Enough for the parts of a file people search for, small enough that one row
@@ -73,11 +72,4 @@ export async function indexPendingFiles(projectId: string) {
     .leftJoin(fileTexts, eq(fileTexts.fileId, files.id))
     .where(pendingFiles(projectId));
   return { indexed: pending.length, remaining };
-}
-
-// The same rule as `requireProjectAccess` in read mode, as SQL over a project
-// alias `p`, so search can filter in the query instead of loading every
-// project a member can see.
-export function readableBy(member: CurrentMember) {
-  return sql`(p.owner_id = ${member.id} OR p.visibility = 'team' OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.member_id = ${member.id}))`;
 }

@@ -5,7 +5,7 @@ import { files } from '@/db/schema';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { assertSameOrigin, errorResponse, json } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
+import { requireProjectAccess } from '@/lib/server/access';
 
 export const dynamic = 'force-dynamic';
 

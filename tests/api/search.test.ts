@@ -21,6 +21,8 @@ const DODATKOWE_WIADOMOSCI = [
   wiadomosc('w-1', ID.rozmowaWlasciciela, ID.wlasciciel, 'Plan migracji bazy na wiosnę'),
   wiadomosc('w-2', ID.rozmowaObcego, ID.obcy, 'Tajny plan migracji obcego'),
   wiadomosc('w-3', ID.rozmowaKasowanaPrzezAutora, ID.edytor, 'Notatka o kolibrach do usunięcia'),
+  wiadomosc('w-4', ID.rozmowaZespolowa, ID.obcy, 'Harmonogram dyżurów całego zespołu'),
+  wiadomosc('w-5', ID.rozmowaObcego, ID.obcy, 'Prywatny harmonogram obcego'),
 ].join('\n');
 
 function wyslij(token: string, projekt: string, pliki: Array<{ sciezka: string; tresc: string }>) {
@@ -128,6 +130,17 @@ describe('wyszukiwanie w rozmowach', () => {
 
     const obcy = await szukaj(TOKENY.obcy, 'migracji');
     expect(obcy.conversations.map((r) => r.conversationId)).toContain(ID.rozmowaObcego);
+  });
+
+  it('rozmowe z projektu calego zespolu znajduje kazdy, a prywatna autora nadal nie', async () => {
+    // Ten sam autor i to samo slowo w obu rozmowach, wiec roznica w wyniku
+    // bierze sie tylko z widocznosci projektu.
+    const czytelnik = (await szukaj(TOKENY.czytelnik, 'harmonogram')).conversations.map((r) => r.conversationId);
+    expect(czytelnik).toContain(ID.rozmowaZespolowa);
+    expect(czytelnik).not.toContain(ID.rozmowaObcego);
+
+    const autor = (await szukaj(TOKENY.obcy, 'harmonogram')).conversations.map((r) => r.conversationId);
+    expect(autor).toEqual(expect.arrayContaining([ID.rozmowaZespolowa, ID.rozmowaObcego]));
   });
 
   it('skasowana rozmowa znika z wynikow razem z wiadomosciami', async () => {

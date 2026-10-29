@@ -3,7 +3,7 @@ import { getDb } from '@/db';
 import { buildSuggestQuery } from '@/lib/search';
 import { requireMember } from '@/lib/server/auth';
 import { errorResponse, json } from '@/lib/server/http';
-import { requireProjectAccess } from '@/lib/server/projects';
+import { requireProjectAccess } from '@/lib/server/access';
 
 export const dynamic = 'force-dynamic';
 
