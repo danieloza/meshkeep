@@ -3,7 +3,7 @@ import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { members, sessions } from '@/db/schema';
-import { recordAudit } from '@/lib/server/audit';
+import { auditInsert } from '@/lib/server/audit';
 import { newOwnerMember, ownerInserts } from '@/lib/server/auth';
 import { getAuthMode } from '@/lib/server/auth-mode';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
@@ -50,8 +50,12 @@ export async function POST(request: Request) {
     if (existingOwner) {
       if (existingOwner.status !== 'active') throw new ApiError(403, 'This account has been suspended.');
       const session = await newSession(existingOwner.id);
-      await db.insert(sessions).values(session.row);
-      await recordAudit({ actorId: existingOwner.id, actorLabel: existingOwner.displayName, action: 'owner.recovered', targetType: 'member', targetId: existingOwner.id, targetLabel: existingOwner.displayName });
+      // The session and its audit event commit together: owner access that the
+      // log does not show is exactly what an audit log exists to prevent.
+      await db.batch([
+        db.insert(sessions).values(session.row),
+        auditInsert(db, { actorId: existingOwner.id, actorLabel: existingOwner.displayName, action: 'owner.recovered', targetType: 'member', targetId: existingOwner.id, targetLabel: existingOwner.displayName }),
+      ]);
       return json(
         { authenticated: true, created: false, member: { displayName: existingOwner.displayName } },
         { headers: { 'Set-Cookie': session.cookie } },
@@ -66,11 +70,14 @@ export async function POST(request: Request) {
     const owner = newOwnerMember(SETUP_OWNER_PROVIDER_ID, input.displayName ?? 'Owner');
     const session = await newSession(owner.id);
     try {
-      await db.batch([...ownerInserts(db, owner), db.insert(sessions).values(session.row)]);
+      await db.batch([
+        ...ownerInserts(db, owner),
+        db.insert(sessions).values(session.row),
+        auditInsert(db, { actorId: owner.id, actorLabel: owner.displayName, action: 'owner.setup', targetType: 'member', targetId: owner.id, targetLabel: owner.displayName }),
+      ]);
     } catch {
       throw new ApiError(409, 'The owner was just created by another request. Sign in again with the same key.');
     }
-    await recordAudit({ actorId: owner.id, actorLabel: owner.displayName, action: 'owner.setup', targetType: 'member', targetId: owner.id, targetLabel: owner.displayName });
     return json(
       { authenticated: true, created: true, member: { displayName: owner.displayName } },
       { status: 201, headers: { 'Set-Cookie': session.cookie } },
