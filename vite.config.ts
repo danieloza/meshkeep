@@ -12,6 +12,13 @@ const { d1, r2 } = hostingConfig;
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 
+// Workers Builds sets WORKERS_CI=1, which covers the "Deploy to Cloudflare"
+// button and every later push; MESHKEEP_TARGET=cloudflare does the same for a
+// deploy from a laptop. Those builds use wrangler.jsonc as it is, so
+// Cloudflare creates and links real resources. Every other build (OpenAI
+// Sites, local development, the test suite) keeps the Sites placeholders.
+const cloudflareTarget = process.env.WORKERS_CI === '1' || process.env.MESHKEEP_TARGET === 'cloudflare';
+
 const localBindingConfig = {
   main: 'vinext/server/fetch-handler',
   compatibility_flags: ['nodejs_compat'],
@@ -54,7 +61,16 @@ export default defineConfig(async () => {
       sites(),
       cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
-        config: localBindingConfig,
+        // Assigned rather than merged, so the bindings from wrangler.jsonc are
+        // replaced outright instead of appearing next to the placeholders.
+        config: cloudflareTarget
+          ? undefined
+          : (worker) => {
+              worker.main = localBindingConfig.main;
+              worker.compatibility_flags = localBindingConfig.compatibility_flags;
+              worker.d1_databases = localBindingConfig.d1_databases;
+              worker.r2_buckets = localBindingConfig.r2_buckets;
+            },
       }),
     ],
   };
