@@ -60,11 +60,13 @@ describe('tryb samodzielny: klucz wlasciciela', () => {
 
   it('poprawny klucz zaklada pierwszego wlasciciela i wydaje sesje', async () => {
     const odp = await zalozenie(KLUCZ);
-    // Na Windowsie wrangler potrafi zgubic odpowiedz juz po tym, jak serwer
-    // zalozyl konto. Harness ponawia wtedy zadanie, a powtorka trafia na
-    // istniejacego wlasciciela i dostaje 200. Bez ponowienia musi byc 201.
-    // To, ze wlasciciel jest dokladnie jeden, sprawdza nastepny test.
-    expect(odp.status).toBe(odp.ponowienia === 0 ? 201 : 200);
+    // Na Windowsie wrangler potrafi zerwac zadanie. Czasem pierwsza proba
+    // zdazyla zalozyc konto i powtorka dostaje 200 (odzyskanie), a czasem
+    // handler w ogole sie nie wykonal i powtorka zaklada konto (201). Bez
+    // ponowienia musi byc 201. To, ze wlasciciel jest dokladnie jeden, a
+    // dziennik ma wpis o zalozeniu, sprawdzaja kolejne testy.
+    if (odp.ponowienia === 0) expect(odp.status).toBe(201);
+    else expect([200, 201]).toContain(odp.status);
     const sesja = sesjaZOdpowiedzi(odp);
     expect(sesja).not.toBeNull();
 
