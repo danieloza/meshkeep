@@ -170,6 +170,10 @@ export type OpcjeWorkera = {
   zasiej?: boolean;
   // Dodatkowe zmienne srodowiska workera, przekazywane jako `--var`.
   zmienne?: Record<string, string>;
+  // SQL wykonywany po zasiewie. Pozwala plikowi testow dolozyc wlasne dane
+  // (np. wiadomosci w rozmowach) bez zmieniania wspolnego zasiewu, na ktorym
+  // stoja pozostale testy.
+  dodatkowySql?: string;
 };
 
 export async function startWorkera(opcje: OpcjeWorkera = {}) {
@@ -199,6 +203,12 @@ export async function startWorkera(opcje: OpcjeWorkera = {}) {
     // wykonalaby sie naprawde i test sciezki zalacznika nic by nie znaczyl.
     uruchom('npx', ['wrangler', 'r2', 'object', 'put', `site-creator-r2/obj/${ID.plikPdf}`,
       '--file', join(KATALOG, 'tests', 'fixtures', 'umowa.pdf'), ...wspolne], 'Wgranie PDF-a do R2');
+  }
+
+  if (opcje.dodatkowySql) {
+    const dodatek = join(katalogStanu, 'dodatek.sql');
+    writeFileSync(dodatek, opcje.dodatkowySql, 'utf8');
+    uruchom('npx', ['wrangler', 'd1', 'execute', 'site-creator-d1', ...wspolne, '--file', dodatek], 'Dodatkowe dane testu');
   }
 
   await podnieProces();

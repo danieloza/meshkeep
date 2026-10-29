@@ -15,6 +15,20 @@
       "when": 1793221651577,
       "tag": "0001_chat_context_and_instructions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793265148448,
+      "tag": "0002_file_texts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793265150904,
+      "tag": "0003_search_index",
+      "breakpoints": true
     }
   ]
 }

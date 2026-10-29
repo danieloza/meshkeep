@@ -140,6 +140,24 @@ export const files = sqliteTable(
   ],
 );
 
+// Searchable text of a file, kept so search does not have to read R2 or
+// re-extract documents on every query. Derived data: it is left out of
+// backups and rebuilt by indexing. `content` is empty for files whose type
+// carries no readable text; only the path is searchable then. The full-text
+// index over this table (`file_texts_fts`) and its triggers live in a
+// hand-written migration, because drizzle cannot describe virtual tables.
+export const fileTexts = sqliteTable(
+  'file_texts',
+  {
+    fileId: text('file_id').primaryKey().references(() => files.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').notNull(),
+    path: text('path').notNull(),
+    content: text('content').notNull().default(''),
+    indexedAt: timestamp('indexed_at'),
+  },
+  (table) => [index('file_texts_project_idx').on(table.projectId)],
+);
+
 export const conversations = sqliteTable(
   'conversations',
   {

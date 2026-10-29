@@ -14,6 +14,23 @@ type AuditEntry = {
   detail?: Record<string, unknown>;
 };
 
+// The insert itself, not yet executed. An operation whose record must not go
+// missing puts it in the same batch as the change, so a crash between the two
+// writes cannot leave the change without its audit event.
+export function auditInsert(db: ReturnType<typeof getDb>, entry: AuditEntry) {
+  return db.insert(auditEvents).values({
+    id: crypto.randomUUID(),
+    actorId: entry.actorId,
+    actorLabel: entry.actorLabel.slice(0, 100),
+    action: entry.action,
+    targetType: entry.targetType ?? null,
+    targetId: entry.targetId ?? null,
+    targetLabel: entry.targetLabel?.slice(0, 120) ?? null,
+    detail: serializeDetail(entry.detail),
+    createdAt: new Date(),
+  });
+}
+
 // Zapis dziennika nie może wywrócić operacji, która już się powiodła — w chwili
 // wywołania zmiana jest zwykle zacommitowana, a wyjątek stąd zamieniłby udane
 // zawieszenie konta w błąd 500. Dlatego łykamy wyjątek i zostawiamy ślad w
@@ -21,17 +38,7 @@ type AuditEntry = {
 // nie zablokuje akcji bezpieczeństwa.
 export async function recordAudit(entry: AuditEntry) {
   try {
-    await getDb().insert(auditEvents).values({
-      id: crypto.randomUUID(),
-      actorId: entry.actorId,
-      actorLabel: entry.actorLabel.slice(0, 100),
-      action: entry.action,
-      targetType: entry.targetType ?? null,
-      targetId: entry.targetId ?? null,
-      targetLabel: entry.targetLabel?.slice(0, 120) ?? null,
-      detail: serializeDetail(entry.detail),
-      createdAt: new Date(),
-    });
+    await auditInsert(getDb(), entry);
   } catch (error) {
     console.error('Could not save the audit event:', entry.action, error instanceof Error ? error.message : 'unknown error');
   }

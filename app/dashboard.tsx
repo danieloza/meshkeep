@@ -23,6 +23,7 @@ import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
 import { type ContextFile, createLineSplitter, parseStreamEvent } from '@/lib/chat-stream';
 import { DEFAULT_DAILY_TOKENS, DEFAULT_MONTHLY_TOKENS, limitsAreCoherent, parseLimitInput } from '@/lib/limits';
 import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch, visibleSections } from '@/lib/navigation';
+import { type SearchResults, splitHighlights } from '@/lib/search';
 import { parseTheme, resolveTheme, THEME_STORAGE_KEY, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +88,13 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Safari does not move focus to a clicked button, so losing focus to "no
+  // element" may still be a click on a result. Closing waits a moment for it.
+  const searchCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Files a search result asked the chat to open with, already selected.
+  const [openWithFileIds, setOpenWithFileIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | Visibility>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -234,6 +242,42 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     return projects.filter((p) => (activeFilter === 'all' || p.visibility === activeFilter) && (!needle || `${p.name} ${p.description}`.toLocaleLowerCase('pl').includes(needle)));
   }, [activeFilter, projects, query]);
 
+  // The box filtered only project names while promising files and
+  // conversations too. The same text now also searches their contents.
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(term)}`, { cache: 'no-store' })
+        .then(async (response) => { if (response.ok && active) setSearchResults((await response.json()) as SearchResults); })
+        .catch(() => undefined);
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query]);
+  const visibleResults = query.trim().length >= 2 ? searchResults : null;
+
+  function openSearch() {
+    clearTimeout(searchCloseTimer.current);
+    setSearchOpen(true);
+  }
+
+  function closeSearchSoon(next: EventTarget | null) {
+    if (focusStaysInSearch(next)) return;
+    clearTimeout(searchCloseTimer.current);
+    searchCloseTimer.current = setTimeout(() => setSearchOpen(false), 150);
+  }
+
+  function openFromSearch(projectId: string, target: { conversationId?: string; fileId?: string }) {
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return;
+    clearTimeout(searchCloseTimer.current);
+    setSearchOpen(false);
+    setActiveConversationId(target.conversationId ?? null);
+    setOpenWithFileIds(target.fileId ? [target.fileId] : []);
+    setActiveProject(project);
+  }
+
   async function createProject() {
     const name = projectName.trim();
     if (!name) return;
@@ -313,7 +357,8 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
             <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>
             <div className="relative max-w-xl flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#75817e]" />
-              <Input aria-label="Search projects" className="h-10 rounded-xl border-black/8 bg-white/75 pl-9 shadow-none" onChange={(e) => setQuery(e.target.value)} placeholder="Search projects, files or conversations…" value={query} />
+              <Input aria-controls={SEARCH_RESULTS_ID} aria-expanded={searchOpen && Boolean(visibleResults)} aria-label="Search projects, files and conversations" className="h-10 rounded-xl border-black/8 bg-white/75 pl-9 shadow-none" id={SEARCH_INPUT_ID} onBlur={(event) => closeSearchSoon(event.relatedTarget)} onChange={(e) => { setQuery(e.target.value); openSearch(); }} onFocus={openSearch} onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Search projects, files or conversations…" value={query} />
+              {searchOpen && visibleResults && <SearchPanel onBlur={closeSearchSoon} onFocus={openSearch} onOpen={openFromSearch} results={visibleResults} />}
             </div>
             <Badge className="hidden border-emerald-700/15 bg-emerald-100/80 text-emerald-800 sm:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
@@ -409,7 +454,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
       </div>
       {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-[#173d38] px-4 py-3 text-sm text-white shadow-xl">{notice}</output>}
       {showCreate && <CreateProjectDialog driveConfigured={driveConfigured} importedFile={importedFile} members={teamMembers.filter((member) => member.role !== 'owner')} name={projectName} onClose={() => { if (!saving) { setShowCreate(false); setImportedFile(null); setPendingFiles([]); setProjectShares([]); setStorageProvider('r2'); } }} onCreate={createProject} onNameChange={setProjectName} onSharesChange={setProjectShares} onStorageProviderChange={setStorageProvider} onVisibilityChange={setVisibility} saving={saving} shares={projectShares} storageProvider={storageProvider} visibility={visibility} />}
-      {activeProject && <ChatWorkspace conversationId={activeConversationId} key={`${activeProject.id}:${activeConversationId ?? 'ostatnia'}`} models={models} onClose={() => { setActiveProject(null); setActiveConversationId(null); }} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />}
+      {activeProject && <ChatWorkspace conversationId={activeConversationId} initialFileIds={openWithFileIds} key={`${activeProject.id}:${activeConversationId ?? 'ostatnia'}`} models={models} onClose={() => { setActiveProject(null); setActiveConversationId(null); setOpenWithFileIds([]); }} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />}
     </main>
     </TooltipProvider>
   );
@@ -1134,6 +1179,56 @@ function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit
   </section>;
 }
 
+function Highlighted({ text }: { text: string }) {
+  return <>{splitHighlights(text).map((part, index) => part.hit
+    ? <mark className="rounded bg-amber-100 px-0.5 text-[#15211f]" key={index}>{part.text}</mark>
+    : <span key={index}>{part.text}</span>)}</>;
+}
+
+type SearchTarget = { conversationId?: string; fileId?: string };
+
+const SEARCH_INPUT_ID = 'global-search';
+const SEARCH_RESULTS_ID = 'search-results';
+
+// Focus moving between the search box and its results keeps the panel open,
+// so a click or Tab can reach a result; focus going anywhere else closes it.
+function focusStaysInSearch(next: EventTarget | null) {
+  return next instanceof Element && (next.id === SEARCH_INPUT_ID || Boolean(next.closest(`#${SEARCH_RESULTS_ID}`)));
+}
+
+function SearchPanel({ results, onOpen, onBlur, onFocus }: { results: SearchResults; onOpen: (projectId: string, target: SearchTarget) => void; onBlur: (next: EventTarget | null) => void; onFocus: () => void }) {
+  const empty = !results.conversations.length && !results.files.length;
+  return <div className="absolute left-0 right-0 top-12 z-40 max-h-[70vh] overflow-y-auto rounded-xl border border-black/8 bg-white p-2 shadow-xl" id={SEARCH_RESULTS_ID} onBlur={(event) => onBlur(event.relatedTarget)} onFocus={onFocus}>
+    {results.conversations.length > 0 && <section>
+      <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Conversations</p>
+      {results.conversations.map((hit) => <button className="block w-full rounded-lg px-2 py-2 text-left hover:bg-[#f2f7f5]" key={hit.conversationId} onClick={() => onOpen(hit.projectId, { conversationId: hit.conversationId })} type="button">
+        <span className="flex items-center gap-2 text-xs font-medium"><MessageSquareText className="size-3.5 shrink-0 text-[#4b766f]" /><span className="truncate">{hit.title}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-[#89928f]">{hit.projectName}</span></span>
+        <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-[#63706d]"><Highlighted text={hit.snippet} /></span>
+      </button>)}
+    </section>}
+    {results.files.length > 0 && <section className={cn(results.conversations.length > 0 && 'mt-1 border-t border-black/6 pt-1')}>
+      <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Files</p>
+      {results.files.map((hit) => <button className="block w-full rounded-lg px-2 py-2 text-left hover:bg-[#f2f7f5]" key={hit.fileId} onClick={() => onOpen(hit.projectId, { fileId: hit.fileId })} title="Open the project chat with this file selected" type="button">
+        <span className="flex items-center gap-2 text-xs font-medium"><FileText className="size-3.5 shrink-0 text-[#4b766f]" /><span className="truncate">{hit.path}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-[#89928f]">{hit.projectName}</span></span>
+        {hit.snippet && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-[#63706d]"><Highlighted text={hit.snippet} /></span>}
+      </button>)}
+    </section>}
+    {empty && <p className="px-2 py-3 text-xs text-[#75817e]">No conversations or files match. Matching project names are filtered below.</p>}
+    {results.unindexedFiles > 0 && <p className="mt-1 border-t border-black/6 px-2 pt-2 text-[10px] leading-4 text-[#89928f]">{results.unindexedFiles} {results.unindexedFiles === 1 ? 'file is' : 'files are'} not searchable yet. Opening a project indexes its files.</p>}
+  </div>;
+}
+
+// Bounded rounds, so opening a project with many older files does not keep
+// the browser busy; whatever is left is picked up the next time.
+async function indexProjectFiles(projectId: string) {
+  for (let round = 0; round < 5; round += 1) {
+    const response = await fetch(`/api/projects/${projectId}/search-index`, { method: 'POST' }).catch(() => null);
+    if (!response?.ok) return;
+    const { remaining } = (await response.json()) as { remaining: number };
+    if (!remaining) return;
+  }
+}
+
 // `context` lists what the answer was built from; `pending` marks an answer
 // that is still streaming in.
 type ChatMessage = { role: 'user' | 'assistant'; content: string; context?: ContextFile[]; pending?: boolean; interrupted?: boolean };
@@ -1159,7 +1254,7 @@ function ContextChips({ files }: { files: ContextFile[] }) {
   </div>;
 }
 
-function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, conversationId: openConversationId }: { project: Project; models: ModelOption[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; conversationId: string | null }) {
+function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, conversationId: openConversationId, initialFileIds }: { project: Project; models: ModelOption[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; conversationId: string | null; initialFileIds: string[] }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
   const [model, setModel] = useState('');
@@ -1170,7 +1265,8 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
-  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>(initialFileIds);
+  const [suggestions, setSuggestions] = useState<Array<{ fileId: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
@@ -1261,6 +1357,25 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
     finally { setInstructionsSaving(false); }
   }
 
+  // Files uploaded before search existed, and documents that are extracted
+  // after upload, become searchable when their project is opened.
+  useEffect(() => { void indexProjectFiles(project.id); }, [project.id]);
+
+  // Files that look relevant to the question being typed. They are only
+  // offered: nothing joins the model context until the person picks it.
+  useEffect(() => {
+    const question = prompt.trim();
+    if (question.length < 12) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      fetch(`/api/projects/${project.id}/suggest-files?q=${encodeURIComponent(question.slice(0, 500))}`, { cache: 'no-store' })
+        .then(async (response) => { if (response.ok && active) setSuggestions(((await response.json()) as { files: Array<{ fileId: string; path: string }> }).files); })
+        .catch(() => undefined);
+    }, 500);
+    return () => { active = false; clearTimeout(timer); };
+  }, [project.id, prompt]);
+  const visibleSuggestions = prompt.trim().length >= 12 ? suggestions.filter((file) => !selectedFileIds.includes(file.fileId)) : [];
+
   async function uploadProjectFiles(selected: File[]) {
     if (!selected.length || uploading) return;
     setUploading(true); setError(null);
@@ -1274,6 +1389,7 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
       setProjectFiles((current) => [...payload.files!, ...current]);
       setSelectedFileIds((current) => [...new Set([...current, ...payload.files!.map((file) => file.id)])].slice(0, 8));
       setConnectionsOpen(true);
+      void indexProjectFiles(project.id);
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not add files.'); }
     finally { setUploading(false); }
   }
@@ -1424,6 +1540,10 @@ function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, c
             </div>
             {projectFiles.length > 0 && <div className="mt-3 border-t border-black/6 pt-3"><p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Select up to 8 files for the next message<Hint side="top" text="Text and code are sent as they are. PDF, DOCX, XLSX, PPTX and RTF are converted to text on the server. Images and archives are stored, but no available model can read them, so they arrive as metadata only." /></p><div className="max-h-28 space-y-1 overflow-y-auto">{projectFiles.slice(0, 40).map((file) => { const selected = selectedFileIds.includes(file.id); const image = file.mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name); return <div className={cn('flex items-center gap-1 rounded-lg pr-1', selected ? 'bg-[#dff0eb] text-[#22574f]' : 'hover:bg-black/[0.035]')} key={file.id}><button className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs" onClick={() => setSelectedFileIds((current) => selected ? current.filter((id) => id !== file.id) : current.length < 8 ? [...current, file.id] : current)} type="button">{image ? <ImageIcon className="size-3.5 shrink-0" /> : <FileText className="size-3.5 shrink-0" />}<span className="min-w-0 flex-1 truncate">{file.relativePath}</span><span className="shrink-0 text-[9px] text-[#89928f]">{selected ? 'selected' : formatBytes(file.sizeBytes)}</span></button><Button aria-label={`Delete ${file.relativePath} from cloud`} disabled={deletingFileId === file.id} onClick={() => void deleteProjectFile(file)} size="icon-xs" title="Delete from cloud" variant="ghost"><Trash2 /></Button></div>; })}</div></div>}
             <p className="mt-2 text-[10px] leading-4 text-[#7b8582]">A local folder is copied, not permanently connected. Images and documents are stored; current models automatically analyze only supported safe text formats.</p>
+          </div>}
+          {visibleSuggestions.length > 0 && <div aria-label="Files suggested for this question" className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Suggested</span>
+            {visibleSuggestions.map((file) => <button className="flex max-w-[220px] items-center gap-1 rounded-full border border-dashed border-black/10 bg-[#edf5f2] px-2.5 py-1 text-[10px] text-[#315f57]" key={file.fileId} onClick={() => setSelectedFileIds((current) => current.length < 8 && !current.includes(file.fileId) ? [...current, file.fileId] : current)} title={`Add ${file.path} to the next message`} type="button"><Plus className="size-3" /><span className="truncate">{file.path.split('/').pop()}</span></button>)}
           </div>}
           {selectedFileIds.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-[#e2efeb] px-2.5 py-1 text-[10px] text-[#2c5c54]" key={id} onClick={() => setSelectedFileIds((current) => current.filter((item) => item !== id))} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}</div>}
         </div>
