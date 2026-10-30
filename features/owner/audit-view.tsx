@@ -8,7 +8,6 @@ import { AUDIT_LABELS, type AuditAction, isSensitiveAction } from '@/lib/audit';
 import type { AuditEvent } from '@/lib/contracts/admin';
 import { cn } from '@/lib/utils';
 import { ViewPlaceholder } from '@/components/view-placeholder';
-import { BackupCard } from '@/features/owner/owner-controls';
 
 // Szczegoly przychodza jako JSON zapisany przez `serializeDetail` - zawsze
 // plaski obiekt prostych wartosci. Renderujemy je po ludzku, ale gdyby kiedys
@@ -25,7 +24,7 @@ function AuditDetail({ detail }: { detail: string }) {
   return <>{pary.map(([klucz, wartosc], index) => <span key={klucz}>{index > 0 && ' · '}{klucz}: <b className="font-medium text-ink-soft">{wartosc}</b></span>)}</>;
 }
 
-export function AuditView({ onNotice }: { onNotice: (message: string) => void }) {
+export function AuditView() {
   const [rows, setRows] = useState<AuditEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filtrAkcji, setFiltrAkcji] = useState('wszystkie');
@@ -53,13 +52,12 @@ export function AuditView({ onNotice }: { onNotice: (message: string) => void })
 
   if (error) return <ViewPlaceholder detail={error} icon={ScrollText} title="Something went wrong" />;
   if (!rows) return <ViewPlaceholder detail="This may take a moment." icon={Loader2} title="Loading activity log…" />;
-  if (!rows.length) return <><BackupCard onNotice={onNotice} /><div className="pt-2"><ViewPlaceholder detail="Invitations, suspensions, limit changes and file or project deletions appear here." icon={ScrollText} title="The activity log is empty" /></div></>;
+  if (!rows.length) return <ViewPlaceholder detail="Invitations, suspensions, limit changes and file or project deletions appear here." icon={ScrollText} title="The activity log is empty" />;
 
   const klasaPola = 'h-8 rounded-lg border border-line-strong bg-surface-raised px-2 text-xs outline-none focus:ring-2 focus:ring-[#4d8b80]/30';
 
   return <section aria-label="Activity log" className="space-y-2">
-    <BackupCard onNotice={onNotice} />
-    <div className="flex flex-wrap items-center gap-2 pt-4">
+    <div className="flex flex-wrap items-center gap-2">
       <label className="text-xs text-ink-muted" htmlFor="activity-event">Event</label>
       <select className={klasaPola} id="activity-event" onChange={(event) => setFiltrAkcji(event.target.value)} value={filtrAkcji}>
         <option value="wszystkie">All</option>

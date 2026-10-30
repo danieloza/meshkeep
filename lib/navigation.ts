@@ -1,7 +1,7 @@
 // Dashboard views and their URL representation. Keeping this logic separate
 // makes unknown user-entered values testable without a browser.
 
-export const SECTIONS = ['dashboard', 'projects', 'conversations', 'team', 'usage', 'activity'] as const;
+export const SECTIONS = ['dashboard', 'projects', 'conversations', 'team', 'providers', 'usage', 'sync', 'activity', 'safety'] as const;
 
 export type Section = (typeof SECTIONS)[number];
 
@@ -14,13 +14,16 @@ export const SECTION_LABELS: Record<Section, string> = {
   projects: 'Projects',
   conversations: 'Conversations',
   team: 'Team',
-  usage: 'API usage',
-  activity: 'Activity log',
+  providers: 'Model providers',
+  usage: 'Usage and limits',
+  sync: 'Folder sync',
+  activity: 'Activity',
+  safety: 'Backup and safety',
 };
 
 // Hiding the entry is only a UI convenience; server authorization remains the
 // actual boundary for owner-only data.
-const OWNER_ONLY: ReadonlySet<Section> = new Set(['activity']);
+const OWNER_ONLY: ReadonlySet<Section> = new Set(['activity', 'safety']);
 
 export function isOwnerOnlySection(section: Section): boolean {
   return OWNER_ONLY.has(section);
@@ -30,9 +33,14 @@ export function visibleSections(isOwner: boolean): readonly Section[] {
   return isOwner ? SECTIONS : SECTIONS.filter((section) => !OWNER_ONLY.has(section));
 }
 
-// Team, usage and the activity log open from Settings in the header; the
-// project column keeps home, conversations and projects.
-const SETTINGS: ReadonlySet<Section> = new Set(['team', 'usage', 'activity']);
+// The Settings page, at its own path, holds everything that is not a project:
+// the team, providers, usage, folder sync, activity, backup and safety. Home,
+// conversations and projects stay in the workspace at `/`.
+const SETTINGS: ReadonlySet<Section> = new Set(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
+
+export const SETTINGS_PATH = '/settings';
+
+export const DEFAULT_SETTINGS_SECTION: Section = 'team';
 
 export function isSettingsSection(section: Section): boolean {
   return SETTINGS.has(section);
@@ -40,6 +48,18 @@ export function isSettingsSection(section: Section): boolean {
 
 export function visibleSettingsSections(isOwner: boolean): readonly Section[] {
   return visibleSections(isOwner).filter(isSettingsSection);
+}
+
+export function sectionPath(section: Section): string {
+  return isSettingsSection(section) ? SETTINGS_PATH : '/';
+}
+
+// The view an address opens. `/settings` without a settings view opens the
+// team; `/?view=team`, from before the page existed, still opens it too.
+export function sectionFromLocation(pathname: string, search: string): Section {
+  const section = parseSection(new URLSearchParams(search).get(SECTION_PARAM));
+  const onSettings = pathname.replace(/\/+$/, '') === SETTINGS_PATH;
+  return onSettings && !isSettingsSection(section) ? DEFAULT_SETTINGS_SECTION : section;
 }
 
 export function parseSection(value: unknown): Section {
