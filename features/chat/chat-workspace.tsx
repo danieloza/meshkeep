@@ -55,7 +55,7 @@ function ContextChips({ files }: { files: ContextFile[] }) {
 // The two columns are returned side by side, so the page grid places them and
 // the state they share stays here. `conversationId` opens that conversation,
 // `null` the latest one; `fresh` starts a new conversation instead.
-export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountChange, onConversationChange, onConversationSaved, conversationId: openConversationId, fresh, initialFileIds }: { project: Project; models: ProviderModel[]; onClose: () => void; onUsage: (input: number, output: number) => void; onFileCountChange: (count: number) => void; onConversationChange: (conversationId: string | undefined) => void; onConversationSaved: () => void; conversationId: string | null; fresh: boolean; initialFileIds: string[] }) {
+export function ChatWorkspace({ project, models, onClose, onFileCountChange, onConversationChange, onConversationSaved, conversationId: openConversationId, fresh, initialFileIds }: { project: Project; models: ProviderModel[]; onClose: () => void; onFileCountChange: (count: number) => void; onConversationChange: (conversationId: string | undefined) => void; onConversationSaved: () => void; conversationId: string | null; fresh: boolean; initialFileIds: string[] }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
   const [model, setModel] = useState('');
@@ -267,7 +267,6 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
           }
           updateAnswer((message) => ({ ...message, pending: false, context: event.context }));
           setSelectedFileIds([]);
-          onUsage(event.usage.inputTokens, event.usage.outputTokens);
         } else {
           finished = true;
           throw new Error(event.error);
