@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 // feedback loop until the interface is migrated to semantic color tokens.
 
 const CSS = 'app/globals.css';
-const SCAN_ROOTS = ['app', 'components'];
+const SCAN_ROOTS = ['app', 'components', 'features'];
 
 // This view is intentionally dark in both themes and owns its contrast rules.
 const DARK_NATIVE = ['app/showcase/page.tsx'];
