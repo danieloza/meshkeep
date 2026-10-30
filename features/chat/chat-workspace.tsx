@@ -82,6 +82,14 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
   const [instructionsSaving, setInstructionsSaving] = useState(false);
   const chatFileInput = useRef<HTMLInputElement>(null);
   const chatFolderInput = useRef<HTMLInputElement>(null);
+  // An answer can finish after another project or conversation was opened.
+  // Its conversation then belongs to a chat that is gone, so it must not mark
+  // the column or the address of the one on screen.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   // Wcześniej czat startował zawsze pusty, mimo że messages leżały w D1.
   // Wczytujemy ostatnią rozmowę projektu, żeby odświeżenie strony nie kasowało
@@ -107,7 +115,14 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
         setConversationTitle(detail.conversation.title);
         onConversationChange(targetId);
         setChatMessages(detail.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content, context: message.contextFiles }]));
-      } catch { /* czat zaczyna od pustej historii */ }
+      } catch {
+        // Czat zaczyna od pustej historii. Rozmowa wskazana wprost (z adresu,
+        // listy albo wyszukiwania) mogla zniknac: mowimy to i oznaczamy nowa.
+        if (active && openConversationId) {
+          setError('That conversation is not available, so a new one is open.');
+          onConversationChange(undefined);
+        }
+      }
       finally { if (active) setHistoryLoading(false); }
     })();
     return () => { active = false; };
@@ -246,8 +261,10 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
           finished = true;
           if (!conversationId) setConversationTitle(visibleContent.slice(0, 80));
           setConversationId(event.conversationId);
-          onConversationChange(event.conversationId);
-          onConversationSaved();
+          if (mounted.current) {
+            onConversationChange(event.conversationId);
+            onConversationSaved();
+          }
           updateAnswer((message) => ({ ...message, pending: false, context: event.context }));
           setSelectedFileIds([]);
           onUsage(event.usage.inputTokens, event.usage.outputTokens);

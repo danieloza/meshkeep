@@ -56,3 +56,37 @@ export function sectionSearch(section: Section, current: string): string {
   const query = params.toString();
   return query ? `?${query}` : '';
 }
+
+// The open project and its conversation, beside the view underneath them, so
+// a reload, a shared link or Back returns to the same chat.
+export const PROJECT_PARAM = 'project';
+export const CONVERSATION_PARAM = 'conversation';
+export const NEW_CONVERSATION = 'new';
+
+// `conversation` is a conversation id, NEW_CONVERSATION, or null for the
+// project's latest conversation.
+export type ChatTarget = { projectId: string; conversation: string | null };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Only well-formed ids leave the address bar; anything else opens nothing.
+export function parseChatTarget(current: string): ChatTarget | null {
+  const params = new URLSearchParams(current);
+  const projectId = params.get(PROJECT_PARAM);
+  if (!projectId || !UUID.test(projectId)) return null;
+  const conversation = params.get(CONVERSATION_PARAM);
+  return { projectId, conversation: conversation === NEW_CONVERSATION || (conversation && UUID.test(conversation)) ? conversation : null };
+}
+
+// `null` closes the chat. The view and unrelated parameters stay.
+export function chatSearch(target: ChatTarget | null, current: string): string {
+  const params = new URLSearchParams(current);
+  params.delete(PROJECT_PARAM);
+  params.delete(CONVERSATION_PARAM);
+  if (target) {
+    params.set(PROJECT_PARAM, target.projectId);
+    if (target.conversation) params.set(CONVERSATION_PARAM, target.conversation);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}

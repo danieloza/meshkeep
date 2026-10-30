@@ -16,7 +16,7 @@ import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
 import type { ProviderModel } from '@/lib/contracts/providers';
 import type { SearchResults } from '@/lib/contracts/search';
 import type { PendingInvite, TeamMember } from '@/lib/contracts/team';
-import { DEFAULT_SECTION, isSettingsSection, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch } from '@/lib/navigation';
+import { type ChatTarget, chatSearch, DEFAULT_SECTION, isSettingsSection, NEW_CONVERSATION, parseChatTarget, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
 import { MetricCard } from '@/components/metric-card';
@@ -46,6 +46,16 @@ const SECTION_SUBTITLES: Record<Section, string> = {
   usage: 'See token usage by model and how much remains.',
   activity: 'Review activity and export a database backup. Conversation contents, files and secrets are excluded.',
 };
+
+// How a change reaches the address: a new history entry, an edit of the
+// current one, or nothing when the address already says it (Back, a reload).
+type HistoryMode = 'push' | 'replace' | 'none';
+
+type ChatOptions = { conversationId?: string; fresh?: boolean; fileIds?: string[] };
+
+function chatOptions(target: ChatTarget): ChatOptions {
+  return target.conversation === NEW_CONVERSATION ? { fresh: true } : { conversationId: target.conversation ?? undefined };
+}
 
 export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -94,6 +104,10 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   // The project whose conversations were asked for last, so a slow answer for
   // a project closed meanwhile does not show up under another one.
   const conversationsFor = useRef<string | null>(null);
+  // The open project and the project list, for the address handlers that are
+  // registered once and would otherwise see the first render's state.
+  const openProjectId = useRef<string | null>(null);
+  const projectsRef = useRef<Project[]>([]);
   const [dailyUsage, setDailyUsage] = useState(0);
   const [inputUsage, setInputUsage] = useState(0);
   const [outputUsage, setOutputUsage] = useState(0);
@@ -108,6 +122,70 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const contextInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.sync.get().then((setting) => setSyncEnabled(setting.enabled)).catch(() => undefined);
+    api.driveStatus().then((status) => setDriveConfigured(status.configured)).catch(() => undefined);
+  }, []);
+
+  function writeUrl(search: string, history: HistoryMode) {
+    if (history === 'none') return;
+    const url = `${window.location.pathname}${search}`;
+    if (history === 'push') window.history.pushState(null, '', url);
+    else window.history.replaceState(null, '', url);
+  }
+
+  // The conversation on screen, kept in the address without a new history
+  // entry, so a reload returns to it.
+  function rememberConversation(conversationId: string | undefined) {
+    setCurrentConversationId(conversationId);
+    const projectId = openProjectId.current;
+    if (projectId) writeUrl(chatSearch({ projectId, conversation: conversationId ?? NEW_CONVERSATION }, window.location.search), 'replace');
+  }
+
+  async function loadConversations(projectId: string) {
+    conversationsFor.current = projectId;
+    setConversationsLoading(true);
+    try {
+      const { conversations } = await api.projects.conversations(projectId);
+      if (conversationsFor.current === projectId) setProjectConversations(conversations);
+    } catch { /* the column keeps what it showed */ }
+    finally { if (conversationsFor.current === projectId) setConversationsLoading(false); }
+  }
+
+  function openProject(project: Project, target: ChatOptions = {}, history: HistoryMode = 'push') {
+    if (project.id !== openProjectId.current) {
+      setProjectConversations([]);
+      void loadConversations(project.id);
+    }
+    openProjectId.current = project.id;
+    writeUrl(chatSearch({ projectId: project.id, conversation: target.fresh ? NEW_CONVERSATION : target.conversationId ?? null }, window.location.search), history);
+    setActiveProject(project);
+    setActiveConversationId(target.conversationId ?? null);
+    setStartFresh(Boolean(target.fresh));
+    setOpenWithFileIds(target.fileIds ?? []);
+    setCurrentConversationId(target.fresh ? undefined : target.conversationId);
+    setChatSession((value) => value + 1);
+    setMobileMenu(false);
+  }
+
+  function closeProject(history: HistoryMode = 'push') {
+    if (openProjectId.current) writeUrl(chatSearch(null, window.location.search), history);
+    openProjectId.current = null;
+    conversationsFor.current = null;
+    setActiveProject(null);
+    setActiveConversationId(null);
+    setStartFresh(false);
+    setOpenWithFileIds([]);
+    setCurrentConversationId(undefined);
+  }
+
+  function goToSection(next: Section) {
+    closeProject('none');
+    setSection(next);
+    setMobileMenu(false);
+    writeUrl(chatSearch(null, sectionSearch(next, window.location.search)), 'push');
+  }
 
   useEffect(() => {
     let active = true;
@@ -128,7 +206,19 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
         setPendingInvites(team.pendingInvites);
         setReconnectLinks(team.reconnectLinks ?? []);
         setTeamCapacity(team.capacity ?? { used: team.members.length, total: 4 });
-        setProjects(payload.projects.map((project, index) => ({ id: project.id, name: project.name, description: project.description, visibility: project.visibility, files: project.fileCount, conversations: project.conversationCount ?? 0, updated: relativeDate(project.updatedAt), color: ['from-cyan-400/20 via-teal-300/10 to-transparent', 'from-violet-400/20 via-fuchsia-300/10 to-transparent', 'from-amber-300/20 via-orange-300/10 to-transparent'][index % 3], icon: index % 3 === 0 ? 'code' : index % 3 === 1 ? 'folder' : 'lab', members: ['DS'] })));
+        const list: Project[] = payload.projects.map((project, index) => ({ id: project.id, name: project.name, description: project.description, visibility: project.visibility, files: project.fileCount, conversations: project.conversationCount ?? 0, updated: relativeDate(project.updatedAt), color: ['from-cyan-400/20 via-teal-300/10 to-transparent', 'from-violet-400/20 via-fuchsia-300/10 to-transparent', 'from-amber-300/20 via-orange-300/10 to-transparent'][index % 3], icon: index % 3 === 0 ? 'code' : index % 3 === 1 ? 'folder' : 'lab', members: ['DS'] }));
+        setProjects(list);
+        // A reload or a shared link opens the chat the address names.
+        const target = parseChatTarget(window.location.search);
+        const project = target && list.find((item) => item.id === target.projectId);
+        if (target && project) openProject(project, chatOptions(target), 'none');
+        else {
+          // A malformed or unknown target leaves the address, so it is not
+          // tried again on the next reload.
+          const cleaned = chatSearch(null, window.location.search);
+          if (cleaned !== window.location.search) writeUrl(cleaned, 'replace');
+          if (target) setNotice('That project is not available, or you no longer have access to it.');
+        }
         void api.auth.claim().catch(() => undefined);
       })
       .catch((error) => {
@@ -141,63 +231,29 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    api.sync.get().then((setting) => setSyncEnabled(setting.enabled)).catch(() => undefined);
-    api.driveStatus().then((status) => setDriveConfigured(status.configured)).catch(() => undefined);
-  }, []);
-
   // Adres jest źródłem prawdy dla wybranego widoku: odczyt przy wejściu plus
   // reakcja na Wstecz/Dalej, żeby przyciski przeglądarki robiły to, czego
   // użytkownik oczekuje.
   useEffect(() => {
     const syncFromUrl = () => setSection(parseSection(new URLSearchParams(window.location.search).get(SECTION_PARAM)));
+    // The open chat follows the address too. Before the projects load there
+    // is nothing to open; loading them reads the address itself.
+    const onPopState = () => {
+      syncFromUrl();
+      const target = parseChatTarget(window.location.search);
+      const project = target && projectsRef.current.find((item) => item.id === target.projectId);
+      if (target && project) openProject(project, chatOptions(target), 'none');
+      else if (openProjectId.current) closeProject('none');
+    };
     const frame = requestAnimationFrame(syncFromUrl);
-    window.addEventListener('popstate', syncFromUrl);
+    window.addEventListener('popstate', onPopState);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener('popstate', syncFromUrl);
+      window.removeEventListener('popstate', onPopState);
     };
   }, []);
 
-  async function loadConversations(projectId: string) {
-    conversationsFor.current = projectId;
-    setConversationsLoading(true);
-    try {
-      const { conversations } = await api.projects.conversations(projectId);
-      if (conversationsFor.current === projectId) setProjectConversations(conversations);
-    } catch { /* the column keeps what it showed */ }
-    finally { if (conversationsFor.current === projectId) setConversationsLoading(false); }
-  }
-
-  function openProject(project: Project, target: { conversationId?: string; fresh?: boolean; fileIds?: string[] } = {}) {
-    if (project.id !== activeProject?.id) {
-      setProjectConversations([]);
-      void loadConversations(project.id);
-    }
-    setActiveProject(project);
-    setActiveConversationId(target.conversationId ?? null);
-    setStartFresh(Boolean(target.fresh));
-    setOpenWithFileIds(target.fileIds ?? []);
-    setCurrentConversationId(target.fresh ? undefined : target.conversationId);
-    setChatSession((value) => value + 1);
-    setMobileMenu(false);
-  }
-
-  function closeProject() {
-    conversationsFor.current = null;
-    setActiveProject(null);
-    setActiveConversationId(null);
-    setStartFresh(false);
-    setOpenWithFileIds([]);
-    setCurrentConversationId(undefined);
-  }
-
-  function goToSection(next: Section) {
-    closeProject();
-    setSection(next);
-    setMobileMenu(false);
-    window.history.pushState(null, '', `${window.location.pathname}${sectionSearch(next, window.location.search)}`);
-  }
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
 
   // Po zaproszeniu albo cofnięciu zaproszenia bierzemy stan z serwera zamiast
   // zgadywać go lokalnie — link ponownego dostępu nie zajmuje miejsca w zespole,
@@ -353,7 +409,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
 
       <div className={cn('lg:grid', activeProject ? 'lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_320px]' : 'lg:grid-cols-[256px_minmax(0,1fr)]')}>
         <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />
-        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={closeProject} onConversationChange={setCurrentConversationId} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
+        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()}onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
         : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
             {settingsOpen && <SettingsTabs isOwner={currentRole === 'owner'} onSelect={goToSection} section={section} />}
