@@ -46,7 +46,7 @@ export function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dai
       <MetricCard detail={data.limits.enabled ? 'API access enabled' : 'API access disabled'} icon={ShieldCheck} label="Status" value={data.limits.enabled ? 'Active' : 'Paused'} />
     </div>
 
-    {data.team.length > 0 && <Card className="border-0 bg-white/90 shadow-none ring-black/6">
+    {data.team.length > 0 && <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
       <CardHeader>
         <CardTitle className="text-base">Team usage</CardTitle>
         <CardDescription>Monthly usage per team member compared with the limit configured in Team. Numbers only; conversation titles and contents are excluded.</CardDescription>
@@ -58,54 +58,54 @@ export function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dai
           // Wyróżniamy dopiero powyżej 80%: niżej pasek i tak wszystko pokazuje,
           // a kolorowanie wszystkiego odbiera kolorowi znaczenie.
           const blisko = limit > 0 && udzial >= 80;
-          return <div className="rounded-xl bg-[#f3f5f2] px-3 py-2.5" key={row.memberId}>
+          return <div className="rounded-xl bg-surface-fill px-3 py-2.5" key={row.memberId}>
             <div className="flex items-center justify-between gap-3 text-xs">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate font-semibold">{row.displayName}</span>
-                {row.role === 'owner' && <Badge className="border-[#387267]/15 bg-[#e4f2ee] px-1.5 py-0 text-[9px] text-[#32665d]" variant="outline">owner</Badge>}
-                {row.status === 'suspended' && <Badge className="border-red-800/15 bg-red-50 px-1.5 py-0 text-[9px] text-red-700" variant="outline">suspended</Badge>}
-                {row.apiEnabled === false && <Badge className="border-amber-800/15 bg-amber-50 px-1.5 py-0 text-[9px] text-amber-800" variant="outline">API disabled</Badge>}
+                {row.role === 'owner' && <Badge className="border-[#387267]/15 bg-surface-selected px-1.5 py-0 text-[9px] text-brand-text" variant="outline">owner</Badge>}
+                {row.status === 'suspended' && <Badge className="border-red-800/15 bg-danger-soft px-1.5 py-0 text-[9px] text-danger-text" variant="outline">suspended</Badge>}
+                {row.apiEnabled === false && <Badge className="border-amber-800/15 bg-warn-soft px-1.5 py-0 text-[9px] text-warn-text" variant="outline">API disabled</Badge>}
               </div>
               <div className="flex shrink-0 gap-4 text-right tabular-nums">
-                <div><p className="text-[10px] text-[#7a8582]">Today</p><p className="font-medium">{formatTokens(row.todayTokens)}</p></div>
-                <div><p className="text-[10px] text-[#7a8582]">Month</p><p className={cn('font-medium', blisko && 'text-red-700')}>{formatTokens(row.monthTokens)}</p></div>
-                <div><p className="text-[10px] text-[#7a8582]">Requests</p><p className="font-medium">{row.monthRequests}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Today</p><p className="font-medium">{formatTokens(row.todayTokens)}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Month</p><p className={cn('font-medium', blisko && 'text-danger-text')}>{formatTokens(row.monthTokens)}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Requests</p><p className="font-medium">{row.monthRequests}</p></div>
               </div>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e3e7e2]"><span className={cn('block h-full rounded-full', blisko ? 'bg-red-600' : 'bg-[#2c766a]')} style={{ width: `${udzial}%` }} /></span>
-              <span className="shrink-0 text-[10px] tabular-nums text-[#818b89]">{limit ? `${udzial}% of ${formatTokens(limit)}` : 'no limit'}</span>
+              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-track"><span className={cn('block h-full rounded-full', blisko ? 'bg-red-600' : 'bg-[#2c766a]')} style={{ width: `${udzial}%` }} /></span>
+              <span className="shrink-0 text-[10px] tabular-nums text-ink-subtle">{limit ? `${udzial}% of ${formatTokens(limit)}` : 'no limit'}</span>
             </div>
           </div>;
         })}</div>
       </CardContent>
     </Card>}
 
-    <Card className="border-0 bg-white/90 shadow-none ring-black/6">
+    <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
       <CardHeader><CardTitle className="text-base">Last {data.historyDays} days</CardTitle><CardDescription>Daily input and output token totals.</CardDescription></CardHeader>
       <CardContent>
         {data.byDay.length === 0
-          ? <p className="text-sm text-[#75817e]">No usage was recorded during this period.</p>
+          ? <p className="text-sm text-ink-muted">No usage was recorded during this period.</p>
           : <div className="space-y-1.5">{data.byDay.map((row) => { const total = row.inputTokens + row.outputTokens; return <div className="flex items-center gap-3 text-xs" key={row.day}>
-              <span className="w-20 shrink-0 tabular-nums text-[#818b89]">{row.day.slice(5)}</span>
-              <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#eef0ed]"><span className="block h-full rounded-full bg-[#2c766a]" style={{ width: `${peak ? Math.max(2, Math.round((total / peak) * 100)) : 0}%` }} /></span>
+              <span className="w-20 shrink-0 tabular-nums text-ink-subtle">{row.day.slice(5)}</span>
+              <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-fill"><span className="block h-full rounded-full bg-[#2c766a]" style={{ width: `${peak ? Math.max(2, Math.round((total / peak) * 100)) : 0}%` }} /></span>
               <span className="w-20 shrink-0 text-right tabular-nums font-medium">{formatTokens(total)}</span>
-              <span className="w-16 shrink-0 text-right tabular-nums text-[#818b89]">{row.requests} zap.</span>
+              <span className="w-16 shrink-0 text-right tabular-nums text-ink-subtle">{row.requests} zap.</span>
             </div>; })}</div>}
       </CardContent>
     </Card>
 
-    <Card className="border-0 bg-white/90 shadow-none ring-black/6">
+    <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
       <CardHeader><CardTitle className="text-base">Models this month</CardTitle><CardDescription>Usage by provider.</CardDescription></CardHeader>
       <CardContent>
         {data.byModel.length === 0
-          ? <p className="text-sm text-[#75817e]">No model has been used this month.</p>
-          : <div className="space-y-3">{data.byModel.map((row) => <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f3f5f2] px-3 py-2.5 text-xs" key={row.model}>
-              <div className="min-w-0"><p className="truncate font-semibold">{row.label}</p><p className="truncate text-[10px] text-[#818b89]">{row.model}</p></div>
+          ? <p className="text-sm text-ink-muted">No model has been used this month.</p>
+          : <div className="space-y-3">{data.byModel.map((row) => <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-fill px-3 py-2.5 text-xs" key={row.model}>
+              <div className="min-w-0"><p className="truncate font-semibold">{row.label}</p><p className="truncate text-[10px] text-ink-subtle">{row.model}</p></div>
               <div className="flex shrink-0 gap-4 text-right tabular-nums">
-                <div><p className="text-[10px] text-[#7a8582]">Input</p><p className="font-medium">{formatTokens(row.inputTokens)}</p></div>
-                <div><p className="text-[10px] text-[#7a8582]">Output</p><p className="font-medium">{formatTokens(row.outputTokens)}</p></div>
-                <div><p className="text-[10px] text-[#7a8582]">Requests</p><p className="font-medium">{row.requests}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Input</p><p className="font-medium">{formatTokens(row.inputTokens)}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Output</p><p className="font-medium">{formatTokens(row.outputTokens)}</p></div>
+                <div><p className="text-[10px] text-ink-subtle">Requests</p><p className="font-medium">{row.requests}</p></div>
               </div>
             </div>)}</div>}
       </CardContent>

@@ -39,6 +39,42 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-veil: var(--surface-veil);
+  --color-surface-fill: var(--surface-fill);
+  --color-surface-track: var(--surface-track);
+  --color-surface-selected: var(--surface-selected);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-deepest: var(--brand-deepest);
+  --color-brand-text: var(--brand-text);
+  --color-brand-text-soft: var(--brand-text-soft);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-soft-strong: var(--warn-soft-strong);
+  --color-warn-text: var(--warn-text);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-strong: var(--danger-soft-strong);
+  --color-danger-text: var(--danger-text);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-soft-strong: var(--ok-soft-strong);
+  --color-ok-text: var(--ok-text);
+  --color-info-text: var(--info-text);
+  --color-private-soft: var(--private-soft);
+  --color-private-text: var(--private-text);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-pending: var(--avatar-pending);
+  --color-avatar-reconnect: var(--avatar-reconnect);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -52,7 +88,7 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   background:
     radial-gradient(circle at 80% -10%, rgba(87, 196, 171, 0.1), transparent 32%),
-    #f4f5f2;
+    var(--surface);
 }
 
 :root {
@@ -88,6 +124,58 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* MeshKeep semantic colors. Components use these names instead of literal
+     colors, so each theme is a set of values here and nothing else. The
+     outline Button and the Input bring their own `dark:` colors, so a call
+     site that gives them a token color repeats it under `dark:`. */
+  /* Surfaces: the page, cards on it, and fills inside cards. */
+  --surface: #f4f5f2;
+  --surface-raised: #ffffff;
+  --surface-veil: rgb(255 255 255 / 50%);
+  --surface-fill: #f3f5f2;
+  --surface-track: #e3e7e2;
+  --surface-selected: #e3f3ed;
+
+  /* Brand. `brand-hover` keeps today's value in both themes. */
+  --brand: #173d38;
+  --brand-hover: #23534c;
+  --brand-deep: #15322e;
+  --brand-deepest: #102724;
+  --brand-text: #2f665d;
+  --brand-text-soft: #4a726b;
+
+  /* Text, from strongest to faintest. */
+  --ink: #15211f;
+  --ink-soft: #465b56;
+  --ink-muted: #6d7876;
+  --ink-subtle: #86908d;
+
+  /* Borders and rings. */
+  --line: rgb(0 0 0 / 7%);
+  --line-strong: rgb(0 0 0 / 10%);
+
+  /* States. Light values are Tailwind amber, red, emerald and sky. */
+  --warn-soft: oklch(98.7% 0.022 95.277);
+  --warn-soft-strong: oklch(96.2% 0.059 95.617);
+  --warn-text: oklch(47.3% 0.137 46.201);
+  --danger-soft: oklch(97.1% 0.013 17.38);
+  --danger-soft-strong: oklch(93.6% 0.032 17.717);
+  --danger-text: oklch(50.5% 0.213 27.518);
+  --ok-soft: oklch(97.9% 0.021 166.113);
+  --ok-soft-strong: oklch(95% 0.052 163.051 / 80%);
+  --ok-text: oklch(43.2% 0.095 166.913);
+  --info-text: oklch(50% 0.134 242.749);
+
+  /* The warm "private" badge, and member avatars. */
+  --private-soft: #f6ede7;
+  --private-text: #795b49;
+  --avatar-1: #d7ece7;
+  --avatar-2: #f1e4d7;
+  --avatar-3: #e5e1f1;
+  --avatar-4: #dfe7f1;
+  --avatar-pending: oklch(97% 0.001 106.424);
+  --avatar-reconnect: oklch(97.7% 0.013 236.62);
 }
 
 .dark {
@@ -122,6 +210,54 @@ body {
   --sidebar-accent-foreground: #edf7f3;
   --sidebar-border: rgb(205 235 226 / 12%);
   --sidebar-ring: #4f9e8f;
+
+  /* Surfaces: the page, cards on it, and fills inside cards. */
+  --surface: #0b1412;
+  --surface-raised: #14211e;
+  --surface-veil: rgb(20 33 30 / 70%);
+  --surface-fill: #1a2925;
+  --surface-track: #1a2925;
+  --surface-selected: #1d3831;
+
+  /* Brand. `brand-hover` keeps today's value in both themes. */
+  --brand: #286f63;
+  --brand-hover: #23534c;
+  --brand-deep: #102b26;
+  --brand-deepest: #07110f;
+  --brand-text: #83cdbd;
+  --brand-text-soft: #83cdbd;
+
+  /* Text, from strongest to faintest. */
+  --ink: #edf7f3;
+  --ink-soft: #edf7f3;
+  --ink-muted: #9baea8;
+  --ink-subtle: #9baea8;
+
+  /* Borders and rings. */
+  --line: rgb(205 235 226 / 13%);
+  --line-strong: rgb(205 235 226 / 13%);
+
+  /* States: warning, danger, success, information. */
+  --warn-soft: #312817;
+  --warn-soft-strong: #40351d;
+  --warn-text: #e7c987;
+  --danger-soft: #351b1d;
+  --danger-soft-strong: #4a2226;
+  --danger-text: #f4a2a7;
+  --ok-soft: #16302a;
+  --ok-soft-strong: #1e3f35;
+  --ok-text: #8ee0c1;
+  --info-text: #7cc4ec;
+
+  /* The warm "private" badge, and member avatars. */
+  --private-soft: #254039;
+  --private-text: #d9b99e;
+  --avatar-1: #254039;
+  --avatar-2: #254039;
+  --avatar-3: #254039;
+  --avatar-4: #254039;
+  --avatar-pending: #254039;
+  --avatar-reconnect: #254039;
 }
 
 @layer base {
@@ -139,195 +275,7 @@ body {
 .dark body {
   background:
     radial-gradient(circle at 80% -10%, rgb(76 171 149 / 14%), transparent 34%),
-    #0b1412;
-}
-
-/* Dashboard v4 nadal używa kilku precyzyjnych kolorów marki w klasach
-   Tailwind. Te mapowania zachowują ich role w ciemnym motywie bez zmiany
-   układu ani semantyki komponentów. */
-.dark [class~="bg-[#f4f5f2]"],
-.dark [class~="bg-[#eef1ed]"],
-.dark [class~="bg-[#f7f8f5]"] {
-  background-color: #0b1412 !important;
-}
-
-.dark [class~="bg-[#fbfcfa]"],
-.dark [class~="bg-white"],
-.dark [class~="bg-white/90"],
-.dark [class~="bg-white/85"],
-.dark [class~="bg-white/80"],
-.dark [class~="bg-white/75"],
-.dark [class~="bg-white/70"] {
-  background-color: #14211e !important;
-}
-
-.dark [class~="bg-white/60"],
-.dark [class~="bg-white/50"],
-.dark [class~="bg-white/35"] {
-  background-color: rgb(20 33 30 / 70%) !important;
-}
-
-.dark [class~="bg-[#f3f5f2]"],
-.dark [class~="bg-[#f4f6f3]"],
-.dark [class~="bg-[#f8faf8]"],
-.dark [class~="bg-[#eef0ed]"],
-.dark [class~="bg-[#e3e7e2]"],
-.dark [class~="bg-[#edf5f2]"],
-.dark [class~="bg-[#f2f7f5]"] {
-  background-color: #1a2925 !important;
-}
-
-.dark [class~="bg-[#dff4ed]"],
-.dark [class~="bg-[#dff0eb]"],
-.dark [class~="bg-[#e4f2ee]"],
-.dark [class~="bg-[#e6f3ef]"],
-.dark [class~="bg-[#e8f4f0]"],
-.dark [class~="bg-[#e2efeb]"] {
-  background-color: #1d3831 !important;
-}
-
-.dark [class~="bg-[#173d38]"] {
-  background-color: #286f63 !important;
-}
-
-.dark [class~="bg-[#15322e]"] {
-  background-color: #102b26 !important;
-}
-
-.dark [class~="bg-[#102724]"] {
-  background-color: #07110f !important;
-}
-
-.dark [class~="bg-[#d7ece7]"],
-.dark [class~="bg-[#f1e4d7]"],
-.dark [class~="bg-[#f6ede7]"],
-.dark [class~="bg-[#e5e1f1]"],
-.dark [class~="bg-[#dfe7f1]"],
-.dark [class~="bg-stone-100"],
-.dark [class~="bg-sky-50"] {
-  background-color: #254039 !important;
-}
-
-.dark [class~="text-[#15211f]"],
-.dark [class~="text-[#25322f]"],
-.dark [class~="text-[#354a46]"],
-.dark [class~="text-[#5c6763]"],
-.dark [class~="hover:text-[#4b6b64]"]:hover {
-  color: #edf7f3 !important;
-}
-
-.dark [class~="text-[#63706d]"],
-.dark [class~="text-[#65716e]"],
-.dark [class~="text-[#66726f]"],
-.dark [class~="text-[#697572]"],
-.dark [class~="text-[#6f7b78]"],
-.dark [class~="text-[#707c79]"],
-.dark [class~="text-[#72807d]"],
-.dark [class~="text-[#74807d]"],
-.dark [class~="text-[#75817e]"],
-.dark [class~="text-[#76817f]"],
-.dark [class~="text-[#7a8582]"],
-.dark [class~="text-[#7b8582]"],
-.dark [class~="text-[#7c8784]"],
-.dark [class~="text-[#7d8784]"],
-.dark [class~="text-[#818b89]"],
-.dark [class~="text-[#87918f]"],
-.dark [class~="text-[#88928f]"],
-.dark [class~="text-[#89928f]"],
-.dark [class~="text-[#8a9492]"],
-.dark [class~="text-[#8b9491]"],
-.dark [class~="text-[#929b98]"] {
-  color: #9baea8 !important;
-}
-
-.dark [class~="text-[#22574f]"],
-.dark [class~="text-[#286057]"],
-.dark [class~="text-[#2c5c54]"],
-.dark [class~="text-[#2c5b54]"],
-.dark [class~="text-[#2f6e63]"],
-.dark [class~="text-[#315f57]"],
-.dark [class~="text-[#32665d]"],
-.dark [class~="text-[#31675e]"],
-.dark [class~="text-[#386c63]"],
-.dark [class~="text-[#396b62]"],
-.dark [class~="text-[#3c756b]"],
-.dark [class~="text-[#42645e]"],
-.dark [class~="text-[#4b766f]"],
-.dark [class~="text-[#518078]"] {
-  color: #83cdbd !important;
-}
-
-.dark [class~="border-black/6"],
-.dark [class~="border-black/7"],
-.dark [class~="border-black/8"],
-.dark [class~="border-black/10"],
-.dark [class~="border-black/20"] {
-  border-color: rgb(205 235 226 / 13%) !important;
-}
-
-.dark [class~="ring-black/6"],
-.dark [class~="ring-black/7"] {
-  --tw-ring-color: rgb(205 235 226 / 12%) !important;
-}
-
-/* Selektor `~=` dopasowuje cale tokeny klas, wiec `bg-red-50` NIE obejmuje
-   `bg-red-50/70`. Wiersze dziennika uzywaly wlasnie wariantu z przezroczystoscia
-   i zostawaly prawie biale, podczas gdy tekst ciemnial razem z reszta - czyli
-   najwazniejsze wpisy, te o odebraniu dostepu, byly nieczytelne. Kazdy wariant
-   trzeba wymienic osobno. */
-.dark [class~="bg-amber-50"] {
-  background-color: #312817 !important;
-}
-
-.dark [class~="bg-amber-100"] {
-  background-color: #40351d !important;
-}
-
-.dark [class~="text-amber-900/75"],
-.dark [class~="text-amber-800"],
-.dark [class~="text-amber-700"] {
-  color: #e7c987 !important;
-}
-
-.dark [class~="bg-red-50"],
-.dark [class~="bg-red-50/70"] {
-  background-color: #351b1d !important;
-}
-
-.dark [class~="bg-red-100"] {
-  background-color: #4a2226 !important;
-}
-
-.dark [class~="text-red-700"],
-.dark [class~="text-red-600"] {
-  color: #f4a2a7 !important;
-}
-
-/* The warm "private" badge carries the same visual weight as the teal "shared"
-   badge, so dark mode keeps the distinction with a light, warm text color. */
-.dark [class~="text-[#795b49]"] {
-  color: #d9b99e !important;
-}
-
-/* Emerald communicates a healthy/online state. Without these mappings the
-   status badges and invitation panel remain bright surfaces in dark mode.
-   Alpha variants need explicit entries, just like the amber and red states. */
-.dark [class~="bg-emerald-50"] {
-  background-color: #16302a !important;
-}
-
-.dark [class~="bg-emerald-100/80"] {
-  background-color: #1e3f35 !important;
-}
-
-.dark [class~="text-emerald-900/75"],
-.dark [class~="text-emerald-800"],
-.dark [class~="text-emerald-700"] {
-  color: #8ee0c1 !important;
-}
-
-.dark [class~="text-sky-700"] {
-  color: #7cc4ec !important;
+    var(--surface);
 }
 
 .dark select,

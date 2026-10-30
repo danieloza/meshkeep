@@ -45,15 +45,15 @@ export function ConversationsView({ onOpenConversation, onNotice, query }: { onO
   if (!visible.length) return <ViewPlaceholder detail="Change the search term above." icon={Search} title="No search results" />;
 
   return <section aria-label="Conversations" className="space-y-2">
-    <p className="mb-4 text-sm text-[#75817e]">{visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'}` : `${visible.length} of ${rows.length} conversations`}</p>
-    {visible.map((row) => <div className="flex items-center gap-1 rounded-xl border border-black/7 bg-white/85 pr-2 transition hover:border-black/15 hover:bg-white" key={row.id}>
+    <p className="mb-4 text-sm text-ink-muted">{visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'}` : `${visible.length} of ${rows.length} conversations`}</p>
+    {visible.map((row) => <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-raised/85 pr-2 transition hover:border-black/15 hover:bg-surface-raised" key={row.id}>
       <button className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-4 py-3 text-left" onClick={() => onOpenConversation(row.projectId, row.id)} type="button">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e6f3ef] text-[#2c5b54]"><MessageSquareText className="size-4" /></span>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-selected text-brand-text"><MessageSquareText className="size-4" /></span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{row.title}</span>
-          <span className="mt-0.5 block truncate text-[11px] text-[#818b89]">{row.projectName} · {visibilityLabels[row.projectVisibility]} · {row.messageCount} {row.messageCount === 1 ? 'message' : 'messages'}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-ink-subtle">{row.projectName} · {visibilityLabels[row.projectVisibility]} · {row.messageCount} {row.messageCount === 1 ? 'message' : 'messages'}</span>
         </span>
-        <span className="shrink-0 text-[11px] text-[#87918f]">{relativeDate(row.updatedAt)}</span>
+        <span className="shrink-0 text-[11px] text-ink-subtle">{relativeDate(row.updatedAt)}</span>
       </button>
       <Button aria-label={`Delete conversation ${row.title}`} disabled={deletingId === row.id} onClick={() => void deleteConversation(row)} size="icon-sm" title="Delete conversation" variant="ghost"><Trash2 /></Button>
     </div>)}

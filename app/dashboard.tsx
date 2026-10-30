@@ -283,38 +283,38 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
 
   return (
     <TooltipProvider delay={200}>
-    <main className="min-h-screen bg-[#f4f5f2] text-[#15211f]">
+    <main className="min-h-screen bg-surface text-ink">
       <div className="min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
         <Sidebar fileCount={totals.files} isOwner={currentRole === 'owner'} onClose={() => setMobileMenu(false)} onSelect={goToSection} open={mobileMenu} section={section} />
         <section className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-black/7 bg-[#f4f5f2]/90 px-4 backdrop-blur-xl dark:bg-[#0d1e1a]/90 sm:px-7 lg:px-10">
+          <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-line bg-[#f4f5f2]/90 px-4 backdrop-blur-xl dark:bg-[#0d1e1a]/90 sm:px-7 lg:px-10">
             <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>
             <div className="relative max-w-xl flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#75817e]" />
-              <Input aria-controls={SEARCH_RESULTS_ID} aria-expanded={searchOpen && Boolean(visibleResults)} aria-label="Search projects, files and conversations" className="h-10 rounded-xl border-black/8 bg-white/75 pl-9 shadow-none" id={SEARCH_INPUT_ID} onBlur={(event) => closeSearchSoon(event.relatedTarget)} onChange={(e) => { setQuery(e.target.value); openSearch(); }} onFocus={openSearch} onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Search projects, files or conversations…" value={query} />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
+              <Input aria-controls={SEARCH_RESULTS_ID} aria-expanded={searchOpen && Boolean(visibleResults)} aria-label="Search projects, files and conversations" className="h-10 rounded-xl border-line bg-surface-raised/75 pl-9 shadow-none dark:bg-surface-raised" id={SEARCH_INPUT_ID} onBlur={(event) => closeSearchSoon(event.relatedTarget)} onChange={(e) => { setQuery(e.target.value); openSearch(); }} onFocus={openSearch} onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Search projects, files or conversations…" value={query} />
               {searchOpen && visibleResults && <SearchPanel onBlur={closeSearchSoon} onFocus={openSearch} onOpen={openFromSearch} results={visibleResults} />}
             </div>
-            <Badge className="hidden border-emerald-700/15 bg-emerald-100/80 text-emerald-800 sm:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
+            <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text sm:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
             <Button aria-label="Sign out" onClick={() => void logout()} size="icon" title="Sign out" variant="ghost"><LogOut /></Button>
-            <Avatar className="bg-[#173d38] text-white"><AvatarFallback className="bg-transparent text-xs font-semibold text-white">DS</AvatarFallback></Avatar>
+            <Avatar className="bg-brand text-white"><AvatarFallback className="bg-transparent text-xs font-semibold text-white">DS</AvatarFallback></Avatar>
           </header>
 
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#518078]"><ShieldCheck className="size-4" /> Private team cloud</p>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text-soft"><ShieldCheck className="size-4" /> Private team cloud</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{section === 'dashboard' ? `Welcome, ${displayName}.` : SECTION_LABELS[section]}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#63706d] sm:text-base">{SECTION_SUBTITLES[section]}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{SECTION_SUBTITLES[section]}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {/* Pola plikowe zostają zamontowane niezależnie od widoku — trzymają je refy,
                     a odmontowanie zerwałoby uchwyty używane przez obsługę importu. */}
                 {showImportActions && <>
-                  <Button className="h-10 rounded-xl border-black/8 bg-white px-3" onClick={() => contextInput.current?.click()} variant="outline"><MessageSquareText /> Context</Button>
-                  <Button className="h-10 rounded-xl border-black/8 bg-white px-3" onClick={() => folderInput.current?.click()} variant="outline"><Folder /> Folder</Button>
-                  <Button className="h-10 rounded-xl border-black/8 bg-white px-3" onClick={() => fileInput.current?.click()} variant="outline"><UploadCloud /> File / ZIP</Button>
-                  <Button className="h-10 rounded-xl bg-[#173d38] px-4 text-white shadow-[0_8px_24px_rgba(23,61,56,.18)] hover:bg-[#23534c]" onClick={() => setShowCreate(true)}><Plus /> New project</Button>
+                  <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => contextInput.current?.click()} variant="outline"><MessageSquareText /> Context</Button>
+                  <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => folderInput.current?.click()} variant="outline"><Folder /> Folder</Button>
+                  <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => fileInput.current?.click()} variant="outline"><UploadCloud /> File / ZIP</Button>
+                  <Button className="h-10 rounded-xl bg-brand px-4 text-white shadow-[0_8px_24px_rgba(23,61,56,.18)] hover:bg-brand-hover" onClick={() => setShowCreate(true)}><Plus /> New project</Button>
                 </>}
                 <input ref={fileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`${selected.length} ${selected.length === 1 ? 'file' : 'files'}`); setShowCreate(true); } e.target.value = ''; }} type="file" />
                 <input ref={folderInput} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`folder · ${selected.length} files`); setShowCreate(true); } e.target.value = ''; }} type="file" {...{ webkitdirectory: '' }} />
@@ -333,20 +333,20 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <section>
                 <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                  <div><h2 className="text-xl font-semibold tracking-tight">Recent projects</h2><p className="mt-1 text-sm text-[#75817e]">The four most recently updated projects. Open Projects for the full, filtered list.</p></div>
-                  {projects.length > recentProjects.length && <Button className="h-9 rounded-xl border-black/8 bg-white px-3" onClick={() => goToSection('projects')} variant="outline">View all ({projects.length})</Button>}
+                  <div><h2 className="text-xl font-semibold tracking-tight">Recent projects</h2><p className="mt-1 text-sm text-ink-muted">The four most recently updated projects. Open Projects for the full, filtered list.</p></div>
+                  {projects.length > recentProjects.length && <Button className="h-9 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => goToSection('projects')} variant="outline">View all ({projects.length})</Button>}
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   {recentProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => { setActiveConversationId(null); setActiveProject(project); }} project={project} />)}
-                  {projects.length === 0 && <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-white/35 p-6 text-center transition hover:border-[#4c7a72] hover:bg-white/70" onClick={() => setShowCreate(true)} type="button">
-                    <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-black/7 bg-white text-[#31675e] shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
-                    <span className="font-semibold">Create your first project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-[#75817e]">Start empty or import a folder or ZIP archive.</span>
+                  {projects.length === 0 && <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
+                    <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
+                    <span className="font-semibold">Create your first project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Start empty or import a folder or ZIP archive.</span>
                   </button>}
                 </div>
               </section>
               <aside className="space-y-4 xl:sticky xl:top-[96px]">
                 <UsagePanel dailyLimit={dailyLimit} inputUsage={inputUsage} monthlyLimit={monthlyLimit} monthlyUsage={monthlyUsage} outputUsage={outputUsage} />
-                <Card className="border-0 bg-[#15322e] text-white shadow-[0_16px_46px_rgba(20,48,44,.16)] ring-0">
+                <Card className="border-0 bg-brand-deep text-white shadow-[0_16px_46px_rgba(20,48,44,.16)] ring-0">
                   <CardHeader><CardDescription className="flex items-center gap-2 text-emerald-100/65"><Cloud className="size-4" /> File agent</CardDescription><CardTitle className="flex items-center gap-1.5 text-lg text-white">Folder sync<Hint ciemna side="bottom" text="Enforced by the server, not by the script. While this is off the server rejects uploads and deletions from any agent, including a modified one. Browser uploads are unaffected." /></CardTitle><CardAction><Switch aria-label="Local folder sync" checked={syncEnabled} onCheckedChange={(enabled) => void updateSync(enabled)} /></CardAction></CardHeader>
                   <CardContent><p className="text-sm leading-6 text-emerald-50/70">{syncEnabled ? 'The agent running on your computer can upload changed files to a selected project and, with -PropagateDeletes, remove files deleted from disk.' : 'The server rejects agent uploads and deletions. Browser uploads work independently of this switch.'}</p><p className="mt-3 text-xs leading-5 text-emerald-100/50">This covers local files only. Codex, Claude, Gemini and Grok conversations require a manual JSON import.</p><div className="mt-4 flex items-center gap-2 text-xs text-emerald-100/70"><span className={cn('size-2 rounded-full', syncEnabled ? 'bg-emerald-400' : 'bg-stone-500')} />{syncEnabled ? 'Active · files only' : 'Manually disabled'}</div></CardContent>
                 </Card>
@@ -357,21 +357,21 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
 
             {section === 'projects' && <section aria-label="All projects">
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <p className="text-sm text-[#75817e]">{filteredProjects.length === projects.length ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}` : `${filteredProjects.length} of ${projects.length} projects`}</p>
-                <div className="flex flex-wrap gap-1 rounded-xl border border-black/7 bg-white/70 p-1">
+                <p className="text-sm text-ink-muted">{filteredProjects.length === projects.length ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}` : `${filteredProjects.length} of ${projects.length} projects`}</p>
+                <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface-raised/70 p-1">
                   {([['all', 'All'], ['private', 'Only me'], ['selected', 'Selected'], ['team', 'Team']] as const).map(([key, label]) => (
-                    <button key={key} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', activeFilter === key ? 'bg-[#173d38] text-white' : 'text-[#65716e] hover:bg-black/5')} onClick={() => setActiveFilter(key)} type="button">{label}</button>
+                    <button key={key} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', activeFilter === key ? 'bg-brand text-white' : 'text-ink-muted hover:bg-black/5')} onClick={() => setActiveFilter(key)} type="button">{label}</button>
                   ))}
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => { setActiveConversationId(null); setActiveProject(project); }} project={project} />)}
-                <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-white/35 p-6 text-center transition hover:border-[#4c7a72] hover:bg-white/70" onClick={() => setShowCreate(true)} type="button">
-                  <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-black/7 bg-white text-[#31675e] shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
-                  <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-[#75817e]">Create an empty project or import a folder or ZIP archive.</span>
+                <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
+                  <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
+                  <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Create an empty project or import a folder or ZIP archive.</span>
                 </button>
               </div>
-              {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-white/50 p-12 text-center"><Folder className="mx-auto mb-3 text-[#6f7b78]" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-[#75817e]">Change the filter or try another search term.</p></div>}
+              {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-line-strong bg-surface-veil p-12 text-center"><Folder className="mx-auto mb-3 text-ink-muted" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-ink-muted">Change the filter or try another search term.</p></div>}
             </section>}
 
             {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } setActiveConversationId(conversationId); setActiveProject(target); }} query={query} />}
@@ -386,7 +386,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
           </div>
         </section>
       </div>
-      {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-[#173d38] px-4 py-3 text-sm text-white shadow-xl">{notice}</output>}
+      {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-brand px-4 py-3 text-sm text-white shadow-xl">{notice}</output>}
       {showCreate && <CreateProjectDialog driveConfigured={driveConfigured} importedFile={importedFile} members={teamMembers.filter((member) => member.role !== 'owner')} name={projectName} onClose={() => { if (!saving) { setShowCreate(false); setImportedFile(null); setPendingFiles([]); setProjectShares([]); setStorageProvider('r2'); } }} onCreate={createProject} onNameChange={setProjectName} onSharesChange={setProjectShares} onStorageProviderChange={setStorageProvider} onVisibilityChange={setVisibility} saving={saving} shares={projectShares} storageProvider={storageProvider} visibility={visibility} />}
       {activeProject && <ChatWorkspace conversationId={activeConversationId} initialFileIds={openWithFileIds} key={`${activeProject.id}:${activeConversationId ?? 'ostatnia'}`} models={models} onClose={() => { setActiveProject(null); setActiveConversationId(null); setOpenWithFileIds([]); }} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />}
     </main>

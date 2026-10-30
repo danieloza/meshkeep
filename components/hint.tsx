@@ -18,7 +18,7 @@ export function Hint({ text, side = 'top', ciemna = false }: { text: string; sid
         aria-label="More information"
         className={cn(
           'inline-grid size-4 shrink-0 place-items-center rounded-full align-middle transition',
-          ciemna ? 'text-white/45 hover:text-white/80' : 'text-[#9aa5a2] hover:text-[#4b6b64]',
+          ciemna ? 'text-white/45 hover:text-white/80' : 'text-[#9aa5a2] hover:text-ink-soft',
         )}
         type="button"
       >
