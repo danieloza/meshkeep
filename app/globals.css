@@ -47,10 +47,10 @@
   --color-surface-selected: var(--surface-selected);
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
   --color-brand-deep: var(--brand-deep);
   --color-brand-deepest: var(--brand-deepest);
   --color-brand-text: var(--brand-text);
-  --color-brand-text-soft: var(--brand-text-soft);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
@@ -69,6 +69,10 @@
   --color-info-text: var(--info-text);
   --color-private-soft: var(--private-soft);
   --color-private-text: var(--private-text);
+  --color-people-soft: var(--people-soft);
+  --color-people-text: var(--people-text);
+  --color-team-soft: var(--team-soft);
+  --color-team-text: var(--team-text);
   --color-avatar-1: var(--avatar-1);
   --color-avatar-2: var(--avatar-2);
   --color-avatar-3: var(--avatar-3);
@@ -109,7 +113,7 @@ body {
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: #4d8b80;
+  --ring: #3f7f74;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -127,55 +131,62 @@ body {
 
   /* MeshKeep semantic colors. Components use these names instead of literal
      colors, so each theme is a set of values here and nothing else. The
-     outline Button and the Input bring their own `dark:` colors, so a call
-     site that gives them a token color repeats it under `dark:`. */
-  /* Surfaces: the page, cards on it, and fills inside cards. */
+     values follow the direction mockup; every text color keeps at least
+     4.5:1 against the surfaces it is drawn on. The outline Button and the
+     Input bring their own `dark:` colors, so a call site that gives them a
+     token color repeats it under `dark:`. */
+  /* Surfaces: the page, cards on it, and wells and hovers inside cards. */
   --surface: #f4f5f2;
   --surface-raised: #ffffff;
   --surface-veil: rgb(255 255 255 / 50%);
-  --surface-fill: #f3f5f2;
-  --surface-track: #e3e7e2;
-  --surface-selected: #e3f3ed;
+  --surface-fill: #eceee9;
+  --surface-track: #dfe3dd;
+  --surface-selected: #e8f2ef;
 
-  /* Brand. `brand-hover` keeps today's value in both themes. */
+  /* Brand. `brand-ink` is the text on a `brand` background. */
   --brand: #173d38;
   --brand-hover: #23534c;
+  --brand-ink: #f2f7f5;
   --brand-deep: #15322e;
   --brand-deepest: #102724;
-  --brand-text: #2f665d;
-  --brand-text-soft: #4a726b;
+  --brand-text: #1f5a51;
 
   /* Text, from strongest to faintest. */
   --ink: #15211f;
   --ink-soft: #465b56;
-  --ink-muted: #6d7876;
-  --ink-subtle: #86908d;
+  --ink-muted: #46524f;
+  --ink-subtle: #5f6c68;
 
   /* Borders and rings. */
-  --line: rgb(0 0 0 / 7%);
-  --line-strong: rgb(0 0 0 / 10%);
+  --line: #dfe3dd;
+  --line-strong: #c9cfc8;
 
-  /* States. Light values are Tailwind amber, red, emerald and sky. */
-  --warn-soft: oklch(98.7% 0.022 95.277);
-  --warn-soft-strong: oklch(96.2% 0.059 95.617);
-  --warn-text: oklch(47.3% 0.137 46.201);
-  --danger-soft: oklch(97.1% 0.013 17.38);
-  --danger-soft-strong: oklch(93.6% 0.032 17.717);
-  --danger-text: oklch(50.5% 0.213 27.518);
-  --ok-soft: oklch(97.9% 0.021 166.113);
-  --ok-soft-strong: oklch(95% 0.052 163.051 / 80%);
-  --ok-text: oklch(43.2% 0.095 166.913);
-  --info-text: oklch(50% 0.134 242.749);
+  /* States: warning, danger, success, information. */
+  --warn-soft: #f6ecd9;
+  --warn-soft-strong: #fef3c6;
+  --warn-text: #8a5300;
+  --danger-soft: #fbe9e7;
+  --danger-soft-strong: #ffe2e2;
+  --danger-text: #b3261e;
+  --ok-soft: #ecfdf5;
+  --ok-soft-strong: rgb(208 250 229 / 80%);
+  --ok-text: #2d6a4f;
+  --info-text: #0069a8;
 
-  /* The warm "private" badge, and member avatars. */
-  --private-soft: #f6ede7;
-  --private-text: #795b49;
+  /* Project visibility badges (private, selected people, team), and member
+     avatars. */
+  --private-soft: #e7eae6;
+  --private-text: #3d4a47;
+  --people-soft: #e3ecf9;
+  --people-text: #2457a6;
+  --team-soft: #f8ead9;
+  --team-text: #9a4d0b;
   --avatar-1: #d7ece7;
   --avatar-2: #f1e4d7;
   --avatar-3: #e5e1f1;
   --avatar-4: #dfe7f1;
-  --avatar-pending: oklch(97% 0.001 106.424);
-  --avatar-reconnect: oklch(97.7% 0.013 236.62);
+  --avatar-pending: #f5f5f4;
+  --avatar-reconnect: #f0f9ff;
 }
 
 .dark {
@@ -196,7 +207,7 @@ body {
   --destructive: oklch(0.704 0.191 22.216);
   --border: rgb(205 235 226 / 13%);
   --input: rgb(205 235 226 / 17%);
-  --ring: #4f9e8f;
+  --ring: #74c9b8;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -211,47 +222,52 @@ body {
   --sidebar-border: rgb(205 235 226 / 12%);
   --sidebar-ring: #4f9e8f;
 
-  /* Surfaces: the page, cards on it, and fills inside cards. */
+  /* Surfaces: the page, cards on it, and wells and hovers inside cards. */
   --surface: #0b1412;
   --surface-raised: #14211e;
   --surface-veil: rgb(20 33 30 / 70%);
-  --surface-fill: #1a2925;
-  --surface-track: #1a2925;
-  --surface-selected: #1d3831;
+  --surface-fill: #08100e;
+  --surface-track: #22322e;
+  --surface-selected: #16302b;
 
-  /* Brand. `brand-hover` keeps today's value in both themes. */
-  --brand: #286f63;
-  --brand-hover: #23534c;
+  /* Brand. In the dark theme the brand is light, so its text is dark. */
+  --brand: #74c9b8;
+  --brand-hover: #8fd6c7;
+  --brand-ink: #07110f;
   --brand-deep: #102b26;
   --brand-deepest: #07110f;
-  --brand-text: #83cdbd;
-  --brand-text-soft: #83cdbd;
+  --brand-text: #8fd6c7;
 
   /* Text, from strongest to faintest. */
   --ink: #edf7f3;
   --ink-soft: #edf7f3;
-  --ink-muted: #9baea8;
-  --ink-subtle: #9baea8;
+  --ink-muted: #b4c4bf;
+  --ink-subtle: #93a6a0;
 
   /* Borders and rings. */
-  --line: rgb(205 235 226 / 13%);
-  --line-strong: rgb(205 235 226 / 13%);
+  --line: #22322e;
+  --line-strong: #2f433e;
 
   /* States: warning, danger, success, information. */
-  --warn-soft: #312817;
+  --warn-soft: #2e2510;
   --warn-soft-strong: #40351d;
-  --warn-text: #e7c987;
-  --danger-soft: #351b1d;
+  --warn-text: #e8c06a;
+  --danger-soft: #341a17;
   --danger-soft-strong: #4a2226;
-  --danger-text: #f4a2a7;
+  --danger-text: #f2a29b;
   --ok-soft: #16302a;
   --ok-soft-strong: #1e3f35;
-  --ok-text: #8ee0c1;
+  --ok-text: #7fd1a8;
   --info-text: #7cc4ec;
 
-  /* The warm "private" badge, and member avatars. */
-  --private-soft: #254039;
-  --private-text: #d9b99e;
+  /* Project visibility badges (private, selected people, team), and member
+     avatars. */
+  --private-soft: #1f2b28;
+  --private-text: #c3cfcb;
+  --people-soft: #172741;
+  --people-text: #9cc0f5;
+  --team-soft: #33240f;
+  --team-text: #f0b37a;
   --avatar-1: #254039;
   --avatar-2: #254039;
   --avatar-3: #254039;

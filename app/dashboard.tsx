@@ -297,13 +297,13 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
             <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text sm:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
             <Button aria-label="Sign out" onClick={() => void logout()} size="icon" title="Sign out" variant="ghost"><LogOut /></Button>
-            <Avatar className="bg-brand text-white"><AvatarFallback className="bg-transparent text-xs font-semibold text-white">DS</AvatarFallback></Avatar>
+            <Avatar className="bg-brand text-brand-ink"><AvatarFallback className="bg-transparent text-xs font-semibold text-brand-ink">DS</AvatarFallback></Avatar>
           </header>
 
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text-soft"><ShieldCheck className="size-4" /> Private team cloud</p>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> Private team cloud</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{section === 'dashboard' ? `Welcome, ${displayName}.` : SECTION_LABELS[section]}</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{SECTION_SUBTITLES[section]}</p>
               </div>
@@ -314,7 +314,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => contextInput.current?.click()} variant="outline"><MessageSquareText /> Context</Button>
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => folderInput.current?.click()} variant="outline"><Folder /> Folder</Button>
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => fileInput.current?.click()} variant="outline"><UploadCloud /> File / ZIP</Button>
-                  <Button className="h-10 rounded-xl bg-brand px-4 text-white shadow-[0_8px_24px_rgba(23,61,56,.18)] hover:bg-brand-hover" onClick={() => setShowCreate(true)}><Plus /> New project</Button>
+                  <Button className="h-10 rounded-xl bg-brand px-4 text-brand-ink shadow-[0_8px_24px_rgba(23,61,56,.18)] hover:bg-brand-hover" onClick={() => setShowCreate(true)}><Plus /> New project</Button>
                 </>}
                 <input ref={fileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`${selected.length} ${selected.length === 1 ? 'file' : 'files'}`); setShowCreate(true); } e.target.value = ''; }} type="file" />
                 <input ref={folderInput} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`folder · ${selected.length} files`); setShowCreate(true); } e.target.value = ''; }} type="file" {...{ webkitdirectory: '' }} />
@@ -348,7 +348,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                 <UsagePanel dailyLimit={dailyLimit} inputUsage={inputUsage} monthlyLimit={monthlyLimit} monthlyUsage={monthlyUsage} outputUsage={outputUsage} />
                 <Card className="border-0 bg-brand-deep text-white shadow-[0_16px_46px_rgba(20,48,44,.16)] ring-0">
                   <CardHeader><CardDescription className="flex items-center gap-2 text-emerald-100/65"><Cloud className="size-4" /> File agent</CardDescription><CardTitle className="flex items-center gap-1.5 text-lg text-white">Folder sync<Hint ciemna side="bottom" text="Enforced by the server, not by the script. While this is off the server rejects uploads and deletions from any agent, including a modified one. Browser uploads are unaffected." /></CardTitle><CardAction><Switch aria-label="Local folder sync" checked={syncEnabled} onCheckedChange={(enabled) => void updateSync(enabled)} /></CardAction></CardHeader>
-                  <CardContent><p className="text-sm leading-6 text-emerald-50/70">{syncEnabled ? 'The agent running on your computer can upload changed files to a selected project and, with -PropagateDeletes, remove files deleted from disk.' : 'The server rejects agent uploads and deletions. Browser uploads work independently of this switch.'}</p><p className="mt-3 text-xs leading-5 text-emerald-100/50">This covers local files only. Codex, Claude, Gemini and Grok conversations require a manual JSON import.</p><div className="mt-4 flex items-center gap-2 text-xs text-emerald-100/70"><span className={cn('size-2 rounded-full', syncEnabled ? 'bg-emerald-400' : 'bg-stone-500')} />{syncEnabled ? 'Active · files only' : 'Manually disabled'}</div></CardContent>
+                  <CardContent><p className="text-sm leading-6 text-emerald-50/70">{syncEnabled ? 'The agent running on your computer can upload changed files to a selected project and, with -PropagateDeletes, remove files deleted from disk.' : 'The server rejects agent uploads and deletions. Browser uploads work independently of this switch.'}</p><p className="mt-3 text-xs leading-5 text-emerald-100/65">This covers local files only. Codex, Claude, Gemini and Grok conversations require a manual JSON import.</p><div className="mt-4 flex items-center gap-2 text-xs text-emerald-100/70"><span className={cn('size-2 rounded-full', syncEnabled ? 'bg-emerald-400' : 'bg-stone-500')} />{syncEnabled ? 'Active · files only' : 'Manually disabled'}</div></CardContent>
                 </Card>
                 <SyncAgentPanel onNotice={setNotice} />
               </aside>
@@ -360,7 +360,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                 <p className="text-sm text-ink-muted">{filteredProjects.length === projects.length ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}` : `${filteredProjects.length} of ${projects.length} projects`}</p>
                 <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface-raised/70 p-1">
                   {([['all', 'All'], ['private', 'Only me'], ['selected', 'Selected'], ['team', 'Team']] as const).map(([key, label]) => (
-                    <button key={key} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', activeFilter === key ? 'bg-brand text-white' : 'text-ink-muted hover:bg-black/5')} onClick={() => setActiveFilter(key)} type="button">{label}</button>
+                    <button key={key} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', activeFilter === key ? 'bg-brand text-brand-ink' : 'text-ink-muted hover:bg-black/5')} onClick={() => setActiveFilter(key)} type="button">{label}</button>
                   ))}
                 </div>
               </div>
@@ -386,7 +386,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
           </div>
         </section>
       </div>
-      {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-brand px-4 py-3 text-sm text-white shadow-xl">{notice}</output>}
+      {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-brand px-4 py-3 text-sm text-brand-ink shadow-xl">{notice}</output>}
       {showCreate && <CreateProjectDialog driveConfigured={driveConfigured} importedFile={importedFile} members={teamMembers.filter((member) => member.role !== 'owner')} name={projectName} onClose={() => { if (!saving) { setShowCreate(false); setImportedFile(null); setPendingFiles([]); setProjectShares([]); setStorageProvider('r2'); } }} onCreate={createProject} onNameChange={setProjectName} onSharesChange={setProjectShares} onStorageProviderChange={setStorageProvider} onVisibilityChange={setVisibility} saving={saving} shares={projectShares} storageProvider={storageProvider} visibility={visibility} />}
       {activeProject && <ChatWorkspace conversationId={activeConversationId} initialFileIds={openWithFileIds} key={`${activeProject.id}:${activeConversationId ?? 'ostatnia'}`} models={models} onClose={() => { setActiveProject(null); setActiveConversationId(null); setOpenWithFileIds([]); }} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />}
     </main>

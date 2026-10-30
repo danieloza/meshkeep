@@ -251,7 +251,7 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
     <button aria-label="Close chat" className="absolute inset-0" onClick={onClose} type="button" />
     <section className="relative z-10 flex h-[min(820px,94vh)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
       <header className="flex items-center gap-3 border-b border-line bg-surface-raised/80 px-4 py-3 sm:px-5">
-        <span className="grid size-9 place-items-center rounded-xl bg-brand text-white"><BrainCircuit className="size-4" /></span>
+        <span className="grid size-9 place-items-center rounded-xl bg-brand text-brand-ink"><BrainCircuit className="size-4" /></span>
         <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold" id="chat-title">{project.name}</h2><p className="text-[11px] text-ink-muted">{historyLoading ? 'Loading conversation history…' : `Private conversation · ${chatMessages.length} messages · ${projectFiles.length} files`}</p></div>
         <label className="hidden text-xs text-ink-muted sm:block" htmlFor="chat-model">Model</label>
         <select className="h-9 max-w-[210px] rounded-lg border border-line-strong bg-surface-raised px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#4d8b80]/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
@@ -271,14 +271,14 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
             <span className="text-[10px] text-ink-subtle">{instructionsDraft.length} / 4000</span>
             {instructionsEditable && <div className="flex gap-2">
               <Button onClick={() => { setInstructionsDraft(instructions); setInstructionsOpen(false); }} size="sm" type="button" variant="ghost">Cancel</Button>
-              <Button className="bg-brand text-white" disabled={instructionsSaving || instructionsDraft.trim() === instructions} onClick={() => void saveInstructions()} size="sm" type="button">{instructionsSaving ? 'Saving…' : 'Save'}</Button>
+              <Button className="bg-brand text-brand-ink" disabled={instructionsSaving || instructionsDraft.trim() === instructions} onClick={() => void saveInstructions()} size="sm" type="button">{instructionsSaving ? 'Saving…' : 'Save'}</Button>
             </div>}
           </div>
         </div>
       </div>}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-10">
         {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-surface-selected text-brand-text"><Bot /></span><h3 className="text-xl font-semibold tracking-tight">What would you like to work on?</h3><p className="mt-2 text-sm leading-6 text-ink-muted">Ask about code, analyze a project or attach specific files. The model receives this conversation and only the text files you explicitly select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
-          ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-brand px-4 py-3 text-sm leading-6 text-white">{message.content}</div></div>
+          ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-surface-selected px-4 py-3 text-sm leading-6 text-ink">{message.content}</div></div>
           : <div className="flex flex-col items-start" key={`${message.role}-${index}`}>
             {message.content && <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-line bg-surface-raised px-4 py-3 text-sm leading-6 text-ink shadow-sm"><ChatMarkdown content={message.content} /></div>}
             {message.interrupted && <p className="mt-1 text-[10px] text-warn-text">Interrupted · this partial answer was not saved</p>}
@@ -312,7 +312,7 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
         </div>
         <form className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-line-strong bg-surface-raised p-2 shadow-sm focus-within:ring-2 focus-within:ring-[#4d8b80]/20" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
           <textarea aria-label="Message to model" className="max-h-36 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[#8a9492]" maxLength={32_000} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Write a message…" rows={1} value={prompt} />
-          <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-white" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
+          <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-brand-ink" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
         </form>
         <p className="mt-2 text-center text-[10px] text-ink-subtle">Enter sends · Shift+Enter adds a new line · FREE models only</p>
       </footer>
