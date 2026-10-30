@@ -9,11 +9,9 @@ import type { UsageResponse } from '@/lib/contracts/usage';
 import { cn } from '@/lib/utils';
 import { MetricCard } from '@/components/metric-card';
 import { ViewPlaceholder } from '@/components/view-placeholder';
-import { KillSwitchCard } from '@/features/owner/owner-controls';
-import { ProviderCard } from '@/features/providers/provider-card';
 import { formatTokens } from '@/lib/format';
 
-export function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dailyLimit: number; isOwner: boolean; monthlyLimit: number; onNotice: (message: string) => void }) {
+export function UsageView({ dailyLimit, monthlyLimit }: { dailyLimit: number; monthlyLimit: number }) {
   const [data, setData] = useState<UsageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +34,7 @@ export function UsageView({ dailyLimit, isOwner, monthlyLimit, onNotice }: { dai
   // dzień spłaszczyłby resztę do niewidoczności.
   const peak = data.byDay.reduce((max, row) => Math.max(max, row.inputTokens + row.outputTokens), 0);
 
-  return <section aria-label="API usage" className="space-y-6">
-    <ProviderCard onChanged={() => window.location.reload()} onNotice={onNotice} />
-    {isOwner && <KillSwitchCard onNotice={onNotice} />}
+  return <section aria-label="Usage and limits" className="space-y-6">
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard accent detail={`${effectiveDaily ? Math.round((todayTotal / effectiveDaily) * 100) : 0}% of the daily limit`} icon={Gauge} label="Today" value={formatTokens(todayTotal)} />
       <MetricCard detail={`${effectiveMonthly ? Math.round((monthTotal / effectiveMonthly) * 100) : 0}% of the monthly limit`} icon={Activity} label="This month" value={formatTokens(monthTotal)} />

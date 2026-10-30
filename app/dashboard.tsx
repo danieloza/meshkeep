@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Cloud, Files, Folder, Gauge, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
+import { Bot, Files, Folder, Gauge, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { api, ApiRequestError } from '@/lib/api-client';
 import type { Visibility } from '@/lib/contracts/common';
 import type { ConversationSummary } from '@/lib/contracts/conversations';
@@ -16,9 +14,8 @@ import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
 import type { ProviderModel } from '@/lib/contracts/providers';
 import type { SearchResults } from '@/lib/contracts/search';
 import type { PendingInvite, TeamMember } from '@/lib/contracts/team';
-import { type ChatTarget, chatSearch, DEFAULT_SECTION, isSettingsSection, NEW_CONVERSATION, parseChatTarget, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch } from '@/lib/navigation';
+import { type ChatTarget, chatSearch, DEFAULT_SECTION, DEFAULT_SETTINGS_SECTION, isSettingsSection, NEW_CONVERSATION, parseChatTarget, SECTION_LABELS, type Section, sectionFromLocation, sectionPath, sectionSearch } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
-import { Hint } from '@/components/hint';
 import { MetricCard } from '@/components/metric-card';
 import { ViewPlaceholder } from '@/components/view-placeholder';
 import { ChatWorkspace } from '@/features/chat/chat-workspace';
@@ -30,9 +27,12 @@ import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SEARCH_INPUT_ID, SEARCH_RESULTS_ID, focusStaysInSearch, SearchPanel } from '@/features/search/search-panel';
 import { type AuthMode, SecureGate } from '@/features/shell/secure-gate';
 import { ProjectNav } from '@/features/shell/project-nav';
-import { SettingsTabs } from '@/features/shell/settings-tabs';
+import { SettingsNav } from '@/features/shell/settings-nav';
 import { ThemeToggle } from '@/features/shell/theme-toggle';
+import { FolderSyncCard } from '@/features/sync/folder-sync-card';
 import { SyncAgentPanel } from '@/features/sync/sync-agent-panel';
+import { BackupCard, KillSwitchCard } from '@/features/owner/owner-controls';
+import { ProviderCard } from '@/features/providers/provider-card';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
 import { UsagePanel } from '@/features/usage/usage-panel';
 import { UsageView } from '@/features/usage/usage-view';
@@ -43,8 +43,11 @@ const SECTION_SUBTITLES: Record<Section, string> = {
   projects: 'Every project you can access: private, shared and team-wide.',
   conversations: 'Conversation history from every project you can access.',
   team: 'Members, invitations and reconnect links. Up to four people.',
-  usage: 'See token usage by model and how much remains.',
-  activity: 'Review activity and export a database backup. Conversation contents, files and secrets are excluded.',
+  providers: 'Any service that speaks the OpenAI chat format. Each member can also bring their own key.',
+  usage: 'Tokens counted per person, by model, and how much of each limit remains.',
+  sync: 'The agent on your computer that uploads changed files to a project.',
+  activity: 'Who did what, and when. The log never stores message text or file contents.',
+  safety: 'Everything the owner needs when something goes wrong.',
 };
 
 // How a change reaches the address: a new history entry, an edit of the
@@ -57,7 +60,7 @@ function chatOptions(target: ChatTarget): ChatOptions {
   return target.conversation === NEW_CONVERSATION ? { fresh: true } : { conversationId: target.conversation ?? undefined };
 }
 
-export function Dashboard({ authMode }: { authMode: AuthMode }) {
+export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { authMode: AuthMode; initialSection?: Section }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
@@ -72,9 +75,9 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   const [activeFilter, setActiveFilter] = useState<'all' | Visibility>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  // Startujemy zawsze od widoku domyślnego, a adres odczytujemy dopiero w
-  // efekcie — inaczej serwer i klient wyrenderowałyby co innego.
-  const [section, setSection] = useState<Section>(DEFAULT_SECTION);
+  // The page reads the view from the address on the server, so the first
+  // render on either side already shows it.
+  const [section, setSection] = useState<Section>(initialSection);
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [driveConfigured, setDriveConfigured] = useState(false);
   const [storageProvider, setStorageProvider] = useState<StorageProvider>('r2');
@@ -128,9 +131,9 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     api.driveStatus().then((status) => setDriveConfigured(status.configured)).catch(() => undefined);
   }, []);
 
-  function writeUrl(search: string, history: HistoryMode) {
+  function writeUrl(search: string, history: HistoryMode, path = window.location.pathname) {
     if (history === 'none') return;
-    const url = `${window.location.pathname}${search}`;
+    const url = `${path}${search}`;
     if (history === 'push') window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
   }
@@ -159,7 +162,12 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
       void loadConversations(project.id);
     }
     openProjectId.current = project.id;
-    writeUrl(chatSearch({ projectId: project.id, conversation: target.fresh ? NEW_CONVERSATION : target.conversationId ?? null }, window.location.search), history);
+    // A chat opens in the workspace, so one opened from Settings (by search)
+    // leaves Settings and closes back to home.
+    const leavingSettings = history !== 'none' && isSettingsSection(sectionFromLocation(window.location.pathname, window.location.search));
+    if (leavingSettings) setSection(DEFAULT_SECTION);
+    const base = leavingSettings ? sectionSearch(DEFAULT_SECTION, window.location.search) : window.location.search;
+    writeUrl(chatSearch({ projectId: project.id, conversation: target.fresh ? NEW_CONVERSATION : target.conversationId ?? null }, base), history, '/');
     setActiveProject(project);
     setActiveConversationId(target.conversationId ?? null);
     setStartFresh(Boolean(target.fresh));
@@ -184,7 +192,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     closeProject('none');
     setSection(next);
     setMobileMenu(false);
-    writeUrl(chatSearch(null, sectionSearch(next, window.location.search)), 'push');
+    writeUrl(chatSearch(null, sectionSearch(next, window.location.search)), 'push', sectionPath(next));
   }
 
   useEffect(() => {
@@ -235,7 +243,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   // reakcja na Wstecz/Dalej, żeby przyciski przeglądarki robiły to, czego
   // użytkownik oczekuje.
   useEffect(() => {
-    const syncFromUrl = () => setSection(parseSection(new URLSearchParams(window.location.search).get(SECTION_PARAM)));
+    const syncFromUrl = () => setSection(sectionFromLocation(window.location.pathname, window.location.search));
     // The open chat follows the address too. Before the projects load there
     // is nothing to open; loading them reads the address itself.
     const onPopState = () => {
@@ -388,7 +396,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     <TooltipProvider delay={200}>
     <main className="min-h-screen bg-surface text-ink">
       <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur-xl sm:gap-3 sm:px-4">
-            <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>
+            {!settingsOpen && <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>}
             <button aria-label="MeshKeep home" className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg px-2 hover:bg-surface-fill" onClick={() => goToSection('dashboard')} type="button"><span className="grid size-7 place-items-center rounded-lg bg-brand text-brand-ink"><Bot className="size-4" /></span><span className="hidden text-[15px] font-semibold tracking-tight sm:inline">MeshKeep</span></button>
             <div className="relative mx-auto max-w-xl flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
@@ -397,7 +405,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
             </div>
             <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text md:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
-            <Button aria-current={settingsOpen ? 'page' : undefined} className={cn(settingsOpen && 'bg-surface-selected text-brand-text')} onClick={() => goToSection('team')} variant="ghost"><Settings2 /><span className="hidden sm:inline">Settings</span></Button>
+            <Button aria-current={settingsOpen ? 'page' : undefined} className={cn(settingsOpen && 'bg-surface-selected text-brand-text')} onClick={() => goToSection(DEFAULT_SETTINGS_SECTION)} variant="ghost"><Settings2 /><span className="hidden sm:inline">Settings</span></Button>
             <Button aria-label="Sign out" onClick={() => void logout()} size="icon" title="Sign out" variant="ghost"><LogOut /></Button>
             <Avatar className="bg-brand text-brand-ink"><AvatarFallback className="bg-transparent text-xs font-semibold text-brand-ink">DS</AvatarFallback></Avatar>
       </header>
@@ -408,14 +416,15 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
       <input ref={contextInput} accept="application/json,.json" className="sr-only" onChange={(e) => { const selected = e.target.files?.[0]; if (selected) void importContext(selected); e.target.value = ''; }} type="file" />
 
       <div className={cn('lg:grid', activeProject ? 'lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_320px]' : 'lg:grid-cols-[256px_minmax(0,1fr)]')}>
-        <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />
-        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()}onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
+        {settingsOpen
+          ? <SettingsNav isOwner={currentRole === 'owner'} onBack={() => goToSection(DEFAULT_SECTION)} onSelect={goToSection} section={section} />
+          : <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />}
+        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
         : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
-            {settingsOpen && <SettingsTabs isOwner={currentRole === 'owner'} onSelect={goToSection} section={section} />}
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> Private team cloud</p>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> {settingsOpen ? 'Settings' : 'Private team cloud'}</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{section === 'dashboard' ? `Welcome, ${displayName}.` : SECTION_LABELS[section]}</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{SECTION_SUBTITLES[section]}</p>
               </div>
@@ -453,11 +462,6 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
               </section>
               <aside className="space-y-4 xl:sticky xl:top-[96px]">
                 <UsagePanel dailyLimit={dailyLimit} inputUsage={inputUsage} monthlyLimit={monthlyLimit} monthlyUsage={monthlyUsage} outputUsage={outputUsage} />
-                <Card className="border-0 bg-brand-deep text-white shadow-[0_16px_46px_rgba(20,48,44,.16)] ring-0">
-                  <CardHeader><CardDescription className="flex items-center gap-2 text-emerald-100/65"><Cloud className="size-4" /> File agent</CardDescription><CardTitle className="flex items-center gap-1.5 text-lg text-white">Folder sync<Hint ciemna side="bottom" text="Enforced by the server, not by the script. While this is off the server rejects uploads and deletions from any agent, including a modified one. Browser uploads are unaffected." /></CardTitle><CardAction><Switch aria-label="Local folder sync" checked={syncEnabled} onCheckedChange={(enabled) => void updateSync(enabled)} /></CardAction></CardHeader>
-                  <CardContent><p className="text-sm leading-6 text-emerald-50/70">{syncEnabled ? 'The agent running on your computer can upload changed files to a selected project and, with -PropagateDeletes, remove files deleted from disk.' : 'The server rejects agent uploads and deletions. Browser uploads work independently of this switch.'}</p><p className="mt-3 text-xs leading-5 text-emerald-100/65">This covers local files only. Codex, Claude, Gemini and Grok conversations require a manual JSON import.</p><div className="mt-4 flex items-center gap-2 text-xs text-emerald-100/70"><span className={cn('size-2 rounded-full', syncEnabled ? 'bg-emerald-400' : 'bg-stone-500')} />{syncEnabled ? 'Active · files only' : 'Manually disabled'}</div></CardContent>
-                </Card>
-                <SyncAgentPanel onNotice={setNotice} />
               </aside>
             </div>
             </>}
@@ -485,11 +489,19 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
 
             {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
-            {section === 'usage' && <UsageView dailyLimit={dailyLimit} isOwner={currentRole === 'owner'} monthlyLimit={monthlyLimit} onNotice={setNotice} />}
+            {section === 'providers' && <div className="max-w-2xl"><ProviderCard onChanged={() => window.location.reload()} onNotice={setNotice} /></div>}
+
+            {section === 'usage' && <UsageView dailyLimit={dailyLimit} monthlyLimit={monthlyLimit} />}
+
+            {section === 'sync' && <div className="max-w-2xl space-y-4"><FolderSyncCard enabled={syncEnabled} onChange={(enabled) => void updateSync(enabled)} /><SyncAgentPanel onNotice={setNotice} /></div>}
 
             {section === 'activity' && (currentRole === 'owner'
-              ? <AuditView onNotice={setNotice} />
+              ? <AuditView />
               : <ViewPlaceholder detail="Only the cloud owner can view the activity log." icon={LockKeyhole} title="Access denied" />)}
+
+            {section === 'safety' && (currentRole === 'owner'
+              ? <div className="max-w-2xl space-y-4"><KillSwitchCard onNotice={setNotice} /><BackupCard onNotice={setNotice} /></div>
+              : <ViewPlaceholder detail="Only the cloud owner can stop model calls or download a backup." icon={LockKeyhole} title="Access denied" />)}
           </div>
         </section>}
       </div>

@@ -6,6 +6,8 @@ import {
   parseChatTarget,
   isOwnerOnlySection,
   isSettingsSection,
+  sectionFromLocation,
+  sectionPath,
   parseSection,
   SECTION_LABELS,
   SECTIONS,
@@ -61,14 +63,15 @@ describe('labels', () => {
 });
 
 describe('owner-only views', () => {
-  it('restricts the activity log to the owner', () => {
+  it('restricts the activity log and backup and safety to the owner', () => {
     expect(isOwnerOnlySection('activity')).toBe(true);
+    expect(isOwnerOnlySection('safety')).toBe(true);
     expect(visibleSections(true)).toContain('activity');
     expect(visibleSections(false)).not.toContain('activity');
   });
 
   it('shows all other views to every member', () => {
-    for (const section of ['dashboard', 'projects', 'conversations', 'team', 'usage'] as const) {
+    for (const section of ['dashboard', 'projects', 'conversations', 'team', 'providers', 'usage', 'sync'] as const) {
       expect(isOwnerOnlySection(section), section).toBe(false);
       expect(visibleSections(false), section).toContain(section);
     }
@@ -82,8 +85,8 @@ describe('owner-only views', () => {
 });
 
 describe('settings views', () => {
-  it('groups team, usage and the activity log under Settings', () => {
-    expect(SECTIONS.filter(isSettingsSection)).toEqual(['team', 'usage', 'activity']);
+  it('puts everything that is not a project under Settings', () => {
+    expect(SECTIONS.filter(isSettingsSection)).toEqual(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
   });
 
   it('keeps home, conversations and projects out of Settings', () => {
@@ -92,9 +95,29 @@ describe('settings views', () => {
     }
   });
 
-  it('hides the activity log from members in Settings too', () => {
-    expect(visibleSettingsSections(true)).toEqual(['team', 'usage', 'activity']);
-    expect(visibleSettingsSections(false)).toEqual(['team', 'usage']);
+  it('hides the owner-only sections from members in Settings too', () => {
+    expect(visibleSettingsSections(true)).toEqual(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
+    expect(visibleSettingsSections(false)).toEqual(['team', 'providers', 'usage', 'sync']);
+  });
+
+  it('serves settings views from /settings and the workspace from /', () => {
+    expect(sectionPath('providers')).toBe('/settings');
+    expect(sectionPath('safety')).toBe('/settings');
+    expect(sectionPath('dashboard')).toBe('/');
+    expect(sectionPath('conversations')).toBe('/');
+  });
+
+  it('opens the team on /settings without a settings view', () => {
+    expect(sectionFromLocation('/settings', '')).toBe('team');
+    expect(sectionFromLocation('/settings/', '?view=projects')).toBe('team');
+    expect(sectionFromLocation('/settings', '?view=nonsense')).toBe('team');
+    expect(sectionFromLocation('/settings', '?view=usage')).toBe('usage');
+  });
+
+  it('keeps old /?view= links to settings views working', () => {
+    expect(sectionFromLocation('/', '?view=team')).toBe('team');
+    expect(sectionFromLocation('/', '?view=activity')).toBe('activity');
+    expect(sectionFromLocation('/', '')).toBe('dashboard');
   });
 });
 
