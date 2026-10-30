@@ -102,7 +102,7 @@ export function zbudujJesliTrzeba() {
   ubijSieroty();
   let bundle = 0;
   try { bundle = statSync(KONFIG_WORKERA).mtimeMs; } catch { bundle = 0; }
-  const zrodla = najnowszaZmiana(['app', 'lib', 'db', 'components', 'hooks']);
+  const zrodla = najnowszaZmiana(['app', 'lib', 'db', 'components', 'features', 'hooks']);
   if (bundle > zrodla) return 'aktualny';
   uruchom('npm', ['run', 'build'], 'Budowanie aplikacji');
   return 'zbudowany';
