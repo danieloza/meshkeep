@@ -79,7 +79,7 @@ export function AuditView({ onNotice }: { onNotice: (message: string) => void })
       : widoczne.map((row) => {
       const wazne = isSensitiveAction(row.action);
       return <div className={cn('flex items-start gap-3 rounded-xl border px-4 py-3', wazne ? 'border-red-800/10 bg-danger-soft/70' : 'border-line bg-surface-raised/85')} key={row.id}>
-        <span className={cn('mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg', wazne ? 'bg-danger-soft-strong text-danger-text' : 'bg-surface-fill text-brand-text-soft')}><ScrollText className="size-3.5" /></span>
+        <span className={cn('mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg', wazne ? 'bg-danger-soft-strong text-danger-text' : 'bg-surface-fill text-brand-text')}><ScrollText className="size-3.5" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{AUDIT_LABELS[row.action as AuditAction] ?? row.action}</p>
           <p className="mt-0.5 text-[11px] text-ink-subtle">

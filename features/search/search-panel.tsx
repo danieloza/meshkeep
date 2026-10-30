@@ -27,14 +27,14 @@ export function SearchPanel({ results, onOpen, onBlur, onFocus }: { results: Sea
     {results.conversations.length > 0 && <section>
       <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Conversations</p>
       {results.conversations.map((hit) => <button className="block w-full rounded-lg px-2 py-2 text-left hover:bg-surface-fill" key={hit.conversationId} onClick={() => onOpen(hit.projectId, { conversationId: hit.conversationId })} type="button">
-        <span className="flex items-center gap-2 text-xs font-medium"><MessageSquareText className="size-3.5 shrink-0 text-brand-text-soft" /><span className="truncate">{hit.title}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-ink-subtle">{hit.projectName}</span></span>
+        <span className="flex items-center gap-2 text-xs font-medium"><MessageSquareText className="size-3.5 shrink-0 text-brand-text" /><span className="truncate">{hit.title}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-ink-subtle">{hit.projectName}</span></span>
         <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-ink-muted"><Highlighted text={hit.snippet} /></span>
       </button>)}
     </section>}
     {results.files.length > 0 && <section className={cn(results.conversations.length > 0 && 'mt-1 border-t border-line pt-1')}>
       <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Files</p>
       {results.files.map((hit) => <button className="block w-full rounded-lg px-2 py-2 text-left hover:bg-surface-fill" key={hit.fileId} onClick={() => onOpen(hit.projectId, { fileId: hit.fileId })} title="Open the project chat with this file selected" type="button">
-        <span className="flex items-center gap-2 text-xs font-medium"><FileText className="size-3.5 shrink-0 text-brand-text-soft" /><span className="truncate">{hit.path}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-ink-subtle">{hit.projectName}</span></span>
+        <span className="flex items-center gap-2 text-xs font-medium"><FileText className="size-3.5 shrink-0 text-brand-text" /><span className="truncate">{hit.path}</span><span className="ml-auto shrink-0 text-[10px] font-normal text-ink-subtle">{hit.projectName}</span></span>
         {hit.snippet && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-ink-muted"><Highlighted text={hit.snippet} /></span>}
       </button>)}
     </section>}

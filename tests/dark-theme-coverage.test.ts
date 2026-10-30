@@ -140,6 +140,43 @@ describe('dark-theme coverage', () => {
     }
   });
 
+  // Each text color against every surface it is drawn on. Secondary text once
+  // sat at 3:1 in the light theme; a palette change must not bring that back.
+  it('keeps every text color at WCAG AA on its surfaces in both themes', () => {
+    const css = readFileSync(CSS, 'utf8');
+    const pairs: Array<[string, string[]]> = [
+      ['ink', ['surface', 'surface-raised', 'surface-fill', 'surface-selected']],
+      ['ink-soft', ['surface', 'surface-raised', 'surface-fill']],
+      ['ink-muted', ['surface', 'surface-raised', 'surface-fill', 'surface-selected']],
+      ['ink-subtle', ['surface', 'surface-raised', 'surface-fill', 'surface-selected']],
+      ['brand-text', ['surface', 'surface-raised', 'surface-fill', 'surface-selected']],
+      ['brand-ink', ['brand', 'brand-hover']],
+      ['warn-text', ['warn-soft', 'surface-raised']],
+      ['danger-text', ['danger-soft', 'surface-raised']],
+      ['ok-text', ['ok-soft', 'surface-raised']],
+      ['info-text', ['surface', 'surface-raised']],
+      ['private-text', ['private-soft']],
+      ['people-text', ['people-soft']],
+      ['team-text', ['team-soft']],
+    ];
+    const failures: string[] = [];
+    for (const selector of [':root', '.dark']) {
+      const values = declarations(css, selector);
+      const hex = (name: string) => {
+        const value = values.get(name);
+        expect(value, `--${name} in ${selector} is a #rrggbb color`).toMatch(/^#[0-9a-f]{6}$/i);
+        return value!.slice(1);
+      };
+      for (const [text, surfaces] of pairs) {
+        for (const surface of surfaces) {
+          const ratio = contrast(hex(text), hex(surface));
+          if (ratio < AA_NORMAL) failures.push(`${selector} --${text} on --${surface}: ${ratio.toFixed(2)}:1`);
+        }
+      }
+    }
+    expect(failures, `Below ${AA_NORMAL}:1:\n${failures.join('\n')}`).toEqual([]);
+  });
+
   // The `[class~="…"]` allowlist matched whole tokens only, so `hover:bg-white`
   // and `bg-red-50/70` slipped through it. Tokens replaced it; it must not
   // come back.

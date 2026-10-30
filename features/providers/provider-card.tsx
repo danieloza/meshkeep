@@ -98,7 +98,7 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
         Use for the whole team instead of only me
       </label>}
       {error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-[11px] text-danger-text">{error}</p>}
-      <Button className="bg-brand text-white hover:bg-brand-hover" disabled={busy || !label.trim() || !baseUrl.trim() || apiKey.trim().length < 8} onClick={() => void save()} size="sm">
+      <Button className="bg-brand text-brand-ink hover:bg-brand-hover" disabled={busy || !label.trim() || !baseUrl.trim() || apiKey.trim().length < 8} onClick={() => void save()} size="sm">
         {busy ? 'Checking…' : 'Connect provider'}
       </Button>
       <p className="text-[10px] leading-4 text-ink-subtle">The key is verified against the provider before it is stored, so a wrong one is reported here rather than at your first message.</p>

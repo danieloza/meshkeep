@@ -7,4 +7,6 @@ export const PROJECT_FILE_ACCEPT = '.txt,.md,.json,.csv,.ts,.tsx,.js,.jsx,.mjs,.
 
 export const visibilityLabels: Record<Visibility, string> = { private: 'Only me', selected: 'Selected people', team: 'Entire team' };
 
+export const visibilityBadgeClasses: Record<Visibility, string> = { private: 'bg-private-soft text-private-text', selected: 'bg-people-soft text-people-text', team: 'bg-team-soft text-team-text' };
+
 export const iconMap = { code: Code2, folder: FolderLock, lab: Sparkles };
