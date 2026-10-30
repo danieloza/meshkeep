@@ -57,9 +57,9 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
 
   if (!state) return null;
 
-  const field = 'h-9 w-full rounded-lg border border-black/10 bg-white px-2 text-xs outline-none focus:ring-2 focus:ring-[#4d8b80]/30';
+  const field = 'h-9 w-full rounded-lg border border-line-strong bg-surface-raised px-2 text-xs outline-none focus:ring-2 focus:ring-[#4d8b80]/30';
 
-  return <Card className="border-0 bg-white/90 shadow-none ring-black/6">
+  return <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
     <CardHeader>
       <CardTitle className="flex items-center gap-1.5 text-base">Model provider
         <Hint text="Any service that speaks the OpenAI format works: OpenAI, OpenRouter, Groq, Together, Mistral, or a model running on your own machine. Your key is stored on the server, never sent to the browser and never included in a backup." />
@@ -72,10 +72,10 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
     </CardHeader>
     <CardContent className="space-y-3">
       {[['Yours', state.mine, 'mine'] as const, ['Team default', state.team, 'team'] as const].map(([title, summary, scope]) => summary && (
-        <div className="flex items-center gap-2 rounded-lg bg-[#f4f6f3] px-3 py-2 text-[11px]" key={scope}>
+        <div className="flex items-center gap-2 rounded-lg bg-surface-fill px-3 py-2 text-[11px]" key={scope}>
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{title}: {summary.label}</p>
-            <p className="truncate text-[#7c8784]">{summary.baseUrl} · key {summary.keyPreview} · {summary.modelCount} models</p>
+            <p className="truncate text-ink-subtle">{summary.baseUrl} · key {summary.keyPreview} · {summary.modelCount} models</p>
           </div>
           {(scope === 'mine' || state.canSetTeam) && <Button aria-label={`Remove ${title}`} disabled={busy} onClick={() => void remove(scope)} size="icon-xs" variant="ghost"><Trash2 /></Button>}
         </div>
@@ -97,11 +97,11 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
         <input checked={forTeam} onChange={(event) => setForTeam(event.target.checked)} type="checkbox" />
         Use for the whole team instead of only me
       </label>}
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-700">{error}</p>}
-      <Button className="bg-[#173d38] text-white hover:bg-[#23534c]" disabled={busy || !label.trim() || !baseUrl.trim() || apiKey.trim().length < 8} onClick={() => void save()} size="sm">
+      {error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-[11px] text-danger-text">{error}</p>}
+      <Button className="bg-brand text-white hover:bg-brand-hover" disabled={busy || !label.trim() || !baseUrl.trim() || apiKey.trim().length < 8} onClick={() => void save()} size="sm">
         {busy ? 'Checking…' : 'Connect provider'}
       </Button>
-      <p className="text-[10px] leading-4 text-[#7b8582]">The key is verified against the provider before it is stored, so a wrong one is reported here rather than at your first message.</p>
+      <p className="text-[10px] leading-4 text-ink-subtle">The key is verified against the provider before it is stored, so a wrong one is reported here rather than at your first message.</p>
     </CardContent>
   </Card>;
 }

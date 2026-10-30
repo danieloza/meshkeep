@@ -27,10 +27,10 @@ async function indexProjectFiles(projectId: string) {
 type ChatMessage = { role: 'user' | 'assistant'; content: string; context?: ContextFile[]; pending?: boolean; interrupted?: boolean };
 
 const CONTEXT_STATUS: Record<ContextFile['status'], { label: string; className: string }> = {
-  included: { label: '', className: 'bg-[#e2efeb] text-[#2c5c54]' },
-  truncated: { label: 'partial', className: 'bg-amber-50 text-amber-800' },
-  unreadable: { label: 'not readable', className: 'bg-[#eef0ed] text-[#63706d]' },
-  skipped: { label: 'over limit', className: 'bg-[#eef0ed] text-[#63706d]' },
+  included: { label: '', className: 'bg-surface-selected text-brand-text' },
+  truncated: { label: 'partial', className: 'bg-warn-soft text-warn-text' },
+  unreadable: { label: 'not readable', className: 'bg-surface-fill text-ink-muted' },
+  skipped: { label: 'over limit', className: 'bg-surface-fill text-ink-muted' },
 };
 
 // Shows, per answer, which selected files the model actually received. A file
@@ -249,12 +249,12 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
 
   return <dialog aria-labelledby="chat-title" className="fixed inset-0 z-[75] m-0 grid h-screen max-h-none w-screen max-w-none place-items-center bg-[#071411]/60 p-3 backdrop-blur-sm sm:p-6" open>
     <button aria-label="Close chat" className="absolute inset-0" onClick={onClose} type="button" />
-    <section className="relative z-10 flex h-[min(820px,94vh)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-[#f7f8f5] shadow-2xl">
-      <header className="flex items-center gap-3 border-b border-black/7 bg-white/80 px-4 py-3 sm:px-5">
-        <span className="grid size-9 place-items-center rounded-xl bg-[#173d38] text-white"><BrainCircuit className="size-4" /></span>
-        <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold" id="chat-title">{project.name}</h2><p className="text-[11px] text-[#76817f]">{historyLoading ? 'Loading conversation history…' : `Private conversation · ${chatMessages.length} messages · ${projectFiles.length} files`}</p></div>
-        <label className="hidden text-xs text-[#697572] sm:block" htmlFor="chat-model">Model</label>
-        <select className="h-9 max-w-[210px] rounded-lg border border-black/10 bg-white px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#4d8b80]/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
+    <section className="relative z-10 flex h-[min(820px,94vh)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
+      <header className="flex items-center gap-3 border-b border-line bg-surface-raised/80 px-4 py-3 sm:px-5">
+        <span className="grid size-9 place-items-center rounded-xl bg-brand text-white"><BrainCircuit className="size-4" /></span>
+        <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold" id="chat-title">{project.name}</h2><p className="text-[11px] text-ink-muted">{historyLoading ? 'Loading conversation history…' : `Private conversation · ${chatMessages.length} messages · ${projectFiles.length} files`}</p></div>
+        <label className="hidden text-xs text-ink-muted sm:block" htmlFor="chat-model">Model</label>
+        <select className="h-9 max-w-[210px] rounded-lg border border-line-strong bg-surface-raised px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#4d8b80]/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
           {models.length === 0 && <option value="">No models available</option>}
           {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
@@ -262,59 +262,59 @@ export function ChatWorkspace({ project, models, onClose, onUsage, onFileCountCh
         <Button aria-label="Start a new conversation" disabled={historyLoading || !chatMessages.length} onClick={startNewConversation} size="icon" title="New conversation" variant="ghost"><MessageSquarePlus /></Button>
         <Button aria-label="Close chat" onClick={onClose} size="icon" variant="ghost"><X /></Button>
       </header>
-      {instructionsOpen && <div className="border-b border-black/7 bg-[#f8faf8] px-4 py-3 sm:px-5">
+      {instructionsOpen && <div className="border-b border-line bg-surface-fill px-4 py-3 sm:px-5">
         <div className="mx-auto max-w-3xl">
           <label className="text-xs font-semibold" htmlFor="project-instructions">Project instructions</label>
-          <p className="mt-0.5 text-[11px] leading-4 text-[#75817e]">Sent to the model before every message in this project, ahead of any selected files. {instructionsEditable ? 'The owner and editors can change them.' : 'Only the owner and editors can change them.'}</p>
-          <textarea className="mt-2 h-28 w-full resize-y rounded-lg border border-black/10 bg-white p-2 text-xs leading-5 outline-none focus:ring-2 focus:ring-[#4d8b80]/30" id="project-instructions" maxLength={4000} onChange={(event) => setInstructionsDraft(event.target.value)} placeholder="For example: Answer in Polish. Prefer TypeScript examples. Name the file when you refer to code." readOnly={!instructionsEditable} value={instructionsDraft} />
+          <p className="mt-0.5 text-[11px] leading-4 text-ink-muted">Sent to the model before every message in this project, ahead of any selected files. {instructionsEditable ? 'The owner and editors can change them.' : 'Only the owner and editors can change them.'}</p>
+          <textarea className="mt-2 h-28 w-full resize-y rounded-lg border border-line-strong bg-surface-raised p-2 text-xs leading-5 outline-none focus:ring-2 focus:ring-[#4d8b80]/30" id="project-instructions" maxLength={4000} onChange={(event) => setInstructionsDraft(event.target.value)} placeholder="For example: Answer in Polish. Prefer TypeScript examples. Name the file when you refer to code." readOnly={!instructionsEditable} value={instructionsDraft} />
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-[#89928f]">{instructionsDraft.length} / 4000</span>
+            <span className="text-[10px] text-ink-subtle">{instructionsDraft.length} / 4000</span>
             {instructionsEditable && <div className="flex gap-2">
               <Button onClick={() => { setInstructionsDraft(instructions); setInstructionsOpen(false); }} size="sm" type="button" variant="ghost">Cancel</Button>
-              <Button className="bg-[#173d38] text-white" disabled={instructionsSaving || instructionsDraft.trim() === instructions} onClick={() => void saveInstructions()} size="sm" type="button">{instructionsSaving ? 'Saving…' : 'Save'}</Button>
+              <Button className="bg-brand text-white" disabled={instructionsSaving || instructionsDraft.trim() === instructions} onClick={() => void saveInstructions()} size="sm" type="button">{instructionsSaving ? 'Saving…' : 'Save'}</Button>
             </div>}
           </div>
         </div>
       </div>}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-10">
-        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-[#dff4ed] text-[#2f6e63]"><Bot /></span><h3 className="text-xl font-semibold tracking-tight">What would you like to work on?</h3><p className="mt-2 text-sm leading-6 text-[#707c79]">Ask about code, analyze a project or attach specific files. The model receives this conversation and only the text files you explicitly select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
-          ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[#173d38] px-4 py-3 text-sm leading-6 text-white">{message.content}</div></div>
+        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-surface-selected text-brand-text"><Bot /></span><h3 className="text-xl font-semibold tracking-tight">What would you like to work on?</h3><p className="mt-2 text-sm leading-6 text-ink-muted">Ask about code, analyze a project or attach specific files. The model receives this conversation and only the text files you explicitly select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
+          ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-brand px-4 py-3 text-sm leading-6 text-white">{message.content}</div></div>
           : <div className="flex flex-col items-start" key={`${message.role}-${index}`}>
-            {message.content && <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-black/6 bg-white px-4 py-3 text-sm leading-6 text-[#25322f] shadow-sm"><ChatMarkdown content={message.content} /></div>}
-            {message.interrupted && <p className="mt-1 text-[10px] text-amber-800">Interrupted · this partial answer was not saved</p>}
+            {message.content && <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-line bg-surface-raised px-4 py-3 text-sm leading-6 text-ink shadow-sm"><ChatMarkdown content={message.content} /></div>}
+            {message.interrupted && <p className="mt-1 text-[10px] text-warn-text">Interrupted · this partial answer was not saved</p>}
             {!message.pending && message.context && <ContextChips files={message.context} />}
-          </div>)}{sending && !chatMessages.some((message) => message.pending && message.content) && <div className="flex items-center gap-2 text-sm text-[#65716e]"><Loader2 className="size-4 animate-spin" /> Model is responding…</div>}</div>}
+          </div>)}{sending && !chatMessages.some((message) => message.pending && message.content) && <div className="flex items-center gap-2 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Model is responding…</div>}</div>}
       </div>
-      <footer className="border-t border-black/7 bg-white/80 p-3 sm:p-5">
-        {error && <p className="mx-auto mb-2 max-w-3xl rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
+      <footer className="border-t border-line bg-surface-raised/80 p-3 sm:p-5">
+        {error && <p className="mx-auto mb-2 max-w-3xl rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger-text">{error}</p>}
         <div className="mx-auto mb-2 max-w-3xl">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <button className="flex items-center gap-2 rounded-lg border border-black/8 bg-[#edf5f2] px-3 py-2 font-medium text-[#315f57]" onClick={() => setConnectionsOpen((value) => !value)} type="button"><Cloud className="size-4" /> Project cloud <span className="text-[#72807d]">{projectFiles.length}</span><ChevronDown className={cn('size-3 transition', connectionsOpen && 'rotate-180')} /></button>
+            <button className="flex items-center gap-2 rounded-lg border border-line bg-surface-fill px-3 py-2 font-medium text-brand-text" onClick={() => setConnectionsOpen((value) => !value)} type="button"><Cloud className="size-4" /> Project cloud <span className="text-ink-muted">{projectFiles.length}</span><ChevronDown className={cn('size-3 transition', connectionsOpen && 'rotate-180')} /></button>
             <Button className="h-8 rounded-lg" disabled={uploading} onClick={() => chatFileInput.current?.click()} size="sm" type="button" variant="outline"><Paperclip /> {uploading ? 'Adding…' : 'Add files'}</Button>
             <Button className="h-8 rounded-lg" disabled={uploading} onClick={() => chatFolderInput.current?.click()} size="sm" type="button" variant="outline"><FolderOpen /> Import folder</Button>
           </div>
           <input ref={chatFileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []); void uploadProjectFiles(selected); event.target.value = ''; }} type="file" />
           <input ref={chatFolderInput} className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []); void uploadProjectFiles(selected); event.target.value = ''; }} type="file" {...{ webkitdirectory: '' }} />
-          {connectionsOpen && <div className="mt-2 rounded-xl border border-black/8 bg-[#f8faf8] p-3 shadow-sm">
+          {connectionsOpen && <div className="mt-2 rounded-xl border border-line bg-surface-fill p-3 shadow-sm">
             <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-lg bg-white p-3 ring-1 ring-black/6"><Cloud className="mb-2 size-4 text-emerald-700" /><p className="text-xs font-semibold">Private cloud</p><p className="mt-1 text-[10px] text-[#75817e]">Active · project files</p></div>
-              <button className="rounded-lg bg-white p-3 text-left ring-1 ring-black/6 hover:bg-[#f2f7f5]" onClick={() => chatFolderInput.current?.click()} type="button"><FolderOpen className="mb-2 size-4 text-sky-700" /><p className="text-xs font-semibold">Local folder</p><p className="mt-1 text-[10px] text-[#75817e]">Select and copy into the project</p></button>
-              <div className="rounded-lg bg-white p-3 ring-1 ring-black/6"><HardDrive className="mb-2 size-4 text-amber-700" /><p className="text-xs font-semibold">Google Drive</p><p className="mt-1 text-[10px] text-[#75817e]">{driveConfigured ? 'Connector configured' : 'Owner authorization required'}</p></div>
+              <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-line"><Cloud className="mb-2 size-4 text-ok-text" /><p className="text-xs font-semibold">Private cloud</p><p className="mt-1 text-[10px] text-ink-muted">Active · project files</p></div>
+              <button className="rounded-lg bg-surface-raised p-3 text-left ring-1 ring-line hover:bg-surface-fill" onClick={() => chatFolderInput.current?.click()} type="button"><FolderOpen className="mb-2 size-4 text-info-text" /><p className="text-xs font-semibold">Local folder</p><p className="mt-1 text-[10px] text-ink-muted">Select and copy into the project</p></button>
+              <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-line"><HardDrive className="mb-2 size-4 text-warn-text" /><p className="text-xs font-semibold">Google Drive</p><p className="mt-1 text-[10px] text-ink-muted">{driveConfigured ? 'Connector configured' : 'Owner authorization required'}</p></div>
             </div>
-            {projectFiles.length > 0 && <div className="mt-3 border-t border-black/6 pt-3"><p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Select up to 8 files for the next message<Hint side="top" text="Text and code are sent as they are. PDF, DOCX, XLSX, PPTX and RTF are converted to text on the server. Images and archives are stored, but no available model can read them, so they arrive as metadata only." /></p><div className="max-h-28 space-y-1 overflow-y-auto">{projectFiles.slice(0, 40).map((file) => { const selected = selectedFileIds.includes(file.id); const image = file.mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name); return <div className={cn('flex items-center gap-1 rounded-lg pr-1', selected ? 'bg-[#dff0eb] text-[#22574f]' : 'hover:bg-black/[0.035]')} key={file.id}><button className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs" onClick={() => setSelectedFileIds((current) => selected ? current.filter((id) => id !== file.id) : current.length < 8 ? [...current, file.id] : current)} type="button">{image ? <ImageIcon className="size-3.5 shrink-0" /> : <FileText className="size-3.5 shrink-0" />}<span className="min-w-0 flex-1 truncate">{file.relativePath}</span><span className="shrink-0 text-[9px] text-[#89928f]">{selected ? 'selected' : formatBytes(file.sizeBytes)}</span></button><Button aria-label={`Delete ${file.relativePath} from cloud`} disabled={deletingFileId === file.id} onClick={() => void deleteProjectFile(file)} size="icon-xs" title="Delete from cloud" variant="ghost"><Trash2 /></Button></div>; })}</div></div>}
-            <p className="mt-2 text-[10px] leading-4 text-[#7b8582]">A local folder is copied, not permanently connected. Images and documents are stored; current models automatically analyze only supported safe text formats.</p>
+            {projectFiles.length > 0 && <div className="mt-3 border-t border-line pt-3"><p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Select up to 8 files for the next message<Hint side="top" text="Text and code are sent as they are. PDF, DOCX, XLSX, PPTX and RTF are converted to text on the server. Images and archives are stored, but no available model can read them, so they arrive as metadata only." /></p><div className="max-h-28 space-y-1 overflow-y-auto">{projectFiles.slice(0, 40).map((file) => { const selected = selectedFileIds.includes(file.id); const image = file.mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name); return <div className={cn('flex items-center gap-1 rounded-lg pr-1', selected ? 'bg-surface-selected text-brand-text' : 'hover:bg-black/[0.035]')} key={file.id}><button className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs" onClick={() => setSelectedFileIds((current) => selected ? current.filter((id) => id !== file.id) : current.length < 8 ? [...current, file.id] : current)} type="button">{image ? <ImageIcon className="size-3.5 shrink-0" /> : <FileText className="size-3.5 shrink-0" />}<span className="min-w-0 flex-1 truncate">{file.relativePath}</span><span className="shrink-0 text-[9px] text-ink-subtle">{selected ? 'selected' : formatBytes(file.sizeBytes)}</span></button><Button aria-label={`Delete ${file.relativePath} from cloud`} disabled={deletingFileId === file.id} onClick={() => void deleteProjectFile(file)} size="icon-xs" title="Delete from cloud" variant="ghost"><Trash2 /></Button></div>; })}</div></div>}
+            <p className="mt-2 text-[10px] leading-4 text-ink-subtle">A local folder is copied, not permanently connected. Images and documents are stored; current models automatically analyze only supported safe text formats.</p>
           </div>}
           {visibleSuggestions.length > 0 && <div aria-label="Files suggested for this question" className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#74807d]">Suggested</span>
-            {visibleSuggestions.map((file) => <button className="flex max-w-[220px] items-center gap-1 rounded-full border border-dashed border-black/10 bg-[#edf5f2] px-2.5 py-1 text-[10px] text-[#315f57]" key={file.fileId} onClick={() => setSelectedFileIds((current) => current.length < 8 && !current.includes(file.fileId) ? [...current, file.fileId] : current)} title={`Add ${file.path} to the next message`} type="button"><Plus className="size-3" /><span className="truncate">{file.path.split('/').pop()}</span></button>)}
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Suggested</span>
+            {visibleSuggestions.map((file) => <button className="flex max-w-[220px] items-center gap-1 rounded-full border border-dashed border-line-strong bg-surface-fill px-2.5 py-1 text-[10px] text-brand-text" key={file.fileId} onClick={() => setSelectedFileIds((current) => current.length < 8 && !current.includes(file.fileId) ? [...current, file.fileId] : current)} title={`Add ${file.path} to the next message`} type="button"><Plus className="size-3" /><span className="truncate">{file.path.split('/').pop()}</span></button>)}
           </div>}
-          {selectedFileIds.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-[#e2efeb] px-2.5 py-1 text-[10px] text-[#2c5c54]" key={id} onClick={() => setSelectedFileIds((current) => current.filter((item) => item !== id))} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}</div>}
+          {selectedFileIds.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-surface-selected px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => setSelectedFileIds((current) => current.filter((item) => item !== id))} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}</div>}
         </div>
-        <form className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-black/10 bg-white p-2 shadow-sm focus-within:ring-2 focus-within:ring-[#4d8b80]/20" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+        <form className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-line-strong bg-surface-raised p-2 shadow-sm focus-within:ring-2 focus-within:ring-[#4d8b80]/20" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
           <textarea aria-label="Message to model" className="max-h-36 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[#8a9492]" maxLength={32_000} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Write a message…" rows={1} value={prompt} />
-          <Button aria-label="Send message" className="size-9 rounded-xl bg-[#173d38] text-white" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
+          <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-white" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
         </form>
-        <p className="mt-2 text-center text-[10px] text-[#89928f]">Enter sends · Shift+Enter adds a new line · FREE models only</p>
+        <p className="mt-2 text-center text-[10px] text-ink-subtle">Enter sends · Shift+Enter adds a new line · FREE models only</p>
       </footer>
     </section>
   </dialog>;

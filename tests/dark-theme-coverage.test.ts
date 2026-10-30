@@ -1,11 +1,12 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// Dark mode is currently an allowlist of literal Tailwind class names in
-// `app/globals.css`, rather than a semantic-token system. A class outside the
-// list keeps its light-mode value under `.dark`; that is how `bg-white/60`
-// shipped as a light member row with white text. This test provides the missing
-// feedback loop until the interface is migrated to semantic color tokens.
+// Colors that change between the themes are semantic tokens: `app/globals.css`
+// defines each one in `:root` and again in `.dark`, and components use the
+// token's class (`bg-surface-raised`, `text-ink-muted`) instead of a literal
+// color. A literal light color in a component keeps its light value under
+// `.dark`; that is how `bg-white/60` once shipped as a light member row with
+// white text. This test is the feedback loop for that.
 
 const CSS = 'app/globals.css';
 const SCAN_ROOTS = ['app', 'components', 'features'];
@@ -16,7 +17,7 @@ const DARK_NATIVE = ['app/showcase/page.tsx'];
 // A white veil below this threshold remains subtle on a dark background.
 const SHEER_WHITE_MAX = 20;
 
-// Above this luminance, an unmapped background becomes a bright surface.
+// Above this luminance, an unthemed background becomes a bright surface.
 const LIGHT_SURFACE_MIN = 0.5;
 
 // Evaluate text by contrast against the common `--card` surface, not by raw
@@ -36,7 +37,6 @@ const WHITE_BG = /^bg-white(?:\/(\d+))?$/;
 const LIGHT_PALETTE_BG = /^bg-(?!white|black)[a-z]+-(?:50|100)(?:\/\d+)?$/;
 const DARK_PALETTE_TEXT = /^text-(?!white|black)[a-z]+-(?:600|700|800|900)(?:\/\d+)?$/;
 const CLASS_TOKEN = /(?:^|[\s"'`])((?:bg|text)-[^\s"'`]+)/g;
-const DARK_RULE = /\.dark\s*\[class~="([^"]+)"\]/g;
 
 function sourceFiles(): string[] {
   const found: string[] = [];
@@ -63,13 +63,6 @@ function luminance(hex: string): number {
     + 0.0722 * channel(value & 255);
 }
 
-function allowlist(): Set<string> {
-  const css = readFileSync(CSS, 'utf8');
-  const tokens = new Set<string>();
-  for (const match of css.matchAll(DARK_RULE)) tokens.add(match[1]);
-  return tokens;
-}
-
 function contrast(a: string, b: string): number {
   const first = luminance(a);
   const second = luminance(b);
@@ -77,7 +70,14 @@ function contrast(a: string, b: string): number {
   return (high + 0.05) / (low + 0.05);
 }
 
-// A light surface becomes a bright patch when it is not mapped in dark mode.
+// Custom properties declared directly in a top-level block such as `:root`.
+function declarations(css: string, selector: string): Map<string, string> {
+  const start = css.indexOf(`${selector} {`);
+  const body = css.slice(start, css.indexOf('\n}', start));
+  return new Map([...body.matchAll(/^\s*--([\w-]+):\s*([^;]+);/gm)].map((m) => [m[1], m[2].trim()]));
+}
+
+// A light surface becomes a bright patch when it is not themed.
 export function lightSurface(token: string): string | null {
   const hex = token.match(LIGHT_HEX_BG);
   if (hex && luminance(hex[1]) > LIGHT_SURFACE_MIN) return 'light literal color';
@@ -100,13 +100,11 @@ export function darkText(token: string): string | null {
 }
 
 function scan(): string[] {
-  const registered = allowlist();
   const findings: string[] = [];
   for (const file of sourceFiles()) {
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
       for (const match of line.matchAll(CLASS_TOKEN)) {
         const token = match[1];
-        if (registered.has(token)) continue;
         const why = lightSurface(token) ?? darkText(token);
         if (!why) continue;
         // An explicit `dark:` variant for the same property handles the token.
@@ -120,21 +118,38 @@ function scan(): string[] {
 }
 
 describe('dark-theme coverage', () => {
-  it('leaves no light surface or dark text outside the allowlist', () => {
+  it('uses no literal light surface or dark text in a component', () => {
     const findings = scan();
     expect(
       findings,
-      `Add these classes to the matching .dark group in ${CSS}:\n${findings.join('\n')}`,
+      `Use a semantic color from ${CSS} (or add one to :root and .dark) instead of:\n${findings.join('\n')}`,
     ).toEqual([]);
   });
 
-  // `[class~=]` matches whole tokens, so a rule for `bg-white` does not cover
-  // `bg-white/60`. Keep the complete regression set registered.
-  it('recognizes and registers every light surface from this regression', () => {
-    const registered = allowlist();
+  it('defines every semantic color in both themes and exposes it to Tailwind', () => {
+    const css = readFileSync(CSS, 'utf8');
+    const light = declarations(css, ':root');
+    const dark = declarations(css, '.dark');
+    const theme = declarations(css, '@theme inline');
+    const exposed = [...theme].filter(([name, value]) => name.startsWith('color-') && value === `var(--${name.slice(6)})`).map(([name]) => name.slice(6));
+
+    expect(exposed.length, 'the theme exposes semantic colors').toBeGreaterThan(30);
+    for (const name of exposed) {
+      expect(light.has(name), `--${name} in :root`).toBe(true);
+      expect(dark.has(name), `--${name} in .dark`).toBe(true);
+    }
+  });
+
+  // The `[class~="…"]` allowlist matched whole tokens only, so `hover:bg-white`
+  // and `bg-red-50/70` slipped through it. Tokens replaced it; it must not
+  // come back.
+  it('keeps no per-class dark overrides', () => {
+    expect(readFileSync(CSS, 'utf8')).not.toMatch(/\.dark\s*\[class~=/);
+  });
+
+  it('recognizes every light surface from the bg-white/60 regression', () => {
     for (const token of ['bg-white/60', 'bg-[#dff0eb]', 'bg-[#e3e7e2]', 'bg-[#e4f2ee]', 'bg-[#f6ede7]']) {
       expect(lightSurface(token), `${token} must be recognized as light`).not.toBeNull();
-      expect(registered.has(token), `${token} must be in the allowlist`).toBe(true);
     }
   });
 
