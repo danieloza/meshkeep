@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SECTION,
   isOwnerOnlySection,
+  isSettingsSection,
   parseSection,
   SECTION_LABELS,
   SECTIONS,
   sectionSearch,
   visibleSections,
+  visibleSettingsSections,
 } from '@/lib/navigation';
 
 describe('parseSection', () => {
@@ -73,5 +75,22 @@ describe('owner-only views', () => {
   // The render path and API remain responsible for enforcing owner access.
   it('still parses the activity view when it is hidden from the menu', () => {
     expect(parseSection('activity')).toBe('activity');
+  });
+});
+
+describe('settings views', () => {
+  it('groups team, usage and the activity log under Settings', () => {
+    expect(SECTIONS.filter(isSettingsSection)).toEqual(['team', 'usage', 'activity']);
+  });
+
+  it('keeps home, conversations and projects out of Settings', () => {
+    for (const section of ['dashboard', 'projects', 'conversations'] as const) {
+      expect(isSettingsSection(section), section).toBe(false);
+    }
+  });
+
+  it('hides the activity log from members in Settings too', () => {
+    expect(visibleSettingsSections(true)).toEqual(['team', 'usage', 'activity']);
+    expect(visibleSettingsSections(false)).toEqual(['team', 'usage']);
   });
 });
