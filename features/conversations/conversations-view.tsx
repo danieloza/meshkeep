@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import type { ConversationRow } from '@/lib/contracts/conversations';
 import { ViewPlaceholder } from '@/components/view-placeholder';
+import { FilterInput } from '@/components/filter-input';
 import { visibilityLabels } from '@/features/projects/project';
 import { relativeDate } from '@/lib/format';
 
-export function ConversationsView({ onOpenConversation, onNotice, query }: { onOpenConversation: (projectId: string, conversationId: string) => void; onNotice: (message: string) => void; query: string }) {
+export function ConversationsView({ onOpenConversation, onNotice }: { onOpenConversation: (projectId: string, conversationId: string) => void; onNotice: (message: string) => void }) {
   const [rows, setRows] = useState<ConversationRow[] | null>(null);
+  // Narrows the list by title or project. Searching inside the messages is
+  // the search palette's job.
+  const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -36,16 +40,17 @@ export function ConversationsView({ onOpenConversation, onNotice, query }: { onO
     finally { setDeletingId(null); }
   }
 
-  const needle = query.trim().toLocaleLowerCase('pl');
+  const needle = filter.trim().toLocaleLowerCase('pl');
   const visible = (rows ?? []).filter((row) => !needle || `${row.title} ${row.projectName}`.toLocaleLowerCase('pl').includes(needle));
 
   if (error) return <ViewPlaceholder detail={error} icon={MessageSquareText} title="Something went wrong" />;
   if (!rows) return <ViewPlaceholder detail="This may take a moment." icon={Loader2} title="Loading conversations…" />;
   if (!rows.length) return <ViewPlaceholder detail="Open a project and send the first message. It will appear here." icon={MessageSquareText} title="No conversations yet" />;
-  if (!visible.length) return <ViewPlaceholder detail="Change the search term above." icon={Search} title="No search results" />;
 
   return <section aria-label="Conversations" className="space-y-2">
-    <p className="mb-4 text-sm text-ink-muted">{visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'}` : `${visible.length} of ${rows.length} conversations`}</p>
+    <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><FilterInput label="Filter conversations by title or project" onChange={setFilter} value={filter} />
+    <p className="text-sm text-ink-muted">{visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'}` : `${visible.length} of ${rows.length} conversations`}</p></div>
+    {!visible.length && <ViewPlaceholder detail="Change the filter above, or press Ctrl K to search inside messages." icon={Search} title="No conversations match" />}
     {visible.map((row) => <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-raised/85 pr-2 transition hover:border-black/15 hover:bg-surface-raised" key={row.id}>
       <button className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-4 py-3 text-left" onClick={() => onOpenConversation(row.projectId, row.id)} type="button">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-selected text-brand-text"><MessageSquareText className="size-4" /></span>

@@ -6,13 +6,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { api, ApiRequestError } from '@/lib/api-client';
 import type { Visibility } from '@/lib/contracts/common';
 import type { ConversationSummary } from '@/lib/contracts/conversations';
 import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
 import type { ProviderModel } from '@/lib/contracts/providers';
-import type { SearchResults } from '@/lib/contracts/search';
 import type { PendingInvite, TeamMember } from '@/lib/contracts/team';
 import { type ChatTarget, chatSearch, DEFAULT_SECTION, DEFAULT_SETTINGS_SECTION, isSettingsSection, NEW_CONVERSATION, parseChatTarget, SECTION_LABELS, type Section, sectionFromLocation, sectionPath, sectionSearch } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
@@ -24,7 +22,8 @@ import { AuditView } from '@/features/owner/audit-view';
 import { CreateProjectDialog } from '@/features/projects/create-project-dialog';
 import { ProjectCard } from '@/features/projects/project-card';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
-import { SEARCH_INPUT_ID, SEARCH_RESULTS_ID, focusStaysInSearch, SearchPanel } from '@/features/search/search-panel';
+import { SearchPalette, type SearchTarget } from '@/features/search/search-palette';
+import { FilterInput } from '@/components/filter-input';
 import { type AuthMode, SecureGate } from '@/features/shell/secure-gate';
 import { ProjectNav } from '@/features/shell/project-nav';
 import { SettingsNav } from '@/features/shell/settings-nav';
@@ -64,12 +63,9 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  // Safari does not move focus to a clicked button, so losing focus to "no
-  // element" may still be a click on a result. Closing waits a moment for it.
-  const searchCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  // Narrows the projects list by name; contents are the palette's job.
+  const [projectFilter, setProjectFilter] = useState('');
   // Files a search result asked the chat to open with, already selected.
   const [openWithFileIds, setOpenWithFileIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | Visibility>('all');
@@ -299,39 +295,26 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   const settingsOpen = !activeProject && isSettingsSection(section);
 
   const filteredProjects = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase('pl');
+    const needle = projectFilter.trim().toLocaleLowerCase('pl');
     return projects.filter((p) => (activeFilter === 'all' || p.visibility === activeFilter) && (!needle || `${p.name} ${p.description}`.toLocaleLowerCase('pl').includes(needle)));
-  }, [activeFilter, projects, query]);
+  }, [activeFilter, projects, projectFilter]);
 
-  // The box filtered only project names while promising files and
-  // conversations too. The same text now also searches their contents.
+  // Ctrl K (Cmd K on a Mac) opens the search palette from anywhere.
   useEffect(() => {
-    const term = query.trim();
-    if (term.length < 2) return;
-    let active = true;
-    const timer = setTimeout(() => {
-      api.search(term).then((results) => { if (active) setSearchResults(results); }).catch(() => undefined);
-    }, 300);
-    return () => { active = false; clearTimeout(timer); };
-  }, [query]);
-  const visibleResults = query.trim().length >= 2 ? searchResults : null;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
-  function openSearch() {
-    clearTimeout(searchCloseTimer.current);
-    setSearchOpen(true);
-  }
-
-  function closeSearchSoon(next: EventTarget | null) {
-    if (focusStaysInSearch(next)) return;
-    clearTimeout(searchCloseTimer.current);
-    searchCloseTimer.current = setTimeout(() => setSearchOpen(false), 150);
-  }
-
-  function openFromSearch(projectId: string, target: { conversationId?: string; fileId?: string }) {
+  function openFromSearch(projectId: string, target: SearchTarget) {
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
-    clearTimeout(searchCloseTimer.current);
-    setSearchOpen(false);
+    setPaletteOpen(false);
     openProject(project, { conversationId: target.conversationId, fileIds: target.fileId ? [target.fileId] : [] });
   }
 
@@ -398,11 +381,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur-xl sm:gap-3 sm:px-4">
             {!settingsOpen && <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>}
             <button aria-label="MeshKeep home" className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg px-2 hover:bg-surface-fill" onClick={() => goToSection('dashboard')} type="button"><span className="grid size-7 place-items-center rounded-lg bg-brand text-brand-ink"><Bot className="size-4" /></span><span className="hidden text-[15px] font-semibold tracking-tight sm:inline">MeshKeep</span></button>
-            <div className="relative mx-auto max-w-xl flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-              <Input aria-controls={SEARCH_RESULTS_ID} aria-expanded={searchOpen && Boolean(visibleResults)} aria-label="Search projects, files and conversations" className="h-10 rounded-xl border-line bg-surface-raised/75 pl-9 shadow-none dark:bg-surface-raised" id={SEARCH_INPUT_ID} onBlur={(event) => closeSearchSoon(event.relatedTarget)} onChange={(e) => { setQuery(e.target.value); openSearch(); }} onFocus={openSearch} onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Search projects, files or conversations…" value={query} />
-              {searchOpen && visibleResults && <SearchPanel onBlur={closeSearchSoon} onFocus={openSearch} onOpen={openFromSearch} results={visibleResults} />}
-            </div>
+            <button aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" className="mx-auto flex min-h-10 min-w-0 max-w-xl flex-1 items-center gap-2.5 rounded-xl border border-line-strong bg-surface-raised/75 px-3 text-left text-sm text-ink-subtle hover:border-ring dark:bg-surface-raised" onClick={() => setPaletteOpen(true)} type="button"><Search aria-hidden className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">Search conversations and file contents</span><kbd className="hidden rounded-md border border-line px-1.5 font-mono text-xs sm:inline">Ctrl K</kbd></button>
             <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text md:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
             <Button aria-current={settingsOpen ? 'page' : undefined} className={cn(settingsOpen && 'bg-surface-selected text-brand-text')} onClick={() => goToSection(DEFAULT_SETTINGS_SECTION)} variant="ghost"><Settings2 /><span className="hidden sm:inline">Settings</span></Button>
@@ -468,7 +447,8 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
             {section === 'projects' && <section aria-label="All projects">
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <p className="text-sm text-ink-muted">{filteredProjects.length === projects.length ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}` : `${filteredProjects.length} of ${projects.length} projects`}</p>
+                <FilterInput label="Filter projects by name" onChange={setProjectFilter} value={projectFilter} />
+                <p className="text-sm text-ink-muted sm:mr-auto">{filteredProjects.length === projects.length ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}` : `${filteredProjects.length} of ${projects.length} projects`}</p>
                 <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface-raised/70 p-1">
                   {([['all', 'All'], ['private', 'Only me'], ['selected', 'Selected'], ['team', 'Team']] as const).map(([key, label]) => (
                     <button key={key} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', activeFilter === key ? 'bg-brand text-brand-ink' : 'text-ink-muted hover:bg-black/5')} onClick={() => setActiveFilter(key)} type="button">{label}</button>
@@ -482,10 +462,10 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
                   <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Create an empty project or import a folder or ZIP archive.</span>
                 </button>
               </div>
-              {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-line-strong bg-surface-veil p-12 text-center"><Folder className="mx-auto mb-3 text-ink-muted" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-ink-muted">Change the filter or try another search term.</p></div>}
+              {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-line-strong bg-surface-veil p-12 text-center"><Folder className="mx-auto mb-3 text-ink-muted" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-ink-muted">Change the filters above.</p></div>}
             </section>}
 
-            {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} query={query} />}
+            {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} />}
 
             {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
@@ -505,6 +485,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
           </div>
         </section>}
       </div>
+      {paletteOpen && <SearchPalette onClose={() => setPaletteOpen(false)} onOpenProject={(project) => { setPaletteOpen(false); openProject(project); }} onOpenResult={openFromSearch} projects={projects} />}
       {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-brand px-4 py-3 text-sm text-brand-ink shadow-xl">{notice}</output>}
       {showCreate && <CreateProjectDialog driveConfigured={driveConfigured} importedFile={importedFile} members={teamMembers.filter((member) => member.role !== 'owner')} name={projectName} onClose={() => { if (!saving) { setShowCreate(false); setImportedFile(null); setPendingFiles([]); setProjectShares([]); setStorageProvider('r2'); } }} onCreate={createProject} onNameChange={setProjectName} onSharesChange={setProjectShares} onStorageProviderChange={setStorageProvider} onVisibilityChange={setVisibility} saving={saving} shares={projectShares} storageProvider={storageProvider} visibility={visibility} />}
     </main>
