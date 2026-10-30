@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Files, Folder, Gauge, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
+import { Bot, Folder, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,6 @@ import type { ProviderModel } from '@/lib/contracts/providers';
 import type { PendingInvite, TeamMember } from '@/lib/contracts/team';
 import { type ChatTarget, chatSearch, DEFAULT_SECTION, DEFAULT_SETTINGS_SECTION, isSettingsSection, NEW_CONVERSATION, parseChatTarget, SECTION_LABELS, type Section, sectionFromLocation, sectionPath, sectionSearch } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
-import { MetricCard } from '@/components/metric-card';
 import { ViewPlaceholder } from '@/components/view-placeholder';
 import { ChatWorkspace } from '@/features/chat/chat-workspace';
 import { ConversationsView } from '@/features/conversations/conversations-view';
@@ -33,9 +32,9 @@ import { SyncAgentPanel } from '@/features/sync/sync-agent-panel';
 import { BackupCard, KillSwitchCard } from '@/features/owner/owner-controls';
 import { ProviderCard } from '@/features/providers/provider-card';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
-import { UsagePanel } from '@/features/usage/usage-panel';
+import { HomeView } from '@/features/home/home-view';
 import { UsageView } from '@/features/usage/usage-view';
-import { relativeDate, formatTokens } from '@/lib/format';
+import { relativeDate } from '@/lib/format';
 
 const SECTION_SUBTITLES: Record<Section, string> = {
   dashboard: 'Your projects stay private until you choose who can access them.',
@@ -84,7 +83,6 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState('Daniel');
   const [currentRole, setCurrentRole] = useState<'owner' | 'member'>('member');
   const [currentMemberId, setCurrentMemberId] = useState('');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
@@ -107,11 +105,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   // registered once and would otherwise see the first render's state.
   const openProjectId = useRef<string | null>(null);
   const projectsRef = useRef<Project[]>([]);
-  const [dailyUsage, setDailyUsage] = useState(0);
-  const [inputUsage, setInputUsage] = useState(0);
-  const [outputUsage, setOutputUsage] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(400_000);
-  const [monthlyUsage, setMonthlyUsage] = useState(0);
   const [monthlyLimit, setMonthlyLimit] = useState(8_000_000);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
@@ -196,16 +190,11 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
     Promise.all([api.bootstrap(), api.projects.list(), api.team.get()])
       .then(([bootstrap, payload, team]) => {
         if (!active) return;
-        setDisplayName(bootstrap.member.displayName.split(' ')[0] || 'Daniel');
         setCurrentRole(bootstrap.member.role);
         setCurrentMemberId(bootstrap.member.id);
         setModels(bootstrap.models ?? []);
         setDailyLimit(bootstrap.limits?.dailyTokens ?? 400_000);
         setMonthlyLimit(bootstrap.limits?.monthlyTokens ?? 8_000_000);
-        setMonthlyUsage(bootstrap.usage?.monthlyTokens ?? 0);
-        setInputUsage(bootstrap.usage?.inputTokens ?? 0);
-        setOutputUsage(bootstrap.usage?.outputTokens ?? 0);
-        setDailyUsage((bootstrap.usage?.inputTokens ?? 0) + (bootstrap.usage?.outputTokens ?? 0));
         setTeamMembers(team.members);
         setPendingInvites(team.pendingInvites);
         setReconnectLinks(team.reconnectLinks ?? []);
@@ -280,17 +269,8 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       setNotice(enabled ? 'Automatic sync has been enabled.' : 'Automatic sync has been disabled.');
     } catch { setSyncEnabled(previous); setNotice('Could not save the sync setting.'); }
   }
-  // Kafelki pokazywały wcześniej zaszyte liczby („94 pliki”, „1,8 GB z 10 GB”,
-  // „36 rozmów”), niezależne od stanu konta. Liczymy je z realnych danych.
-  const totals = useMemo(() => ({
-    files: projects.reduce((sum, project) => sum + project.files, 0),
-    conversations: projects.reduce((sum, project) => sum + project.conversations, 0),
-    shared: projects.filter((project) => project.visibility !== 'private').length,
-  }), [projects]);
+  const conversationTotal = useMemo(() => projects.reduce((sum, project) => sum + project.conversations, 0), [projects]);
 
-  // Pulpit jest podsumowaniem, więc pokazuje tylko kilka najświeższych projektów;
-  // pełna lista z filtrami mieszka w widoku „Projects”, żeby oba nie były tym samym.
-  const recentProjects = useMemo(() => projects.slice(0, 4), [projects]);
   const showImportActions = section === 'dashboard' || section === 'projects';
   const settingsOpen = !activeProject && isSettingsSection(section);
 
@@ -398,14 +378,14 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         {settingsOpen
           ? <SettingsNav isOwner={currentRole === 'owner'} onBack={() => goToSection(DEFAULT_SECTION)} onSelect={goToSection} section={section} />
           : <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />}
-        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
+        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} project={activeProject} />
         : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> {settingsOpen ? 'Settings' : 'Private team cloud'}</p>
-                <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{section === 'dashboard' ? `Welcome, ${displayName}.` : SECTION_LABELS[section]}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{SECTION_SUBTITLES[section]}</p>
+                <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{section === 'dashboard' ? 'Pick up where you left off' : SECTION_LABELS[section]}</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{section === 'dashboard' ? `${projects.length} ${projects.length === 1 ? 'project' : 'projects'} · ${conversationTotal} ${conversationTotal === 1 ? 'conversation' : 'conversations'} you can open` : SECTION_SUBTITLES[section]}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {showImportActions && <>
@@ -417,33 +397,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
               </div>
             </div>
 
-            {section === 'dashboard' && <>
-            <section aria-label="Overview" className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard icon={Folder} label="Projects" value={String(projects.length)} detail={totals.shared ? `${totals.shared} shared` : 'all private'} />
-              <MetricCard icon={Files} label="Files" value={String(totals.files)} detail="in private project storage" />
-              <MetricCard icon={MessageSquareText} label="Conversations" value={String(totals.conversations)} detail={`${teamCapacity.used} of ${teamCapacity.total} team seats`} />
-              <MetricCard icon={Gauge} label="Tokens today" value={formatTokens(dailyUsage)} detail={`${dailyLimit ? Math.round((dailyUsage / dailyLimit) * 100) : 0}% of the daily limit`} accent />
-            </section>
-
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <section>
-                <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                  <div><h2 className="text-xl font-semibold tracking-tight">Recent projects</h2><p className="mt-1 text-sm text-ink-muted">The four most recently updated projects. Open Projects for the full, filtered list.</p></div>
-                  {projects.length > recentProjects.length && <Button className="h-9 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => goToSection('projects')} variant="outline">View all ({projects.length})</Button>}
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {recentProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => openProject(project)} project={project} />)}
-                  {projects.length === 0 && <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
-                    <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
-                    <span className="font-semibold">Create your first project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Start empty or import a folder or ZIP archive.</span>
-                  </button>}
-                </div>
-              </section>
-              <aside className="space-y-4 xl:sticky xl:top-[96px]">
-                <UsagePanel dailyLimit={dailyLimit} inputUsage={inputUsage} monthlyLimit={monthlyLimit} monthlyUsage={monthlyUsage} outputUsage={outputUsage} />
-              </aside>
-            </div>
-            </>}
+            {section === 'dashboard' && <HomeView onAllConversations={() => goToSection('conversations')} onNewProject={() => setShowCreate(true)} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} onOpenProject={(project) => openProject(project)} projects={projects} />}
 
             {section === 'projects' && <section aria-label="All projects">
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
