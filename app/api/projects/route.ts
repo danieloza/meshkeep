@@ -24,8 +24,11 @@ export async function GET() {
         storageProvider: projects.storageProvider,
         updatedAt: projects.updatedAt,
         memberRole: shareRoleOf(member.id),
-        fileCount: sql<number>`(select count(*) from ${files} where ${files.projectId} = ${projects.id})`,
-        conversationCount: sql<number>`(select count(*) from ${conversations} where ${conversations.projectId} = ${projects.id})`,
+        // A single-table select renders its columns without the table name,
+        // so both sides are qualified by hand: unqualified, `"id"` inside the
+        // subquery is the counted table's own id and every count is 0.
+        fileCount: sql<number>`(select count(*) from ${files} where ${files}.${sql.identifier(files.projectId.name)} = ${projects}.${sql.identifier(projects.id.name)})`,
+        conversationCount: sql<number>`(select count(*) from ${conversations} where ${conversations}.${sql.identifier(conversations.projectId.name)} = ${projects}.${sql.identifier(projects.id.name)})`,
       })
       .from(projects)
       .where(readableBy(member.id))

@@ -91,6 +91,16 @@ describe('widocznosc projektow', () => {
     expect(widoczne).toContain(ID.projektPrywatnyObcego);
   });
 
+  // Liczniki szly podzapytaniem z kolumnami bez nazwy tabeli, wiec "id" w nim
+  // wskazywalo id liczonej tabeli, a kazdy licznik wychodzil 0.
+  it('liczy pliki i rozmowy kazdego projektu', async () => {
+    const odp = await zapytaj('/api/projects', { headers: jako(TOKENY.obcy) });
+    expect(odp.status).toBe(200);
+    const lista = projectList.parse(odp.dane).projects;
+    expect(lista.find((p) => p.id === ID.projektPrywatnyObcego)).toMatchObject({ fileCount: 1, conversationCount: 1 });
+    expect(lista.find((p) => p.id === ID.projektZespolowy)).toMatchObject({ fileCount: 0, conversationCount: 1 });
+  });
+
   it('wlasciciel APLIKACJI nie jest superuzytkownikiem cudzych prywatnych projektow', async () => {
     expect(await widoczneProjekty(TOKENY.wlasciciel)).not.toContain(ID.projektPrywatnyObcego);
     const odp = await zapytaj(`/api/projects/${ID.projektPrywatnyObcego}/files`, { headers: jako(TOKENY.wlasciciel) });
