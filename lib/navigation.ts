@@ -10,7 +10,7 @@ export const SECTION_PARAM = 'view';
 export const DEFAULT_SECTION: Section = 'dashboard';
 
 export const SECTION_LABELS: Record<Section, string> = {
-  dashboard: 'Dashboard',
+  dashboard: 'Home',
   projects: 'Projects',
   conversations: 'Conversations',
   team: 'Team',
@@ -28,6 +28,18 @@ export function isOwnerOnlySection(section: Section): boolean {
 
 export function visibleSections(isOwner: boolean): readonly Section[] {
   return isOwner ? SECTIONS : SECTIONS.filter((section) => !OWNER_ONLY.has(section));
+}
+
+// Team, usage and the activity log open from Settings in the header; the
+// project column keeps home, conversations and projects.
+const SETTINGS: ReadonlySet<Section> = new Set(['team', 'usage', 'activity']);
+
+export function isSettingsSection(section: Section): boolean {
+  return SETTINGS.has(section);
+}
+
+export function visibleSettingsSections(isOwner: boolean): readonly Section[] {
+  return visibleSections(isOwner).filter(isSettingsSection);
 }
 
 export function parseSection(value: unknown): Section {

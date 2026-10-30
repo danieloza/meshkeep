@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Cloud, Files, Folder, Gauge, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, ShieldCheck, UploadCloud } from 'lucide-react';
+import { Bot, Cloud, Files, Folder, Gauge, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { api, ApiRequestError } from '@/lib/api-client';
 import type { Visibility } from '@/lib/contracts/common';
+import type { ConversationSummary } from '@/lib/contracts/conversations';
 import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
 import type { ProviderModel } from '@/lib/contracts/providers';
 import type { SearchResults } from '@/lib/contracts/search';
 import type { PendingInvite, TeamMember } from '@/lib/contracts/team';
-import { DEFAULT_SECTION, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch } from '@/lib/navigation';
+import { DEFAULT_SECTION, isSettingsSection, parseSection, SECTION_LABELS, SECTION_PARAM, type Section, sectionSearch } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
 import { MetricCard } from '@/components/metric-card';
@@ -28,7 +29,8 @@ import { ProjectCard } from '@/features/projects/project-card';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SEARCH_INPUT_ID, SEARCH_RESULTS_ID, focusStaysInSearch, SearchPanel } from '@/features/search/search-panel';
 import { type AuthMode, SecureGate } from '@/features/shell/secure-gate';
-import { Sidebar } from '@/features/shell/sidebar';
+import { ProjectNav } from '@/features/shell/project-nav';
+import { SettingsTabs } from '@/features/shell/settings-tabs';
 import { ThemeToggle } from '@/features/shell/theme-toggle';
 import { SyncAgentPanel } from '@/features/sync/sync-agent-panel';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
@@ -80,6 +82,18 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   // `null` znaczy "otworz najnowsza rozmowe projektu" - dotychczasowe zachowanie.
   // Konkretny identyfikator otwiera wskazana rozmowe z widoku Conversations.
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  // Starts the open project on a new conversation instead of the latest one.
+  const [startFresh, setStartFresh] = useState(false);
+  // Every open remounts the chat, so asking twice for the same conversation,
+  // or for a new one, still starts it over.
+  const [chatSession, setChatSession] = useState(0);
+  // The conversation the chat shows, for the project column to mark.
+  const [currentConversationId, setCurrentConversationId] = useState<string | undefined>();
+  const [projectConversations, setProjectConversations] = useState<ConversationSummary[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  // The project whose conversations were asked for last, so a slow answer for
+  // a project closed meanwhile does not show up under another one.
+  const conversationsFor = useRef<string | null>(null);
   const [dailyUsage, setDailyUsage] = useState(0);
   const [inputUsage, setInputUsage] = useState(0);
   const [outputUsage, setOutputUsage] = useState(0);
@@ -145,7 +159,41 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     };
   }, []);
 
+  async function loadConversations(projectId: string) {
+    conversationsFor.current = projectId;
+    setConversationsLoading(true);
+    try {
+      const { conversations } = await api.projects.conversations(projectId);
+      if (conversationsFor.current === projectId) setProjectConversations(conversations);
+    } catch { /* the column keeps what it showed */ }
+    finally { if (conversationsFor.current === projectId) setConversationsLoading(false); }
+  }
+
+  function openProject(project: Project, target: { conversationId?: string; fresh?: boolean; fileIds?: string[] } = {}) {
+    if (project.id !== activeProject?.id) {
+      setProjectConversations([]);
+      void loadConversations(project.id);
+    }
+    setActiveProject(project);
+    setActiveConversationId(target.conversationId ?? null);
+    setStartFresh(Boolean(target.fresh));
+    setOpenWithFileIds(target.fileIds ?? []);
+    setCurrentConversationId(target.fresh ? undefined : target.conversationId);
+    setChatSession((value) => value + 1);
+    setMobileMenu(false);
+  }
+
+  function closeProject() {
+    conversationsFor.current = null;
+    setActiveProject(null);
+    setActiveConversationId(null);
+    setStartFresh(false);
+    setOpenWithFileIds([]);
+    setCurrentConversationId(undefined);
+  }
+
   function goToSection(next: Section) {
+    closeProject();
     setSection(next);
     setMobileMenu(false);
     window.history.pushState(null, '', `${window.location.pathname}${sectionSearch(next, window.location.search)}`);
@@ -184,6 +232,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   // pełna lista z filtrami mieszka w widoku „Projects”, żeby oba nie były tym samym.
   const recentProjects = useMemo(() => projects.slice(0, 4), [projects]);
   const showImportActions = section === 'dashboard' || section === 'projects';
+  const settingsOpen = !activeProject && isSettingsSection(section);
 
   const filteredProjects = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('pl');
@@ -219,9 +268,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
     if (!project) return;
     clearTimeout(searchCloseTimer.current);
     setSearchOpen(false);
-    setActiveConversationId(target.conversationId ?? null);
-    setOpenWithFileIds(target.fileId ? [target.fileId] : []);
-    setActiveProject(project);
+    openProject(project, { conversationId: target.conversationId, fileIds: target.fileId ? [target.fileId] : [] });
   }
 
   async function createProject() {
@@ -284,23 +331,32 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
   return (
     <TooltipProvider delay={200}>
     <main className="min-h-screen bg-surface text-ink">
-      <div className="min-h-screen lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
-        <Sidebar fileCount={totals.files} isOwner={currentRole === 'owner'} onClose={() => setMobileMenu(false)} onSelect={goToSection} open={mobileMenu} section={section} />
-        <section className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-line bg-[#f4f5f2]/90 px-4 backdrop-blur-xl dark:bg-[#0d1e1a]/90 sm:px-7 lg:px-10">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur-xl sm:gap-3 sm:px-4">
             <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileMenu(true)} size="icon" variant="ghost"><Menu /></Button>
-            <div className="relative max-w-xl flex-1">
+            <button aria-label="MeshKeep home" className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg px-2 hover:bg-surface-fill" onClick={() => goToSection('dashboard')} type="button"><span className="grid size-7 place-items-center rounded-lg bg-brand text-brand-ink"><Bot className="size-4" /></span><span className="hidden text-[15px] font-semibold tracking-tight sm:inline">MeshKeep</span></button>
+            <div className="relative mx-auto max-w-xl flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
               <Input aria-controls={SEARCH_RESULTS_ID} aria-expanded={searchOpen && Boolean(visibleResults)} aria-label="Search projects, files and conversations" className="h-10 rounded-xl border-line bg-surface-raised/75 pl-9 shadow-none dark:bg-surface-raised" id={SEARCH_INPUT_ID} onBlur={(event) => closeSearchSoon(event.relatedTarget)} onChange={(e) => { setQuery(e.target.value); openSearch(); }} onFocus={openSearch} onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Search projects, files or conversations…" value={query} />
               {searchOpen && visibleResults && <SearchPanel onBlur={closeSearchSoon} onFocus={openSearch} onOpen={openFromSearch} results={visibleResults} />}
             </div>
-            <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text sm:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
+            <Badge className="hidden border-emerald-700/15 bg-ok-soft-strong text-ok-text md:flex" variant="outline"><span className="size-1.5 rounded-full bg-emerald-500" />Service online</Badge>
             <ThemeToggle />
+            <Button aria-current={settingsOpen ? 'page' : undefined} className={cn(settingsOpen && 'bg-surface-selected text-brand-text')} onClick={() => goToSection('team')} variant="ghost"><Settings2 /><span className="hidden sm:inline">Settings</span></Button>
             <Button aria-label="Sign out" onClick={() => void logout()} size="icon" title="Sign out" variant="ghost"><LogOut /></Button>
             <Avatar className="bg-brand text-brand-ink"><AvatarFallback className="bg-transparent text-xs font-semibold text-brand-ink">DS</AvatarFallback></Avatar>
-          </header>
+      </header>
+      {/* Pola plikowe zostają zamontowane niezależnie od widoku — trzymają je refy,
+          a odmontowanie zerwałoby uchwyty używane przez obsługę importu. */}
+      <input ref={fileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`${selected.length} ${selected.length === 1 ? 'file' : 'files'}`); setShowCreate(true); } e.target.value = ''; }} type="file" />
+      <input ref={folderInput} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`folder · ${selected.length} files`); setShowCreate(true); } e.target.value = ''; }} type="file" {...{ webkitdirectory: '' }} />
+      <input ref={contextInput} accept="application/json,.json" className="sr-only" onChange={(e) => { const selected = e.target.files?.[0]; if (selected) void importContext(selected); e.target.value = ''; }} type="file" />
 
+      <div className={cn('lg:grid', activeProject ? 'lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_320px]' : 'lg:grid-cols-[256px_minmax(0,1fr)]')}>
+        <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />
+        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={closeProject} onConversationChange={setCurrentConversationId} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />
+        : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
+            {settingsOpen && <SettingsTabs isOwner={currentRole === 'owner'} onSelect={goToSection} section={section} />}
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> Private team cloud</p>
@@ -308,17 +364,12 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">{SECTION_SUBTITLES[section]}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {/* Pola plikowe zostają zamontowane niezależnie od widoku — trzymają je refy,
-                    a odmontowanie zerwałoby uchwyty używane przez obsługę importu. */}
                 {showImportActions && <>
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => contextInput.current?.click()} variant="outline"><MessageSquareText /> Context</Button>
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => folderInput.current?.click()} variant="outline"><Folder /> Folder</Button>
                   <Button className="h-10 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => fileInput.current?.click()} variant="outline"><UploadCloud /> File / ZIP</Button>
                   <Button className="h-10 rounded-xl bg-brand px-4 text-brand-ink shadow-[0_8px_24px_rgba(23,61,56,.18)] hover:bg-brand-hover" onClick={() => setShowCreate(true)}><Plus /> New project</Button>
                 </>}
-                <input ref={fileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`${selected.length} ${selected.length === 1 ? 'file' : 'files'}`); setShowCreate(true); } e.target.value = ''; }} type="file" />
-                <input ref={folderInput} className="sr-only" multiple onChange={(e) => { const selected = Array.from(e.target.files ?? []); if (selected.length) { setPendingFiles(selected); setImportedFile(`folder · ${selected.length} files`); setShowCreate(true); } e.target.value = ''; }} type="file" {...{ webkitdirectory: '' }} />
-                <input ref={contextInput} accept="application/json,.json" className="sr-only" onChange={(e) => { const selected = e.target.files?.[0]; if (selected) void importContext(selected); e.target.value = ''; }} type="file" />
               </div>
             </div>
 
@@ -337,7 +388,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                   {projects.length > recentProjects.length && <Button className="h-9 rounded-xl border-line bg-surface-raised px-3 dark:border-line dark:bg-surface-raised" onClick={() => goToSection('projects')} variant="outline">View all ({projects.length})</Button>}
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {recentProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => { setActiveConversationId(null); setActiveProject(project); }} project={project} />)}
+                  {recentProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => openProject(project)} project={project} />)}
                   {projects.length === 0 && <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
                     <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
                     <span className="font-semibold">Create your first project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Start empty or import a folder or ZIP archive.</span>
@@ -365,7 +416,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => { setActiveConversationId(null); setActiveProject(project); }} project={project} />)}
+                {filteredProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => openProject(project)} project={project} />)}
                 <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
                   <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
                   <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Create an empty project or import a folder or ZIP archive.</span>
@@ -374,7 +425,7 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
               {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-line-strong bg-surface-veil p-12 text-center"><Folder className="mx-auto mb-3 text-ink-muted" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-ink-muted">Change the filter or try another search term.</p></div>}
             </section>}
 
-            {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } setActiveConversationId(conversationId); setActiveProject(target); }} query={query} />}
+            {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} query={query} />}
 
             {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
@@ -384,11 +435,10 @@ export function Dashboard({ authMode }: { authMode: AuthMode }) {
               ? <AuditView onNotice={setNotice} />
               : <ViewPlaceholder detail="Only the cloud owner can view the activity log." icon={LockKeyhole} title="Access denied" />)}
           </div>
-        </section>
+        </section>}
       </div>
       {notice && <output aria-live="polite" className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl bg-brand px-4 py-3 text-sm text-brand-ink shadow-xl">{notice}</output>}
       {showCreate && <CreateProjectDialog driveConfigured={driveConfigured} importedFile={importedFile} members={teamMembers.filter((member) => member.role !== 'owner')} name={projectName} onClose={() => { if (!saving) { setShowCreate(false); setImportedFile(null); setPendingFiles([]); setProjectShares([]); setStorageProvider('r2'); } }} onCreate={createProject} onNameChange={setProjectName} onSharesChange={setProjectShares} onStorageProviderChange={setStorageProvider} onVisibilityChange={setVisibility} saving={saving} shares={projectShares} storageProvider={storageProvider} visibility={visibility} />}
-      {activeProject && <ChatWorkspace conversationId={activeConversationId} initialFileIds={openWithFileIds} key={`${activeProject.id}:${activeConversationId ?? 'ostatnia'}`} models={models} onClose={() => { setActiveProject(null); setActiveConversationId(null); setOpenWithFileIds([]); }} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} onUsage={(input, output) => { setInputUsage((value) => value + input); setOutputUsage((value) => value + output); setDailyUsage((value) => value + input + output); setMonthlyUsage((value) => value + input + output); }} project={activeProject} />}
     </main>
     </TooltipProvider>
   );
