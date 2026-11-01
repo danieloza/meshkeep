@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Bot, Gauge, Loader2, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
 import type { UsageResponse } from '@/lib/contracts/usage';
@@ -10,10 +11,18 @@ import { cn } from '@/lib/utils';
 import { MetricCard } from '@/components/metric-card';
 import { ViewPlaceholder } from '@/components/view-placeholder';
 import { formatTokens } from '@/lib/format';
+import { MemberLimits } from '@/features/usage/member-limits';
 
-export function UsageView({ dailyLimit, monthlyLimit }: { dailyLimit: number; monthlyLimit: number }) {
+export function UsageView({ dailyLimit, monthlyLimit, onNotice }: { dailyLimit: number; monthlyLimit: number; onNotice: (message: string) => void }) {
   const [data, setData] = useState<UsageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The member whose limits are open for editing, one at a time.
+  const [editing, setEditing] = useState<string | null>(null);
+
+  // After a limit changes, the rows show the new limit and its share.
+  function reload() {
+    api.usage().then(setData).catch(() => onNotice('Could not refresh usage.'));
+  }
 
   useEffect(() => {
     let active = true;
@@ -45,7 +54,7 @@ export function UsageView({ dailyLimit, monthlyLimit }: { dailyLimit: number; mo
     {data.team.length > 0 && <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
       <CardHeader>
         <CardTitle className="text-base">Team usage</CardTitle>
-        <CardDescription>Monthly usage per team member compared with the limit configured in Team. Numbers only; conversation titles and contents are excluded.</CardDescription>
+        <CardDescription>Monthly usage per person against their monthly limit. A limit stops new questions until the next day or month. Numbers only; conversation titles and contents are excluded.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">{data.team.map((row) => {
@@ -62,16 +71,18 @@ export function UsageView({ dailyLimit, monthlyLimit }: { dailyLimit: number; mo
                 {row.status === 'suspended' && <Badge className="border-red-800/15 bg-danger-soft px-1.5 py-0 text-[9px] text-danger-text" variant="outline">suspended</Badge>}
                 {row.apiEnabled === false && <Badge className="border-amber-800/15 bg-warn-soft px-1.5 py-0 text-[9px] text-warn-text" variant="outline">API disabled</Badge>}
               </div>
-              <div className="flex shrink-0 gap-4 text-right tabular-nums">
+              <div className="flex shrink-0 items-center gap-4 text-right tabular-nums">
                 <div><p className="text-[10px] text-ink-subtle">Today</p><p className="font-medium">{formatTokens(row.todayTokens)}</p></div>
                 <div><p className="text-[10px] text-ink-subtle">Month</p><p className={cn('font-medium', blisko && 'text-danger-text')}>{formatTokens(row.monthTokens)}</p></div>
                 <div><p className="text-[10px] text-ink-subtle">Requests</p><p className="font-medium">{row.monthRequests}</p></div>
+                <Button aria-controls={`limits-${row.memberId}`} aria-expanded={editing === row.memberId} onClick={() => setEditing((current) => current === row.memberId ? null : row.memberId)} size="sm" variant="ghost">Edit limit</Button>
               </div>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-track"><span className={cn('block h-full rounded-full', blisko ? 'bg-red-600' : 'bg-[#2c766a]')} style={{ width: `${udzial}%` }} /></span>
+              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-track"><span className={cn('block h-full rounded-full', blisko ? 'bg-danger-text' : 'bg-brand-text')} style={{ width: `${udzial}%` }} /></span>
               <span className="shrink-0 text-[10px] tabular-nums text-ink-subtle">{limit ? `${udzial}% of ${formatTokens(limit)}` : 'no limit'}</span>
             </div>
+            {editing === row.memberId && <div id={`limits-${row.memberId}`}><MemberLimits apiEnabled={row.apiEnabled} dailyTokens={row.dailyTokens} displayName={row.displayName} memberId={row.memberId} monthlyTokens={row.monthlyTokens} onNotice={onNotice} onSaved={reload} /></div>}
           </div>;
         })}</div>
       </CardContent>

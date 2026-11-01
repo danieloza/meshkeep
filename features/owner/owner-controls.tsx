@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Download, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,31 +10,16 @@ import type { StorageCheck } from '@/lib/contracts/admin';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
 
-export function KillSwitchCard({ onNotice }: { onNotice: (message: string) => void }) {
-  const [blocked, setBlocked] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    api.admin.settings().then((payload) => { if (active) setBlocked(payload.apiKillSwitch); }).catch(() => undefined);
-    return () => { active = false; };
-  }, []);
-
-  async function toggle(next: boolean) {
-    const previous = blocked;
-    setBlocked(next);
-    try {
-      await api.admin.updateSettings({ apiKillSwitch: next });
-      onNotice(next ? 'Models disabled for the entire team.' : 'Model access restored.');
-    } catch { setBlocked(previous); onNotice('Could not update the setting.'); }
-  }
-
+// The switch reads and writes the state the Settings page holds, so the
+// banner above every settings section follows it.
+export function KillSwitchCard({ blocked, onChange }: { blocked: boolean | null; onChange: (next: boolean) => void }) {
   if (blocked === null) return null;
 
   return <Card className={cn('border-0 shadow-none ring-line', blocked ? 'bg-danger-soft' : 'bg-surface-raised/90')}>
     <CardHeader>
-      <CardDescription className="flex items-center gap-2"><ShieldCheck className="size-4" /> Owner controls</CardDescription>
+      <CardDescription className="flex items-center gap-2 text-ink-muted"><ShieldCheck className="size-4" /> Owner controls</CardDescription>
       <CardTitle className="flex items-center gap-1.5 text-base">Emergency model cutoff<Hint text="Blocks model requests for everyone, including you. Nothing is deleted: projects, files, conversations and the log stay untouched, and the rest of the app keeps working." /></CardTitle>
-      <CardAction><Switch aria-label="Emergency model access cutoff" checked={blocked} onCheckedChange={(value) => void toggle(value)} /></CardAction>
+      <CardAction><Switch aria-label="Emergency model access cutoff" checked={blocked} onCheckedChange={onChange} /></CardAction>
     </CardHeader>
     <CardContent>
       <p className="text-sm leading-6 text-ink-muted">{blocked

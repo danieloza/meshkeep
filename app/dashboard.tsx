@@ -84,6 +84,9 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<'owner' | 'member'>('member');
+  // The emergency model cutoff, read for the owner only. The Settings page
+  // shows a banner above every section while it is on.
+  const [modelsStopped, setModelsStopped] = useState<boolean | null>(null);
   const [currentMemberId, setCurrentMemberId] = useState('');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   // `null` znaczy "otworz najnowsza rozmowe projektu" - dotychczasowe zachowanie.
@@ -191,6 +194,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       .then(([bootstrap, payload, team]) => {
         if (!active) return;
         setCurrentRole(bootstrap.member.role);
+        if (bootstrap.member.role === 'owner') api.admin.settings().then((settings) => { if (active) setModelsStopped(settings.apiKillSwitch); }).catch(() => undefined);
         setCurrentMemberId(bootstrap.member.id);
         setModels(bootstrap.models ?? []);
         setDailyLimit(bootstrap.limits?.dailyTokens ?? 400_000);
@@ -259,6 +263,15 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       setReconnectLinks(team.reconnectLinks ?? []);
       setTeamCapacity(team.capacity);
     } catch { /* panel zostaje przy ostatnim odczycie */ }
+  }
+
+  async function setModelCutoff(next: boolean) {
+    const previous = modelsStopped;
+    setModelsStopped(next);
+    try {
+      await api.admin.updateSettings({ apiKillSwitch: next });
+      setNotice(next ? 'Models disabled for the entire team.' : 'Model access restored.');
+    } catch { setModelsStopped(previous); setNotice('Could not update the setting.'); }
   }
 
   async function updateSync(enabled: boolean) {
@@ -381,6 +394,10 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} project={activeProject} />
         : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
+            {settingsOpen && modelsStopped && <output className="mb-6 flex flex-wrap items-center gap-3 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">
+              <span className="min-w-0 flex-1 basis-64">Model calls are stopped for the whole team, you included. Questions get “Model access has been temporarily disabled by the owner.”</span>
+              <Button onClick={() => void setModelCutoff(false)} size="sm" variant="outline">Resume model calls</Button>
+            </output>}
             <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text"><ShieldCheck className="size-4" /> {settingsOpen ? 'Settings' : 'Private team cloud'}</p>
@@ -425,7 +442,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
             {section === 'providers' && <div className="max-w-2xl"><ProviderCard onChanged={() => window.location.reload()} onNotice={setNotice} /></div>}
 
-            {section === 'usage' && <UsageView dailyLimit={dailyLimit} monthlyLimit={monthlyLimit} />}
+            {section === 'usage' && <UsageView dailyLimit={dailyLimit} monthlyLimit={monthlyLimit} onNotice={setNotice} />}
 
             {section === 'sync' && <div className="max-w-2xl space-y-4"><FolderSyncCard enabled={syncEnabled} onChange={(enabled) => void updateSync(enabled)} /><SyncAgentPanel onNotice={setNotice} /></div>}
 
@@ -434,7 +451,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
               : <ViewPlaceholder detail="Only the cloud owner can view the activity log." icon={LockKeyhole} title="Access denied" />)}
 
             {section === 'safety' && (currentRole === 'owner'
-              ? <div className="max-w-2xl space-y-4"><KillSwitchCard onNotice={setNotice} /><BackupCard onNotice={setNotice} /></div>
+              ? <div className="max-w-2xl space-y-4"><KillSwitchCard blocked={modelsStopped} onChange={(next) => void setModelCutoff(next)} /><BackupCard onNotice={setNotice} /></div>
               : <ViewPlaceholder detail="Only the cloud owner can stop model calls or download a backup." icon={LockKeyhole} title="Access denied" />)}
           </div>
         </section>}
