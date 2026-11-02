@@ -19,6 +19,7 @@ import { ChatWorkspace } from '@/features/chat/chat-workspace';
 import { ConversationsView } from '@/features/conversations/conversations-view';
 import { AuditView } from '@/features/owner/audit-view';
 import { CreateProjectDialog } from '@/features/projects/create-project-dialog';
+import { projectPeople } from '@/features/projects/people';
 import { ProjectCard } from '@/features/projects/project-card';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SearchPalette, type SearchTarget } from '@/features/search/search-palette';
@@ -205,7 +206,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         setPendingInvites(team.pendingInvites);
         setReconnectLinks(team.reconnectLinks ?? []);
         setTeamCapacity(team.capacity ?? { used: team.members.length, total: 4 });
-        const list: Project[] = payload.projects.map((project, index) => ({ id: project.id, name: project.name, description: project.description, visibility: project.visibility, files: project.fileCount, conversations: project.conversationCount ?? 0, updated: relativeDate(project.updatedAt), color: ['from-cyan-400/20 via-teal-300/10 to-transparent', 'from-violet-400/20 via-fuchsia-300/10 to-transparent', 'from-amber-300/20 via-orange-300/10 to-transparent'][index % 3], icon: index % 3 === 0 ? 'code' : index % 3 === 1 ? 'folder' : 'lab', members: ['DS'] }));
+        const list: Project[] = payload.projects.map((project, index) => ({ id: project.id, name: project.name, description: project.description, visibility: project.visibility, files: project.fileCount, conversations: project.conversationCount ?? 0, updated: relativeDate(project.updatedAt), color: ['from-cyan-400/20 via-teal-300/10 to-transparent', 'from-violet-400/20 via-fuchsia-300/10 to-transparent', 'from-amber-300/20 via-orange-300/10 to-transparent'][index % 3], icon: index % 3 === 0 ? 'code' : index % 3 === 1 ? 'folder' : 'lab', ownerId: project.ownerId, sharedWith: project.sharedWith }));
         setProjects(list);
         // A reload or a shared link opens the chat the address names.
         const target = parseChatTarget(window.location.search);
@@ -325,7 +326,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         form.append('paths', JSON.stringify(pendingFiles.map((file) => file.webkitRelativePath || file.name)));
         await api.projects.upload(project.id, form);
       }
-      setProjects((current) => [{ id: project.id, name, description: importedFile ? `Imported: ${importedFile}` : 'New project workspace.', visibility, files: pendingFiles.length, conversations: 0, updated: 'now', color: 'from-emerald-400/20 via-cyan-300/10 to-transparent', icon: 'folder', members: visibility === 'private' ? ['DS'] : ['DS', 'MK'] }, ...current]);
+      setProjects((current) => [{ id: project.id, name, description: importedFile ? `Imported: ${importedFile}` : 'New project workspace.', visibility, files: pendingFiles.length, conversations: 0, updated: 'now', color: 'from-emerald-400/20 via-cyan-300/10 to-transparent', icon: 'folder', ownerId: project.ownerId, sharedWith: project.sharedWith }, ...current]);
       setProjectName(''); setImportedFile(null); setPendingFiles([]); setVisibility('private'); setProjectShares([]); setStorageProvider('r2'); setShowCreate(false); setNotice(storageProvider === 'google_drive' ? 'The project was saved to the cloud and connected to Google Drive.' : 'The project was saved to the private cloud.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not save the project.');
@@ -338,7 +339,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       const form = new FormData();
       form.append('context', file);
       const { project, message } = await api.projects.importContext(form);
-      setProjects((current) => [{ id: project.id, name: project.name, description: `${project.conversations} imported conversations`, visibility: project.visibility, files: 0, conversations: project.conversations, updated: 'now', color: 'from-sky-400/20 via-cyan-300/10 to-transparent', icon: 'lab', members: ['DS'] }, ...current]);
+      setProjects((current) => [{ id: project.id, name: project.name, description: `${project.conversations} imported conversations`, visibility: project.visibility, files: 0, conversations: project.conversations, updated: 'now', color: 'from-sky-400/20 via-cyan-300/10 to-transparent', icon: 'lab', ownerId: currentMemberId, sharedWith: [] }, ...current]);
       setNotice(message);
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Context import failed.'); }
     finally { setSaving(false); }
@@ -348,7 +349,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
     if (project.visibility === 'private') return;
     try {
       await api.projects.updateSharing(project.id, { visibility: 'private', members: [] });
-      setProjects((current) => current.map((item) => item.id === project.id ? { ...item, visibility: 'private', members: ['DS'], updated: 'now' } : item));
+      setProjects((current) => current.map((item) => item.id === project.id ? { ...item, visibility: 'private', sharedWith: [], updated: 'now' } : item));
       setNotice('The project is now visible only to you.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not make the project private.'); }
   }
@@ -429,7 +430,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredProjects.map((project) => <ProjectCard key={project.id} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => openProject(project)} project={project} />)}
+                {filteredProjects.map((project) => <ProjectCard key={project.id} people={projectPeople(project, teamMembers)} onCopyId={() => { void navigator.clipboard.writeText(project.id); setNotice('Project ID copied. Use it with the sync agent.'); }} onDelete={() => void deleteProject(project)} onExport={() => { window.location.href = `/api/projects/${project.id}/context`; }} onMakePrivate={() => void makeProjectPrivate(project)} onOpen={() => openProject(project)} project={project} />)}
                 <button className="group flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#9caaa6] bg-surface-veil p-6 text-center transition hover:border-[#4c7a72] hover:bg-surface-raised/70" onClick={() => setShowCreate(true)} type="button">
                   <span className="mb-3 flex size-11 items-center justify-center rounded-xl border border-line bg-surface-raised text-brand-text shadow-sm transition group-hover:-translate-y-0.5"><Plus /></span>
                   <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Create an empty project or import a folder or ZIP archive.</span>

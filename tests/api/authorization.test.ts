@@ -101,6 +101,15 @@ describe('widocznosc projektow', () => {
     expect(lista.find((p) => p.id === ID.projektZespolowy)).toMatchObject({ fileCount: 0, conversationCount: 1 });
   });
 
+  // Karty projektow pokazywaly stale awatary zamiast osob z dostepem.
+  it('lista projektow mowi, komu projekt udostepniono', async () => {
+    const odp = await zapytaj('/api/projects', { headers: jako(TOKENY.czytelnik) });
+    expect(odp.status).toBe(200);
+    const lista = projectList.parse(odp.dane).projects;
+    expect(lista.find((p) => p.id === ID.projektWspolny)).toMatchObject({ ownerId: ID.wlasciciel, sharedWith: [ID.edytor, ID.czytelnik] });
+    expect(lista.find((p) => p.id === ID.projektZespolowy)?.sharedWith).toEqual([]);
+  });
+
   it('wlasciciel APLIKACJI nie jest superuzytkownikiem cudzych prywatnych projektow', async () => {
     expect(await widoczneProjekty(TOKENY.wlasciciel)).not.toContain(ID.projektPrywatnyObcego);
     const odp = await zapytaj(`/api/projects/${ID.projektPrywatnyObcego}/files`, { headers: jako(TOKENY.wlasciciel) });
@@ -116,6 +125,7 @@ describe('widocznosc projektow', () => {
     });
     expect(zalozenie.status, zalozenie.tekst).toBe(201);
     const { project } = createProjectResponse.parse(zalozenie.dane);
+    expect(project.sharedWith).toEqual([ID.czytelnik]);
     expect(await widoczneProjekty(TOKENY.czytelnik)).toContain(project.id);
 
     const zmiana = await zapytaj(`/api/projects/${project.id}`, {
