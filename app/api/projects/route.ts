@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, files, members, projectMembers, projects } from '@/db/schema';
@@ -33,7 +33,17 @@ export async function GET() {
       .from(projects)
       .where(readableBy(member.id))
       .orderBy(desc(projects.updatedAt));
-    return json({ projects: rows.map((row) => ({ ...row, canEdit: canEditProject(row.ownerId, member.id, row.memberRole) })) });
+    // The shares go through the same access rule as the list, so the people
+    // a project is shared with are listed only to members who can open it.
+    const shares = await db
+      .select({ projectId: projectMembers.projectId, memberId: projectMembers.memberId })
+      .from(projectMembers)
+      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+      .where(readableBy(member.id))
+      .orderBy(asc(projectMembers.createdAt), asc(projectMembers.memberId));
+    const sharedWith = new Map<string, string[]>();
+    for (const share of shares) sharedWith.set(share.projectId, [...(sharedWith.get(share.projectId) ?? []), share.memberId]);
+    return json({ projects: rows.map((row) => ({ ...row, canEdit: canEditProject(row.ownerId, member.id, row.memberRole), sharedWith: sharedWith.get(row.id) ?? [] })) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -59,7 +69,7 @@ export async function POST(request: Request) {
     if (selected.length) {
       await db.insert(projectMembers).values(selected.map((share) => ({ projectId: id, memberId: share.memberId, role: share.role, createdAt: now })));
     }
-    return json({ project: { id, ...input, ownerId: member.id, fileCount: 0, canEdit: true, updatedAt: now.toISOString() } }, { status: 201 });
+    return json({ project: { id, ...input, ownerId: member.id, fileCount: 0, canEdit: true, sharedWith: selected.map((share) => share.memberId), updatedAt: now.toISOString() } }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return json({ error: 'Check the project name and settings.' }, { status: 400 });
     return errorResponse(error);

@@ -1,7 +1,7 @@
 import { Code2, FolderLock, Sparkles } from 'lucide-react';
 import type { Visibility } from '@/lib/contracts/common';
 
-export type Project = { id: string; name: string; description: string; visibility: Visibility; files: number; conversations: number; updated: string; color: string; icon: 'code' | 'folder' | 'lab'; members: string[] };
+export type Project = { id: string; name: string; description: string; visibility: Visibility; files: number; conversations: number; updated: string; color: string; icon: 'code' | 'folder' | 'lab'; ownerId: string; sharedWith: string[] };
 
 export const PROJECT_FILE_ACCEPT = '.txt,.md,.json,.csv,.ts,.tsx,.js,.jsx,.mjs,.cjs,.py,.go,.rs,.java,.kt,.swift,.css,.scss,.html,.xml,.yaml,.yml,.toml,.sql,.sh,.ps1,.bat,.zip,.pdf,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.bmp';
 

@@ -24,6 +24,9 @@ export const projectSummary = z.object({
   fileCount: z.number().int(),
   conversationCount: z.number().int(),
   canEdit: z.boolean(),
+  // Members the project is shared with besides its owner, oldest share
+  // first. Only a `selected` project has any.
+  sharedWith: z.array(id),
 });
 export type ProjectSummary = z.infer<typeof projectSummary>;
 
