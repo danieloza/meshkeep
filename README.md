@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/danieloza/meshkeep)](https://github.com/danieloza/meshkeep/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2f6f64.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-339933?logo=nodedotjs&logoColor=white)](package.json)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-6b7280)](#deploy-to-cloudflare)
 
 MeshKeep is a private, self-hostable AI workspace for teams of up to four people. Projects are private by default and can be shared with selected teammates or the entire team.
@@ -14,9 +14,20 @@ MeshKeep is a private, self-hostable AI workspace for teams of up to four people
 
 The repository contains source code and placeholders only. It does not include a hosted model key, user conversations, uploaded files, email addresses, sessions, or production database exports.
 
+## Screenshots
+
+Taken from a local build with demonstration data: four made-up people and their projects.
+
+| | |
+| --- | --- |
+| [![Project chat with the file context column](docs/screenshots/chat-light.png)](docs/screenshots/chat-light.png) | [![Home page with recent conversations and projects](docs/screenshots/home-light.png)](docs/screenshots/home-light.png) |
+| **Project chat.** The answer lists the files it received and flags a scanned PDF that had no text. The right column picks the files for the next message. | **Home.** Recent conversations and every project you can open, each marked with who can see it. |
+| [![Ctrl K search results in the dark theme](docs/screenshots/search-dark.png)](docs/screenshots/search-dark.png) | [![Usage and limits settings in the dark theme](docs/screenshots/settings-usage-dark.png)](docs/screenshots/settings-usage-dark.png) |
+| **Search (Ctrl K).** Conversations and file contents, only from projects you can open. | **Settings › Usage and limits.** Tokens per person against their daily and monthly limits. |
+
 ## Product tour
 
-Both videos use demonstration data and contain no production credentials or private project content.
+Both videos were recorded for v0.1.0 and show the earlier interface; the screenshots above show the current one. They use demonstration data and contain no production credentials or private project content.
 
 ### Product overview — 30 seconds
 
@@ -33,11 +44,12 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 ## Highlights
 
 - Private projects with owner, editor, and reader permissions
+- Three-column workspace: projects and their conversations, the chat, and the files and instructions for the next message
 - Project-scoped conversations and explicit file context
 - Streamed answers rendered as Markdown, with copyable code blocks
 - Each answer lists the files the model received, and whether each arrived in full, in part, or not at all
 - Project instructions sent ahead of every message in the project
-- Full-text search across conversations and file contents, limited to projects the member can open
+- Full-text search across conversations and file contents from a Ctrl K palette, limited to projects the member can open
 - File suggestions for the question being typed, added to the context only when picked
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
@@ -47,7 +59,9 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 - Windows folder-sync agent with revocable, hashed credentials
 - Per-member daily and monthly token limits
 - Audit log and database backup tools that exclude secrets and live sessions
-- Light and dark themes
+- A separate Settings page for the team, model providers, usage limits, folder sync, activity, and backups
+- Links that open a project, a conversation, or a Settings section directly
+- Light and dark themes, with text contrast checked against WCAG AA in both
 
 See the unauthenticated `/showcase` page for a provider-free product overview.
 
@@ -67,7 +81,7 @@ Provider URLs must use HTTPS. Plain HTTP is accepted only for loopback addresses
 
 ## Search
 
-The search box covers project names, conversation messages and the text of project files. It uses SQLite FTS5 in D1.
+Press Ctrl K (⌘ K on macOS) or click the search bar to search conversation messages and the text of project files. Picking a file opens its project's chat with that file selected. Search uses SQLite FTS5 in D1.
 
 - **Access:** results come only from projects the signed-in member can open. The access rule is part of the SQL query, so other projects' content never leaves the database.
 - **Indexing:** plain text and code are indexed as they are uploaded. PDF and Office documents are extracted in small rounds when a project is opened or files are imported. Files uploaded before search existed become searchable the first time their project is opened.
@@ -114,8 +128,8 @@ The button copies this repository to your GitHub or GitLab account and connects 
 After the first deploy:
 
 1. Open `/setup` on your Worker's address and enter the setup key. This creates the owner account.
-2. Connect a model provider in Settings.
-3. Invite up to three people from Team.
+2. Connect a model provider in Settings › Model providers.
+3. Invite up to three people from Settings › Team.
 
 The deployment uses standalone authentication by default.
 
@@ -205,7 +219,7 @@ npm run smoke -- https://your-meshkeep.example
 
 The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` only add tables and columns; apply them in order before deploying a release that includes them.
 
-Owners can export D1 data as JSON from the Activity log. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, R2 object bytes, and the search index. The index is derived data: restored messages are indexed again as they are inserted, and files are indexed again when their project is opened. Convert a reviewed export into restoration SQL with:
+Owners can export D1 data as JSON from Settings › Backup and safety. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, R2 object bytes, and the search index. The index is derived data: restored messages are indexed again as they are inserted, and files are indexed again when their project is opened. Convert a reviewed export into restoration SQL with:
 
 ```powershell
 node scripts/backup-to-sql.mjs backup.json restore.sql

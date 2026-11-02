@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api-client';
+import { initials } from '@/lib/format';
 import type { PendingInvite, TeamMember, TeamResponse } from '@/lib/contracts/team';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
@@ -16,7 +17,6 @@ export type TeamCapacity = TeamResponse['capacity'];
 function MemberRow({ member, colorIndex, isOwnerView, currentMemberId, onChanged, onNotice }: { member: TeamMember; colorIndex: number; isOwnerView: boolean; currentMemberId: string; onChanged: () => void; onNotice: (message: string) => void }) {
   const [busy, setBusy] = useState(false);
 
-  const initials = member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase('pl');
   const suspended = member.status === 'suspended';
   // Ownera nie da się zawiesić po stronie serwera, więc panel nawet nie
   // pokazuje takiej możliwości — inaczej kusiłby przyciskiem, który zwraca błąd.
@@ -39,7 +39,7 @@ function MemberRow({ member, colorIndex, isOwnerView, currentMemberId, onChanged
   }
 
   return <li className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line py-3 last:border-b-0">
-    <Avatar className={['bg-avatar-1', 'bg-avatar-2', 'bg-avatar-3', 'bg-avatar-4'][colorIndex % 4]} size="sm"><AvatarFallback className="bg-transparent text-[9px] font-semibold text-ink-soft">{initials}</AvatarFallback></Avatar>
+    <Avatar className={['bg-avatar-1', 'bg-avatar-2', 'bg-avatar-3', 'bg-avatar-4'][colorIndex % 4]} size="sm"><AvatarFallback className="bg-transparent text-[9px] font-semibold text-ink-soft">{initials(member.displayName)}</AvatarFallback></Avatar>
     <span className="min-w-0 flex-1 basis-44">
       <span className="block truncate text-sm font-medium">{member.displayName}{member.id === currentMemberId && <span className="text-xs font-normal text-ink-subtle"> (you)</span>}</span>
       {member.email && <span className="block truncate font-mono text-xs text-ink-subtle">{member.email}</span>}

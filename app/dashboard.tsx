@@ -34,7 +34,7 @@ import { ProviderCard } from '@/features/providers/provider-card';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
 import { HomeView } from '@/features/home/home-view';
 import { UsageView } from '@/features/usage/usage-view';
-import { relativeDate } from '@/lib/format';
+import { initials, relativeDate } from '@/lib/format';
 
 const SECTION_SUBTITLES: Record<Section, string> = {
   dashboard: 'Your projects stay private until you choose who can access them.',
@@ -88,6 +88,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   // shows a banner above every section while it is on.
   const [modelsStopped, setModelsStopped] = useState<boolean | null>(null);
   const [currentMemberId, setCurrentMemberId] = useState('');
+  const [currentMemberName, setCurrentMemberName] = useState('');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   // `null` znaczy "otworz najnowsza rozmowe projektu" - dotychczasowe zachowanie.
   // Konkretny identyfikator otwiera wskazana rozmowe z widoku Conversations.
@@ -196,6 +197,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         setCurrentRole(bootstrap.member.role);
         if (bootstrap.member.role === 'owner') api.admin.settings().then((settings) => { if (active) setModelsStopped(settings.apiKillSwitch); }).catch(() => undefined);
         setCurrentMemberId(bootstrap.member.id);
+        setCurrentMemberName(bootstrap.member.displayName);
         setModels(bootstrap.models ?? []);
         setDailyLimit(bootstrap.limits?.dailyTokens ?? 400_000);
         setMonthlyLimit(bootstrap.limits?.monthlyTokens ?? 8_000_000);
@@ -379,7 +381,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
             <ThemeToggle />
             <Button aria-current={settingsOpen ? 'page' : undefined} className={cn(settingsOpen && 'bg-surface-selected text-brand-text')} onClick={() => goToSection(DEFAULT_SETTINGS_SECTION)} variant="ghost"><Settings2 /><span className="hidden sm:inline">Settings</span></Button>
             <Button aria-label="Sign out" onClick={() => void logout()} size="icon" title="Sign out" variant="ghost"><LogOut /></Button>
-            <Avatar className="bg-brand text-brand-ink"><AvatarFallback className="bg-transparent text-xs font-semibold text-brand-ink">DS</AvatarFallback></Avatar>
+            <Avatar aria-label={currentMemberName ? `Signed in as ${currentMemberName}` : undefined} className="bg-brand text-brand-ink" title={currentMemberName || undefined}><AvatarFallback className="bg-transparent text-xs font-semibold text-brand-ink">{initials(currentMemberName)}</AvatarFallback></Avatar>
       </header>
       {/* Pola plikowe zostają zamontowane niezależnie od widoku — trzymają je refy,
           a odmontowanie zerwałoby uchwyty używane przez obsługę importu. */}

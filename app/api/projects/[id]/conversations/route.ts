@@ -47,7 +47,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         id: conversations.id,
         title: conversations.title,
         updatedAt: conversations.updatedAt,
-        messageCount: sql<number>`(select count(*) from ${messages} where ${messages.conversationId} = ${conversations.id})`,
+        // Single-table select: columns render without the table name, so the
+        // outer id is qualified by hand (see GET /api/projects).
+        messageCount: sql<number>`(select count(*) from ${messages} where ${messages}.${sql.identifier(messages.conversationId.name)} = ${conversations}.${sql.identifier(conversations.id.name)})`,
       })
       .from(conversations)
       .where(eq(conversations.projectId, id))

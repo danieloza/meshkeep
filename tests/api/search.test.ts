@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deletedResponse } from '@/lib/contracts/common';
+import { allConversations, projectConversations } from '@/lib/contracts/conversations';
 import { fileSuggestions, indexRound, projectFiles } from '@/lib/contracts/files';
 import { searchResults } from '@/lib/contracts/search';
 import { MARK_START } from '@/lib/search';
@@ -170,5 +171,20 @@ describe('podpowiedzi plikow do pytania', () => {
   it('nie podpowiada z projektu, do ktorego pytajacy nie ma dostepu', async () => {
     const odp = await zapytaj(`/api/projects/${ID.projektPrywatnyObcego}/suggest-files?q=tresc`, { headers: jako(TOKENY.wlasciciel) });
     expect(odp.status).toBe(404);
+  });
+});
+
+// Ten plik jako jedyny zasiewa wiadomosci, wiec tu sprawdzamy ich liczniki.
+// Lista rozmow projektu liczyla je podzapytaniem z kolumnami bez nazwy tabeli,
+// wiec w pasku bocznym kazda rozmowa miala 0 wiadomosci.
+describe('liczniki wiadomosci', () => {
+  it('lista rozmow projektu i lista wszystkich rozmow podaja te sama liczbe', async () => {
+    const wProjekcie = await zapytaj(`/api/projects/${ID.projektPrywatnyObcego}/conversations`, { headers: jako(TOKENY.obcy) });
+    expect(wProjekcie.status).toBe(200);
+    expect(projectConversations.parse(wProjekcie.dane).conversations.find((r) => r.id === ID.rozmowaObcego)).toMatchObject({ messageCount: 2 });
+
+    const wszystkie = await zapytaj('/api/conversations', { headers: jako(TOKENY.obcy) });
+    expect(wszystkie.status).toBe(200);
+    expect(allConversations.parse(wszystkie.dane).conversations.find((r) => r.id === ID.rozmowaObcego)).toMatchObject({ messageCount: 2 });
   });
 });
