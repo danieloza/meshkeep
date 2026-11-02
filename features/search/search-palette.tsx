@@ -35,12 +35,16 @@ export function SearchPalette({ projects, onClose, onOpenProject, onOpenResult }
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ term: string; data: SearchResults } | null>(null);
   const [active, setActive] = useState(0);
+  const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const term = query.trim();
 
   useEffect(() => {
     // Focus returns to whatever opened the palette when it closes.
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // A modal <dialog> makes the page behind it inert, so Tab cannot leave
+    // the palette for the page underneath.
+    if (!dialog.current?.open) dialog.current?.showModal();
     input.current?.focus();
     return () => opener?.focus();
   }, []);
@@ -89,43 +93,50 @@ export function SearchPalette({ projects, onClose, onOpenProject, onOpenResult }
   const counts = { conversation: data?.conversations.length ?? 0, file: data?.files.length ?? 0 };
   const empty = term.length >= MIN_QUERY && !loading && entries.length === 0;
 
-  return <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/40 px-4 pb-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section aria-label="Search" aria-modal="true" className="flex max-h-[76vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line-strong bg-surface-raised shadow-2xl" role="dialog">
-      <div className="flex items-center gap-3 border-b border-line py-1.5 pl-4 pr-1.5">
-        <Search aria-hidden className="size-4 shrink-0 text-ink-subtle" />
-        <input aria-activedescendant={entries.length ? `search-option-${selected}` : undefined} aria-autocomplete="list" aria-controls="search-options" aria-expanded={entries.length > 0} aria-label="Search projects, conversations and file contents" className="min-h-11 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-subtle" onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={onKeyDown} placeholder="Search projects, conversations and file contents" ref={input} role="combobox" type="search" value={query} />
-        <button className="min-h-11 rounded-lg px-3 text-sm text-ink-muted hover:bg-surface-fill hover:text-ink" onClick={onClose} type="button">Close</button>
-      </div>
+  // Esc anywhere in the dialog closes it natively; `close` tells the parent.
+  return <dialog aria-label="Search" className="m-0 size-full max-h-none max-w-none bg-transparent p-0 text-inherit backdrop:bg-black/40 backdrop:backdrop-blur-sm" onClose={onClose} ref={dialog}>
+    <div className="flex min-h-full items-start justify-center px-4 pb-4 pt-[12vh]" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} role="presentation">
+      <section className="flex max-h-[76vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line-strong bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-line py-1.5 pl-4 pr-1.5">
+          <Search aria-hidden className="size-4 shrink-0 text-ink-subtle" />
+          <input aria-activedescendant={entries.length ? `search-option-${selected}` : undefined} aria-autocomplete="list" aria-controls="search-options" aria-expanded={entries.length > 0} aria-label="Search projects, conversations and file contents" className="min-h-11 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-subtle" onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={onKeyDown} placeholder="Search projects, conversations and file contents" ref={input} role="combobox" type="search" value={query} />
+          <button className="min-h-11 rounded-lg px-3 text-sm text-ink-muted hover:bg-surface-fill hover:text-ink" onClick={onClose} type="button">Close</button>
+        </div>
 
-      <div className="overflow-y-auto p-2">
-        {term.length < MIN_QUERY && <p className="px-2 py-3 text-sm text-ink-muted">Type at least two letters. ↑ and ↓ move through the results, Enter opens one, Esc closes.</p>}
-        {entries.length > 0 && <ul aria-label="Search results" className="flex flex-col gap-0.5" id="search-options" role="listbox">
-          {GROUPS.map((group) => {
-            const items = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.kind === group.kind);
-            if (!items.length) return null;
-            return <li className="flex flex-col gap-0.5" key={group.kind} role="presentation">
-              <p className="px-2 pb-1 pt-2 text-xs font-semibold text-ink-subtle" id={`search-group-${group.kind}`}>{group.label}</p>
-              <ul aria-labelledby={`search-group-${group.kind}`} className="flex flex-col gap-0.5" role="group">
-                {items.map(({ entry, index }) => <li aria-selected={index === selected} className={cn('flex min-h-11 cursor-pointer gap-2.5 rounded-lg px-2 py-2', index === selected ? 'bg-surface-selected' : 'hover:bg-surface-fill')} id={`search-option-${index}`} key={entry.key} onClick={entry.open} onMouseMove={() => { if (index !== selected) setActive(index); }} role="option">
+        <div className="overflow-y-auto p-2">
+          {term.length < MIN_QUERY && <p className="px-2 py-3 text-sm text-ink-muted">Type at least two letters. ↑ and ↓ move through the results, Enter opens one, Esc closes.</p>}
+          {/* The WAI-ARIA combobox pattern: focus stays in the input, which moves
+              aria-activedescendant through these options and opens one with
+              Enter, so no native tag fits and the options take neither focus
+              nor key handlers. */}
+          {/* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus */}
+          {entries.length > 0 && <div aria-label="Search results" className="flex flex-col gap-0.5" id="search-options" role="listbox">
+            {GROUPS.map((group) => {
+              const items = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.kind === group.kind);
+              if (!items.length) return null;
+              return <div aria-labelledby={`search-group-${group.kind}`} className="flex flex-col gap-0.5" key={group.kind} role="group">
+                <div className="px-2 pb-1 pt-2 text-xs font-semibold text-ink-subtle" id={`search-group-${group.kind}`} role="presentation">{group.label}</div>
+                {items.map(({ entry, index }) => <div aria-selected={index === selected} className={cn('flex min-h-11 cursor-pointer gap-2.5 rounded-lg px-2 py-2', index === selected ? 'bg-surface-selected' : 'hover:bg-surface-fill')} id={`search-option-${index}`} key={entry.key} onClick={entry.open} onMouseMove={() => { if (index !== selected) setActive(index); }} role="option">
                   <group.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-brand-text" />
                   <span className="min-w-0 flex-1">
                     <span className={cn('block truncate text-sm font-medium', entry.kind === 'file' && 'font-mono text-[13px]')}>{entry.title}</span>
                     {entry.snippet && <span className="mt-0.5 line-clamp-2 block text-[13px] leading-5 text-ink-muted"><Highlighted text={entry.snippet} /></span>}
                     <span className="mt-0.5 block truncate text-xs text-ink-subtle">{entry.where}</span>
                   </span>
-                </li>)}
-              </ul>
-            </li>;
-          })}
-        </ul>}
-        {empty && <p className="px-2 py-3 text-sm text-ink-muted">No project, conversation or file contains “{term}”.</p>}
-        {loading && entries.length === 0 && <p className="px-2 py-3 text-sm text-ink-muted">Searching…</p>}
-      </div>
+                </div>)}
+              </div>;
+            })}
+          </div>}
+          {/* oxlint-enable jsx-a11y/prefer-tag-over-role, jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus */}
+          {empty && <p className="px-2 py-3 text-sm text-ink-muted">No project, conversation or file contains “{term}”.</p>}
+          {loading && entries.length === 0 && <p className="px-2 py-3 text-sm text-ink-muted">Searching…</p>}
+        </div>
 
-      <footer className="flex flex-wrap justify-between gap-2 border-t border-line px-4 py-2.5 text-xs text-ink-subtle">
-        <span>Only projects you can open are searched.{data && data.unindexedFiles > 0 ? ` ${data.unindexedFiles} ${data.unindexedFiles === 1 ? 'file is not searchable until its project is' : 'files are not searchable until their projects are'} opened.` : ''}</span>
-        {data && <span>{counts.conversation} {counts.conversation === 1 ? 'conversation' : 'conversations'} · {counts.file} {counts.file === 1 ? 'file' : 'files'}</span>}
-      </footer>
-    </section>
-  </div>;
+        <footer className="flex flex-wrap justify-between gap-2 border-t border-line px-4 py-2.5 text-xs text-ink-subtle">
+          <span>Only projects you can open are searched.{data && data.unindexedFiles > 0 ? ` ${data.unindexedFiles} ${data.unindexedFiles === 1 ? 'file is not searchable until its project is' : 'files are not searchable until their projects are'} opened.` : ''}</span>
+          {data && <span>{counts.conversation} {counts.conversation === 1 ? 'conversation' : 'conversations'} · {counts.file} {counts.file === 1 ? 'file' : 'files'}</span>}
+        </footer>
+      </section>
+    </div>
+  </dialog>;
 }
