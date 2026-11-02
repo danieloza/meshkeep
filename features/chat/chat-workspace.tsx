@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Bot, FolderOpen, Loader2, MessageSquarePlus, PanelRight, Paperclip, Send, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -91,6 +91,10 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
     return () => { mounted.current = false; };
   }, []);
 
+  // The loaded conversation is reported to the parent with whatever callback
+  // it passed last, without making that callback a reason to load again.
+  const reportConversation = useEffectEvent((id: string | undefined) => onConversationChange(id));
+
   // Wcześniej czat startował zawsze pusty, mimo że messages leżały w D1.
   // Wczytujemy ostatnią rozmowę projektu, żeby odświeżenie strony nie kasowało
   // historii z widoku.
@@ -113,21 +117,19 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
         if (!active) return;
         setConversationId(targetId);
         setConversationTitle(detail.conversation.title);
-        onConversationChange(targetId);
+        reportConversation(targetId);
         setChatMessages(detail.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content, context: message.contextFiles }]));
       } catch {
         // Czat zaczyna od pustej historii. Rozmowa wskazana wprost (z adresu,
         // listy albo wyszukiwania) mogla zniknac: mowimy to i oznaczamy nowa.
         if (active && openConversationId) {
           setError('That conversation is not available, so a new one is open.');
-          onConversationChange(undefined);
+          reportConversation(undefined);
         }
       }
       finally { if (active) setHistoryLoading(false); }
     })();
     return () => { active = false; };
-    // Opening another conversation remounts this component (the parent's
-    // `key`), so the callback is read once, when the conversation loads.
   }, [project.id, openConversationId, fresh]);
 
   useEffect(() => {
