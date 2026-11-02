@@ -296,13 +296,17 @@ function ubijDrzewo() {
 // Celujemy w numer portu, a nie w slowo "wrangler". To wazne: zabicie
 // wszystkiego z wranglerem w linii polecen ubiloby takze serwer deweloperski
 // uruchomiony recznie przez czlowieka, ktory akurat odpalil testy.
+//
+// Bez powloki: Node sam cytuje argument dla PowerShella. Przez cmd wewnetrzne
+// cudzyslowy konczyly zewnetrzne, PowerShell dostawal `-Filter Name=node.exe`,
+// czyli bledne zapytanie WQL, i ta funkcja nigdy niczego nie ubila.
 export function ubijSieroty() {
   const polecenie = [
-    `Get-CimInstance Win32_Process -Filter \"Name='node.exe'\"`,
+    `Get-CimInstance Win32_Process -Filter "Name='node.exe'"`,
     `Where-Object { $_.CommandLine -like '*--port ${PORT}*' }`,
     `ForEach-Object { taskkill /F /T /PID $_.ProcessId 2>$null }`,
   ].join(' | ');
-  spawnSync('powershell', ['-NoProfile', '-Command', `"${polecenie}"`], { shell: true, stdio: 'ignore' });
+  spawnSync('powershell', ['-NoProfile', '-Command', polecenie], { stdio: 'ignore' });
 }
 
 export function stopWorkera() {
