@@ -1,7 +1,7 @@
 // Dashboard views and their URL representation. Keeping this logic separate
 // makes unknown user-entered values testable without a browser.
 
-export const SECTIONS = ['dashboard', 'projects', 'conversations', 'team', 'providers', 'usage', 'sync', 'activity', 'safety'] as const;
+export const SECTIONS = ['dashboard', 'projects', 'conversations', 'team', 'providers', 'microphone', 'usage', 'sync', 'activity', 'safety'] as const;
 
 export type Section = (typeof SECTIONS)[number];
 
@@ -15,6 +15,7 @@ export const SECTION_LABELS: Record<Section, string> = {
   conversations: 'Conversations',
   team: 'Team',
   providers: 'Model providers',
+  microphone: 'Microphone',
   usage: 'Usage and limits',
   sync: 'Folder sync',
   activity: 'Activity',
@@ -34,9 +35,9 @@ export function visibleSections(isOwner: boolean): readonly Section[] {
 }
 
 // The Settings page, at its own path, holds everything that is not a project:
-// the team, providers, usage, folder sync, activity, backup and safety. Home,
-// conversations and projects stay in the workspace at `/`.
-const SETTINGS: ReadonlySet<Section> = new Set(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
+// the team, providers, the microphone, usage, folder sync, activity, backup and
+// safety. Home, conversations and projects stay in the workspace at `/`.
+const SETTINGS: ReadonlySet<Section> = new Set(['team', 'providers', 'microphone', 'usage', 'sync', 'activity', 'safety']);
 
 export const SETTINGS_PATH = '/settings';
 
