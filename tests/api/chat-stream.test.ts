@@ -2,8 +2,9 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ChatRequest, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
+import { bootstrapResponse } from '@/lib/contracts/account';
 import { instructionsResponse, updateInstructionsResponse } from '@/lib/contracts/projects';
-import { type SaveProviderRequest, saveProviderResponse } from '@/lib/contracts/providers';
+import { providerState, type SaveEffortModelsRequest, type SaveProviderRequest, saveEffortModelsResponse, saveProviderResponse } from '@/lib/contracts/providers';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Czat od poczatku do konca, ale z falszywym dostawca modelu postawionym w tym
@@ -13,7 +14,7 @@ import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJes
 // kolejnosc wiadomosci systemowych, a nie tylko odpowiedz.
 
 type Wiadomosc = { role: string; content: string };
-const odebrane: Array<{ stream?: boolean; messages: Wiadomosc[] }> = [];
+const odebrane: Array<{ stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string }> = [];
 let dostawca: Server;
 let adresDostawcy = '';
 
@@ -25,13 +26,13 @@ function postawDostawce(): Promise<void> {
   dostawca = createServer((zadanie, odpowiedz) => {
     if (zadanie.method === 'GET' && zadanie.url === '/v1/models') {
       odpowiedz.writeHead(200, { 'Content-Type': 'application/json' });
-      odpowiedz.end(JSON.stringify({ data: [{ id: 'falszywy-model' }] }));
+      odpowiedz.end(JSON.stringify({ data: [{ id: 'falszywy-model' }, { id: 'drugi-model' }] }));
       return;
     }
     let cialo = '';
     zadanie.on('data', (kawalek) => { cialo += kawalek; });
     zadanie.on('end', () => {
-      const tresc = JSON.parse(cialo) as { stream?: boolean; messages: Wiadomosc[] };
+      const tresc = JSON.parse(cialo) as { stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string };
       odebrane.push(tresc);
       const pytanie = tresc.messages.at(-1)?.content ?? '';
       odpowiedz.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -58,11 +59,11 @@ function postawDostawce(): Promise<void> {
 
 type Zdarzenie = { type: string; text?: string; error?: string; conversationId?: string; usage?: { inputTokens: number; outputTokens: number; estimated: boolean }; context?: Array<{ id: string; path: string; status: string }> };
 
-async function czat(token: string, pytanie: string, zalaczniki: string[] = []) {
+async function czat(token: string, pytanie: string, zalaczniki: string[] = [], opcje: Partial<Pick<ChatRequest, 'effort' | 'model'>> = {}) {
   const odp = await zapytaj('/api/chat', {
     method: 'POST',
     headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId: ID.projektWspolny, model: 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki } satisfies ChatRequest),
+    body: JSON.stringify({ projectId: ID.projektWspolny, model: opcje.model ?? 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki, effort: opcje.effort } satisfies ChatRequest),
   });
   const zdarzenia = odp.tekst.split('\n').filter((linia) => linia.trim()).map((linia) => JSON.parse(linia) as Zdarzenie);
   return { odp, zdarzenia, tekst: zdarzenia.filter((z) => z.type === 'delta').map((z) => z.text).join('') };
@@ -178,5 +179,50 @@ describe('strumien odpowiedzi', () => {
 
     const po = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations`, { headers: jako(TOKENY.wlasciciel) });
     expect(projectConversations.parse(po.dane).conversations.length).toBe(projectConversations.parse(przed.dane).conversations.length);
+  });
+});
+
+// Effort idzie do dostawcy jako `reasoning_effort` tylko dla modelu, ktory
+// zarzadzajacy konfiguracja oznaczyl. Kolejnosc testow ma znaczenie: najpierw
+// nic nie jest oznaczone, potem oznaczamy falszywy-model.
+describe('effort', () => {
+  const naglowki = (token: string) => ({ ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' });
+  const oznacz = (token: string, cialo: SaveEffortModelsRequest) => zapytaj('/api/provider', { method: 'PATCH', headers: naglowki(token), body: JSON.stringify(cialo) });
+
+  it('bez oznaczenia modelu odrzuca effort, zanim cokolwiek pojdzie do dostawcy', async () => {
+    const ile = odebrane.length;
+    const { odp } = await czat(TOKENY.wlasciciel, 'Pytanie z effort', [], { effort: 'high' });
+    expect(odp.status).toBe(400);
+    expect(odp.tekst).toContain('Effort is not turned on');
+    expect(odebrane.length).toBe(ile);
+  });
+
+  it('oznaczyc mozna tylko model dostawcy, a konfiguracje zespolu tylko wlasciciel', async () => {
+    expect((await oznacz(TOKENY.wlasciciel, { scope: 'mine', effortModels: ['nie-ma-takiego'] })).status).toBe(400);
+    expect((await oznacz(TOKENY.czytelnik, { scope: 'team', effortModels: [] })).status).toBe(403);
+    // Czytelnik nie ma wlasnego dostawcy, wiec nie ma czego oznaczac.
+    expect((await oznacz(TOKENY.czytelnik, { scope: 'mine', effortModels: [] })).status).toBe(404);
+  });
+
+  it('oznaczony model dostaje reasoning_effort, a bez wyboru parametru nie ma', async () => {
+    const zapis = await oznacz(TOKENY.wlasciciel, { scope: 'mine', effortModels: ['falszywy-model', 'falszywy-model'] });
+    expect(zapis.status, zapis.tekst).toBe(200);
+    expect(saveEffortModelsResponse.parse(zapis.dane).effortModels).toEqual(['falszywy-model']);
+
+    const stan = providerState.parse((await zapytaj('/api/provider', { headers: jako(TOKENY.wlasciciel) })).dane);
+    expect(stan.mine?.effortModels).toEqual(['falszywy-model']);
+    const start = bootstrapResponse.parse((await zapytaj('/api/bootstrap', { headers: jako(TOKENY.wlasciciel) })).dane);
+    expect(start.models.map((model) => [model.id, model.effort])).toEqual([['drugi-model', false], ['falszywy-model', true]]);
+
+    const z = await czat(TOKENY.wlasciciel, 'Pytanie z effort', [], { effort: 'high' });
+    expect(z.odp.status, z.odp.tekst).toBe(200);
+    expect(odebrane.at(-1)?.reasoning_effort).toBe('high');
+
+    const bez = await czat(TOKENY.wlasciciel, 'Pytanie bez effort');
+    expect(bez.odp.status).toBe(200);
+    expect(odebrane.at(-1)).not.toHaveProperty('reasoning_effort');
+
+    // Drugi model nie jest oznaczony, wiec effort dla niego dalej odpada.
+    expect((await czat(TOKENY.wlasciciel, 'Pytanie z effort', [], { effort: 'low', model: 'drugi-model' })).odp.status).toBe(400);
   });
 });

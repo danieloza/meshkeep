@@ -24,6 +24,6 @@ export async function GET() {
     // Which provider answers depends on the member: their own configuration if
     // they set one, otherwise the team default, otherwise the environment.
     const provider = await resolveProvider(member);
-    return json({ member: { id: member.id, displayName: member.displayName, email: member.email, role: member.role }, limits: limit, usage: { inputTokens: usage?.input ?? 0, outputTokens: usage?.output ?? 0, monthlyTokens: monthly?.tokens ?? 0 }, models: provider?.models ?? [], provider: provider ? { label: provider.label, origin: provider.origin } : null });
+    return json({ member: { id: member.id, displayName: member.displayName, email: member.email, role: member.role }, limits: limit, usage: { inputTokens: usage?.input ?? 0, outputTokens: usage?.output ?? 0, monthlyTokens: monthly?.tokens ?? 0 }, models: provider ? provider.models.map((model) => ({ ...model, effort: provider.effortModels.includes(model.id) })) : [], provider: provider ? { label: provider.label, origin: provider.origin } : null });
   } catch (error) { return errorResponse(error); }
 }

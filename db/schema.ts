@@ -260,6 +260,9 @@ export const providers = sqliteTable('providers', {
   // Model list as returned by the provider, cached as JSON so that opening the
   // app does not call an external service on every load.
   models: text('models').notNull().default('[]'),
+  // Ids of the models whoever manages this configuration marked as accepting
+  // `reasoning_effort`, as JSON. The chat offers Effort only for these.
+  effortModels: text('effort_models').notNull().default('[]'),
   modelsFetchedAt: integer('models_fetched_at', { mode: 'timestamp_ms' }),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at'),

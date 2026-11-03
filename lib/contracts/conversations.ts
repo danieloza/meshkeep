@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { id, isoDate, visibility } from './common';
+import { effortLevel } from './providers';
 
 export const conversationSummary = z.object({
   id,
@@ -69,5 +70,7 @@ export const chatRequest = z.object({
   attachmentIds: z.array(id).max(8).default([]),
   temperature: z.number().min(0).max(1.5).default(0.4),
   maxTokens: z.number().int().min(64).max(4096).default(2048),
+  // Sent as `reasoning_effort`, and only for a model marked as accepting it.
+  effort: effortLevel.optional(),
 });
 export type ChatRequest = z.input<typeof chatRequest>;

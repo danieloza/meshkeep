@@ -112,6 +112,11 @@ export async function POST(request: Request) {
     if (provider.models.length && !provider.models.some((entry) => entry.id === input.model)) {
       throw new ApiError(400, 'The selected model is not offered by the configured provider.');
     }
+    // Effort reaches only models marked as accepting it, so an unknown
+    // parameter never makes a provider reject the whole message.
+    if (input.effort && !provider.effortModels.includes(input.model)) {
+      throw new ApiError(400, 'Effort is not turned on for this model. Mark it in Settings › Model providers.');
+    }
 
     // Project instructions come first and are marked as coming from the
     // project, not the user. File contents follow and are marked as data.

@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { providers } from '@/db/schema';
+import type { EffortLevel } from '@/lib/contracts/providers';
 import { maskKey, normalizeBaseUrl, readModelList, type ProviderModel } from '@/lib/provider';
 import { decryptProviderKey, encryptProviderKey, providerKeyEncryptionConfigured } from '@/lib/provider-crypto';
 import type { CurrentMember } from './auth';
@@ -39,11 +40,25 @@ export type ResolvedProvider = {
   baseUrl: string;
   apiKey: string;
   models: ProviderModel[];
+  // Models marked as accepting `reasoning_effort`; always a subset of `models`.
+  effortModels: string[];
 };
 
 function parseModels(raw: string): ProviderModel[] {
   try {
     return readModelList(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+// The marked models that the provider still offers. A refreshed model list can
+// drop a model, and its mark then stops counting without a separate cleanup.
+export function effortModelsOf(row: { models: string; effortModels: string }): string[] {
+  const offered = new Set(parseModels(row.models).map((model) => model.id));
+  try {
+    const marked: unknown = JSON.parse(row.effortModels);
+    return Array.isArray(marked) ? marked.filter((id): id is string => typeof id === 'string' && offered.has(id)) : [];
   } catch {
     return [];
   }
@@ -66,12 +81,14 @@ export async function resolveProvider(member: CurrentMember): Promise<ResolvedPr
       baseUrl: chosen.baseUrl,
       apiKey: await decryptProviderKey(chosen.apiKeyCiphertext, encryptionSecret()),
       models: parseModels(chosen.models),
+      effortModels: effortModelsOf(chosen),
     };
   }
 
   const apiKey = env.TOKENROUTER_API_KEY;
   if (!apiKey) return null;
-  return { origin: 'environment', label: 'TokenRouter', baseUrl: FALLBACK_BASE_URL, apiKey, models: FALLBACK_MODELS };
+  // The environment fallback has no row to keep marks in, so it offers no Effort.
+  return { origin: 'environment', label: 'TokenRouter', baseUrl: FALLBACK_BASE_URL, apiKey, models: FALLBACK_MODELS, effortModels: [] };
 }
 
 async function providerFetch(baseUrl: string, path: string, apiKey: string, init: RequestInit = {}) {
@@ -145,6 +162,7 @@ export async function streamProvider(provider: ResolvedProvider, input: {
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   temperature: number;
   maxTokens: number;
+  effort?: EffortLevel;
 }, signal: AbortSignal) {
   // The timer covers only the wait for headers. A timeout signal passed to
   // fetch would stay attached to the body and cut a long answer mid-stream;
@@ -161,7 +179,9 @@ export async function streamProvider(provider: ResolvedProvider, input: {
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream, application/json' },
       // `include_usage` asks for a final chunk with token counts. Providers
       // that ignore it are still charged, from an estimate.
-      body: JSON.stringify({ model: input.model, messages: input.messages, temperature: input.temperature, max_tokens: input.maxTokens, stream: true, stream_options: { include_usage: true } }),
+      // `reasoning_effort` goes out only when asked for, so a model that does
+      // not know the parameter never sees it.
+      body: JSON.stringify({ model: input.model, messages: input.messages, temperature: input.temperature, max_tokens: input.maxTokens, ...(input.effort ? { reasoning_effort: input.effort } : {}), stream: true, stream_options: { include_usage: true } }),
       signal: controller.signal,
     });
   } catch {
@@ -219,6 +239,10 @@ export async function saveProvider(scope: string, input: { label: string; baseUr
     target: providers.scope,
     set: { label: input.label, baseUrl: input.baseUrl, apiKeyCiphertext, keyPreview: maskKey(input.apiKey), models: JSON.stringify(input.models), modelsFetchedAt: now, updatedAt: now },
   });
+}
+
+export async function saveEffortModels(scope: string, effortModels: string[]) {
+  await getDb().update(providers).set({ effortModels: JSON.stringify(effortModels), updatedAt: new Date() }).where(eq(providers.scope, scope));
 }
 
 export async function removeProvider(scope: string) {

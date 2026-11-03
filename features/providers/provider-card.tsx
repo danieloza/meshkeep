@@ -5,9 +5,44 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
-import type { ProviderState } from '@/lib/contracts/providers';
+import type { ProviderModel, ProviderState } from '@/lib/contracts/providers';
 import { Hint } from '@/components/hint';
 import { ORIGIN_LABEL } from '@/features/providers/effective-provider';
+
+// A model list does not say which models accept `reasoning_effort`, so whoever
+// manages the configuration marks them here. The chat offers Effort only for
+// marked models and sends the parameter only to them.
+function EffortModels({ scope, models, marked, onSaved, onNotice }: { scope: 'mine' | 'team'; models: ProviderModel[]; marked: string[]; onSaved: () => void; onNotice: (message: string) => void }) {
+  const [selected, setSelected] = useState(marked);
+  const [filter, setFilter] = useState('');
+  const [saving, setSaving] = useState(false);
+  const needle = filter.trim().toLocaleLowerCase('en');
+  const shown = needle ? models.filter((model) => `${model.id} ${model.label}`.toLocaleLowerCase('en').includes(needle)) : models;
+  const changed = selected.length !== marked.length || selected.some((id) => !marked.includes(id));
+
+  async function save() {
+    setSaving(true);
+    try {
+      const { effortModels } = await api.provider.saveEffortModels({ scope, effortModels: selected });
+      onNotice(`Effort is on for ${effortModels.length} ${effortModels.length === 1 ? 'model' : 'models'}.`);
+      onSaved();
+    } catch (caught) { onNotice(caught instanceof Error ? caught.message : 'Could not save the Effort models.'); }
+    finally { setSaving(false); }
+  }
+
+  return <details className="rounded-lg border border-line px-3 py-2 text-[11px]">
+    <summary className="cursor-pointer font-medium">Effort · {marked.length} of {models.length} models marked</summary>
+    <p className="mt-1 leading-4 text-ink-subtle">Mark the models that accept <code>reasoning_effort</code>. The chat shows Effort only for them and sends it only to them.</p>
+    {models.length > 8 && <input aria-label="Filter models" className="mt-2 h-8 w-full rounded-lg border border-line-strong bg-surface-raised px-2 outline-none focus:ring-2 focus:ring-ring/30" onChange={(event) => setFilter(event.target.value)} placeholder="Filter models" value={filter} />}
+    <div className="mt-2 max-h-48 space-y-0.5 overflow-y-auto">
+      {shown.map((model) => <label className="flex min-h-7 items-center gap-2" key={model.id}>
+        <input checked={selected.includes(model.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, model.id] : current.filter((id) => id !== model.id))} type="checkbox" />
+        <span className="truncate" title={model.id}>{model.label}</span>
+      </label>)}
+    </div>
+    <Button className="mt-2" disabled={!changed || saving} onClick={() => void save()} size="sm" variant="outline">{saving ? 'Saving…' : 'Save Effort models'}</Button>
+  </details>;
+}
 
 export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: string) => void; onChanged: () => void }) {
   const [state, setState] = useState<ProviderState | null>(null);
@@ -72,12 +107,16 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
     </CardHeader>
     <CardContent className="space-y-3">
       {[['Yours', state.mine, 'mine'] as const, ['Team default', state.team, 'team'] as const].map(([title, summary, scope]) => summary && (
-        <div className="flex items-center gap-2 rounded-lg bg-surface-fill px-3 py-2 text-[11px]" key={scope}>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{title}: {summary.label}</p>
-            <p className="truncate text-ink-subtle">{summary.baseUrl} · key {summary.keyPreview} · {summary.modelCount} models</p>
+        <div className="space-y-1.5" key={scope}>
+          <div className="flex items-center gap-2 rounded-lg bg-surface-fill px-3 py-2 text-[11px]">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{title}: {summary.label}</p>
+              <p className="truncate text-ink-subtle">{summary.baseUrl} · key {summary.keyPreview} · {summary.modelCount} models</p>
+            </div>
+            {(scope === 'mine' || state.canSetTeam) && <Button aria-label={`Remove ${title}`} disabled={busy} onClick={() => void remove(scope)} size="icon-xs" variant="ghost"><Trash2 /></Button>}
           </div>
-          {(scope === 'mine' || state.canSetTeam) && <Button aria-label={`Remove ${title}`} disabled={busy} onClick={() => void remove(scope)} size="icon-xs" variant="ghost"><Trash2 /></Button>}
+          {/* The key resets the checkboxes to what was saved. */}
+          {(scope === 'mine' || state.canSetTeam) && summary.models.length > 0 && <EffortModels key={summary.effortModels.join('|')} marked={summary.effortModels} models={summary.models} onNotice={onNotice} onSaved={() => { void load(); onChanged(); }} scope={scope} />}
         </div>
       ))}
 

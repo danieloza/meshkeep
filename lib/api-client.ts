@@ -19,7 +19,7 @@ import type {
   ContextImportResponse, CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList,
   UpdateInstructionsRequest, UpdateInstructionsResponse, UpdateSharingRequest, UpdateSharingResponse,
 } from './contracts/projects';
-import type { ProviderState, RemoveProviderResponse, SaveProviderRequest, SaveProviderResponse } from './contracts/providers';
+import type { ProviderState, RemoveProviderResponse, SaveEffortModelsRequest, SaveEffortModelsResponse, SaveProviderRequest, SaveProviderResponse } from './contracts/providers';
 import type { SearchResults } from './contracts/search';
 import type { CreateSyncTokenRequest, CreateSyncTokenResponse, SyncCredentials, SyncSetting, UpdateSyncRequest } from './contracts/sync';
 import type { InviteRequest, InviteResponse, TeamResponse, UpdateMemberRequest, UpdateMemberResponse } from './contracts/team';
@@ -140,6 +140,7 @@ export const api = {
   provider: {
     get: () => call<ProviderState>('GET', '/api/provider'),
     save: (body: SaveProviderRequest) => call<SaveProviderResponse>('PUT', '/api/provider', { json: body }),
+    saveEffortModels: (body: SaveEffortModelsRequest) => call<SaveEffortModelsResponse>('PATCH', '/api/provider', { json: body }),
     remove: (scope: 'mine' | 'team') => call<RemoveProviderResponse>('DELETE', `/api/provider?${query({ scope })}`),
   },
 
