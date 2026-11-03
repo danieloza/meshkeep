@@ -55,7 +55,7 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
 - JSON context import from other assistants
-- Bring-your-own OpenAI-compatible model provider
+- Bring-your-own OpenAI-compatible model provider, with Effort (`reasoning_effort`) for the models its manager marks
 - AES-GCM encryption for provider keys stored in D1
 - Windows folder-sync agent with revocable, hashed credentials
 - Per-member daily and monthly token limits
@@ -76,7 +76,7 @@ Uploaded objects use random R2 keys. Invitation, session, and sync-agent credent
 
 ## Model providers
 
-MeshKeep accepts services that expose OpenAI-compatible `/models` and `/chat/completions` endpoints. A personal provider overrides the optional team default. Without either one, the optional `TOKENROUTER_API_KEY` environment fallback can be used by a self-hosted deployment.
+MeshKeep accepts services that expose OpenAI-compatible `/models` and `/chat/completions` endpoints. A personal provider overrides the optional team default. Without either one, the optional `TOKENROUTER_API_KEY` environment fallback can be used by a self-hosted deployment. A model list does not say which models accept `reasoning_effort`, so whoever manages a configuration marks them in Settings › Model providers. The chat then offers Low, Medium and High effort for those models only and sends the parameter only to them. The environment fallback has nowhere to store marks, so it offers no Effort.
 
 Provider URLs must use HTTPS. Plain HTTP is accepted only for loopback addresses so a locally running Ollama or LM Studio instance can be used. Redirects, credential-bearing URLs, IP literals, and private-network hostnames are rejected to reduce SSRF and credential-forwarding risk.
 

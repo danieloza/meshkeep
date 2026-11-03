@@ -1,0 +1,1 @@
+ALTER TABLE `providers` ADD `effort_models` text DEFAULT '[]' NOT NULL;

@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { saveProviderRequest } from '@/lib/contracts/providers';
+import { saveEffortModelsRequest, saveProviderRequest } from '@/lib/contracts/providers';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { maskKey } from '@/lib/provider';
-import { assertProviderKeyEncryptionConfigured, checkProvider, normalizeBaseUrl, removeProvider, resolveProvider, saveProvider, TEAM_SCOPE } from '@/lib/server/provider';
+import { assertProviderKeyEncryptionConfigured, checkProvider, effortModelsOf, normalizeBaseUrl, removeProvider, resolveProvider, saveEffortModels, saveProvider, TEAM_SCOPE } from '@/lib/server/provider';
+import { readModelList } from '@/lib/provider';
 import { getDb } from '@/db';
 import { providers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -14,11 +15,11 @@ export const dynamic = 'force-dynamic';
 // The stored key is the one secret this application keeps in its own database.
 // It is never returned here — the caller gets a mask, which is enough to tell
 // which key is configured and useless to anyone who obtains the response.
-function describe(row: { label: string; baseUrl: string; keyPreview: string; models: string } | undefined) {
+function describe(row: { label: string; baseUrl: string; keyPreview: string; models: string; effortModels: string } | undefined) {
   if (!row) return null;
-  let modelCount = 0;
-  try { modelCount = (JSON.parse(row.models) as unknown[]).length; } catch { modelCount = 0; }
-  return { label: row.label, baseUrl: row.baseUrl, keyPreview: row.keyPreview, modelCount };
+  let models: ReturnType<typeof readModelList> = [];
+  try { models = readModelList(JSON.parse(row.models)); } catch { models = []; }
+  return { label: row.label, baseUrl: row.baseUrl, keyPreview: row.keyPreview, modelCount: models.length, models, effortModels: effortModelsOf(row) };
 }
 
 export async function GET() {
@@ -71,6 +72,39 @@ export async function PUT(request: Request) {
     return json({ saved: true, modelCount: probe.models.length, keyPreview: maskKey(input.apiKey) });
   } catch (error) {
     if (error instanceof z.ZodError) return json({ error: 'Fill in the name, address and key.' }, { status: 400 });
+    return errorResponse(error);
+  }
+}
+
+// Marks which models of a stored configuration accept `reasoning_effort`. The
+// same rule as PUT decides who may change it: anyone their own, only the
+// owner the team default.
+export async function PATCH(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const member = await requireMember();
+    const input = saveEffortModelsRequest.parse(await readJson(request));
+    if (input.scope === 'team' && member.role !== 'owner') {
+      throw new ApiError(403, 'Only the owner can change the provider for the team.');
+    }
+    const scope = input.scope === 'team' ? TEAM_SCOPE : member.id;
+    const [row] = await getDb().select().from(providers).where(eq(providers.scope, scope)).limit(1);
+    if (!row) throw new ApiError(404, 'No provider is configured here yet.');
+    const offered = new Set(readModelList(JSON.parse(row.models)).map((model) => model.id));
+    const effortModels = [...new Set(input.effortModels)];
+    if (effortModels.some((id) => !offered.has(id))) throw new ApiError(400, 'Only models this provider offers can be marked.');
+    await saveEffortModels(scope, effortModels);
+    await recordAudit({
+      actorId: member.id,
+      actorLabel: member.displayName,
+      action: 'provider.effort_models',
+      targetType: 'provider',
+      targetLabel: row.label,
+      detail: { scope: input.scope, models: effortModels.length },
+    });
+    return json({ effortModels });
+  } catch (error) {
+    if (error instanceof z.ZodError) return json({ error: 'Invalid list of models.' }, { status: 400 });
     return errorResponse(error);
   }
 }

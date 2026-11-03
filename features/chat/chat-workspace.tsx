@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
 import { type Project, PROJECT_FILE_ACCEPT, visibilityBadgeClasses, visibilityLabels } from '@/features/projects/project';
 import { autoAttachments, CONTEXT_MODE_STORAGE_KEY, type ContextMode, parseContextMode } from '@/lib/context-mode';
+import { EFFORT_LABELS, EFFORT_LEVELS, EFFORT_STORAGE_KEY, type EffortLevel, parseEffort } from '@/lib/effort';
 import { formatBytes, formatTokens } from '@/lib/format';
 
 const MAX_SELECTED_FILES = 8;
@@ -21,6 +22,10 @@ const MIN_SUGGESTION_QUERY = 12;
 
 function storedContextMode(): ContextMode {
   try { return parseContextMode(localStorage.getItem(CONTEXT_MODE_STORAGE_KEY)) ?? 'manual'; } catch { return 'manual'; }
+}
+
+function storedEffort(): EffortLevel {
+  try { return parseEffort(localStorage.getItem(EFFORT_STORAGE_KEY)) ?? 'medium'; } catch { return 'medium'; }
 }
 
 type TodayUsage = { used: number; limit: number; enabled: boolean };
@@ -83,6 +88,9 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
   const [model, setModel] = useState('');
   const activeModel = model || models[0]?.id || '';
+  const [effort, setEffort] = useState<EffortLevel>(storedEffort);
+  // Effort shows, and is sent, only for a model marked as accepting it.
+  const effortAvailable = models.some((item) => item.id === activeModel && item.effort);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -302,7 +310,7 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
         const fresh = await api.projects.suggestFiles(project.id, content.slice(0, 500)).catch(() => ({ files: [] as FileSuggestion[] }));
         autoIds = autoAttachments(fresh.files.map((file) => file.fileId), selectedFileIds, dismissedAuto, MAX_SELECTED_FILES);
       }
-      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048 });
+      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048, effort: effortAvailable ? effort : undefined });
       streaming = true;
       setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
       const reader = answer.getReader();
@@ -393,6 +401,12 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
               {models.length === 0 && <option value="">No models available</option>}
               {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
+            {effortAvailable && <>
+              <label className="sr-only" htmlFor="chat-effort">Effort</label>
+              <select className="h-8 rounded-lg bg-transparent px-1.5 text-xs text-ink-muted outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" id="chat-effort" onChange={(event) => { const level = parseEffort(event.target.value) ?? 'medium'; setEffort(level); try { localStorage.setItem(EFFORT_STORAGE_KEY, level); } catch { /* the choice lasts until reload */ } }} title="How long the model reasons before answering, sent as reasoning_effort. More effort uses more tokens." value={effort}>
+                {EFFORT_LEVELS.map((level) => <option key={level} value={level}>{EFFORT_LABELS[level]}</option>)}
+              </select>
+            </>}
             <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-brand-ink" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
           </div>
         </form>

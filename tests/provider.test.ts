@@ -81,6 +81,13 @@ describe('model list — providers disagree about the envelope', () => {
     expect(model).toEqual({ id: 'meta/llama-4', label: 'Llama 4' });
   });
 
+  // The list is stored in D1 as this function's output and read back with it,
+  // so the names have to survive the round trip.
+  it('keeps the names when it reads back a list it produced', () => {
+    const stored = JSON.parse(JSON.stringify(readModelList({ data: [{ id: 'meta/llama-4', name: 'Llama 4' }, { id: 'plain' }] })));
+    expect(readModelList(stored)).toEqual([{ id: 'meta/llama-4', label: 'Llama 4' }, { id: 'plain', label: 'plain' }]);
+  });
+
   it('drops duplicates and empty entries instead of passing them on', () => {
     const models = readModelList({ data: [{ id: 'a' }, { id: 'a' }, { id: '  ' }, {}, null] });
     expect(models.map((m) => m.id)).toEqual(['a']);
