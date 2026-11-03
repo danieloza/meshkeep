@@ -29,7 +29,7 @@ function record(ok, name, detail) {
 }
 
 async function call(path, init = {}) {
-  const headers = { ...(init.headers ?? {}) };
+  const headers = { ...init.headers };
   if (session) headers.Cookie = `meshkeep_session=${session}`;
   try {
     const response = await fetch(`${base}${path}`, { ...init, headers, redirect: 'manual', signal: AbortSignal.timeout(20_000) });

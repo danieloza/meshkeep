@@ -9,7 +9,7 @@ describe('parseTheme', () => {
 
   it('odrzuca śmieci z localStorage', () => {
     for (const value of [null, undefined, '', 'DARK', 'ciemny', '1', 0, {}, []]) {
-      expect(parseTheme(value), String(value)).toBeNull();
+      expect(parseTheme(value), JSON.stringify(value) ?? 'undefined').toBeNull();
     }
   });
 });

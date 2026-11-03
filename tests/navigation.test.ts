@@ -25,7 +25,7 @@ describe('parseSection', () => {
 
   it('falls back to the dashboard for an unknown or missing value', () => {
     for (const value of [null, undefined, '', 'Dashboard', 'settings', '../etc', 42, {}, []]) {
-      expect(parseSection(value), String(value)).toBe(DEFAULT_SECTION);
+      expect(parseSection(value), JSON.stringify(value) ?? 'undefined').toBe(DEFAULT_SECTION);
     }
   });
 });
