@@ -438,3 +438,18 @@ describe('wyjscie do dostawcy modelu', () => {
     expect(dopuszczalne, `nieoczekiwany status ${odp.status}: ${odp.tekst.slice(0, 200)}`).toContain(odp.status);
   });
 });
+
+// Mikrofon jest dozwolony tylko dla tej strony (push-to-talk), a CSP wpuszcza
+// WebAssembly i pobieranie modelu z Hugging Face, ale nic poza tym.
+describe('naglowki bezpieczenstwa', () => {
+  it('pozwalaja na mikrofon i model mowy, nie otwierajac niczego wiecej', async () => {
+    const odp = await zapytaj('/', { headers: jako(TOKENY.wlasciciel) });
+    expect(odp.naglowki.get('permissions-policy')).toBe('camera=(), microphone=(self), geolocation=(), payment=()');
+    const csp = odp.naglowki.get('content-security-policy') ?? '';
+    expect(csp).toContain("'wasm-unsafe-eval'");
+    expect(csp).toContain("worker-src 'self'");
+    expect(csp).toContain("connect-src 'self' https://huggingface.co https://*.hf.co;");
+    expect(csp).not.toContain("'unsafe-eval'");
+    expect(csp).not.toContain('blob:');
+  });
+});

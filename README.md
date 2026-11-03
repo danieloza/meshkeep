@@ -52,6 +52,7 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 - Full-text search across conversations and file contents from a Ctrl K palette, limited to projects the member can open
 - File suggestions for the question being typed: in Manual context they are added only when picked; in Auto context they join the message and show in the composer, where any can be left out
 - A composer toolbar with file upload, the context mode, the model, and today's tokens against the daily limit
+- Push-to-talk: hold the microphone button, or a chosen key, and Whisper turns speech into text in the browser
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
 - JSON context import from other assistants
@@ -71,6 +72,8 @@ See the unauthenticated `/showcase` page for a provider-free product overview.
 The browser never receives a provider credential after it is submitted. User-supplied provider keys are validated, encrypted with AES-GCM, and then stored in D1. The encryption key lives only in `PROVIDER_KEY_ENCRYPTION_KEY` on the server. Backups omit encrypted credentials, and logs contain only provider labels and response status codes.
 
 Local folders are not mounted or watched by the web application. Files enter a project only after an explicit browser import or through the separately authorized sync agent. A chat request receives only the files selected for that message, and the answer shows which of them reached the model and in what form. In Auto context mode, the files search suggests for the question count as selected: they show in the composer before sending, and any of them can be removed. Unsupported binaries and images remain project assets and are not silently converted into model context.
+
+Push-to-talk transcribes speech in the browser with Whisper running in a Web Worker, on the CPU through ONNX Runtime's WebAssembly build, which MeshKeep serves itself. Recordings are not uploaded to MeshKeep or anywhere else; only the text, after the member sends it, reaches the model provider like anything typed. The model weights (38, 73 or 237 MB, chosen in Settings › Microphone) are downloaded from Hugging Face on first use and kept in the browser's cache, and can be removed there. The content security policy allows exactly that: `'wasm-unsafe-eval'` for the runtime, and `https://huggingface.co` with `https://*.hf.co` for the weights. `Permissions-Policy` allows the microphone for MeshKeep's own origin only. In our tests a synthesized English sentence came back word for word with the Base model; a Polish one had one word wrong with Base and none with Small.
 
 Uploaded objects use random R2 keys. Invitation, session, and sync-agent credentials are stored as hashes. Authorization is enforced by server routes; client-side visibility is only a user-interface convenience.
 

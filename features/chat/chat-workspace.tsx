@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Bot, FolderOpen, Loader2, MessageSquarePlus, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
+import { Bot, FolderOpen, Loader2, MessageSquarePlus, Mic, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatMarkdown } from '@/components/chat-markdown';
@@ -14,6 +14,9 @@ import { Hint } from '@/components/hint';
 import { type Project, PROJECT_FILE_ACCEPT, visibilityBadgeClasses, visibilityLabels } from '@/features/projects/project';
 import { autoAttachments, CONTEXT_MODE_STORAGE_KEY, type ContextMode, parseContextMode } from '@/lib/context-mode';
 import { EFFORT_LABELS, EFFORT_LEVELS, EFFORT_STORAGE_KEY, type EffortLevel, parseEffort } from '@/lib/effort';
+import { appendTranscript, HOLD_KEYS, readSpeechSettings } from '@/lib/speech';
+import { usePushToTalk } from '@/features/speech/use-push-to-talk';
+import { speechSupported } from '@/features/speech/whisper-client';
 import { formatBytes, formatTokens } from '@/lib/format';
 
 const MAX_SELECTED_FILES = 8;
@@ -290,8 +293,10 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
       : current.length < MAX_SELECTED_FILES ? [...current, fileId] : current);
   }
 
-  async function sendMessage() {
-    const content = prompt.trim();
+  // `text` sends that instead of the box, for a transcript sent the moment it
+  // lands, before the box has re-rendered with it.
+  async function sendMessage(text?: string) {
+    const content = (text ?? prompt).trim();
     if ((!content && !selectedFileIds.length) || sending) return;
     const visibleContent = content || 'Analyze the selected project files.';
     const nextMessages = [...chatMessages, { role: 'user' as const, content: visibleContent }];
@@ -357,6 +362,30 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
 
   const selectionFull = selectedFileIds.length >= MAX_SELECTED_FILES;
 
+  // Push-to-talk. Settings are read when the chat opens; Settings › Microphone
+  // is a separate page, so a change there is picked up on the way back.
+  const [speech] = useState(readSpeechSettings);
+  const [speechAvailable] = useState(speechSupported);
+  const talk = usePushToTalk(speech, (text) => {
+    const next = appendTranscript(prompt, text);
+    setPrompt(next);
+    if (speech.sendAfter) void sendMessage(next);
+  });
+  const holdDown = useEffectEvent(() => { void talk.start(); });
+  const holdUp = useEffectEvent(() => { void talk.stop(); });
+  useEffect(() => {
+    if (!speechAvailable || speech.holdKey === 'none') return;
+    const down = (event: KeyboardEvent) => { if (event.code === speech.holdKey && !event.repeat) { event.preventDefault(); holdDown(); } };
+    const up = (event: KeyboardEvent) => { if (event.code === speech.holdKey) { event.preventDefault(); holdUp(); } };
+    // A key released in another window never sends keyup here.
+    const blur = () => holdUp();
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
+  }, [speech.holdKey, speechAvailable]);
+  const holdHint = speech.holdKey === 'none' ? '' : ` or hold ${HOLD_KEYS[speech.holdKey]}`;
+
   return <>
     <section aria-labelledby="chat-title" className="flex h-[calc(100dvh-4rem)] min-w-0 flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 sm:px-6">
@@ -380,6 +409,7 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
       </div>
       <footer className="px-4 pb-4 sm:px-8">
         {error && <p className="mx-auto mb-2 max-w-3xl rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger-text">{error}</p>}
+        {talk.error && <p className="mx-auto mb-2 flex max-w-3xl items-center gap-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn-text"><span className="flex-1">{talk.error}</span><button aria-label="Dismiss" onClick={talk.clearError} type="button"><X className="size-3.5" /></button></p>}
         {(selectedFileIds.length > 0 || autoFileIds.length > 0) && <div aria-label="Files for the next message" className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5">
           {selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-surface-selected px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => toggleFile(id)} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}
           {autoFileIds.map((id) => { const file = visibleSuggestions.find((item) => item.fileId === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full border border-dashed border-line-strong px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => setDismissedAuto((current) => [...current, id])} title={`Added because it matches the question: ${file.path}. Click to leave it out of this message.`} type="button"><Sparkles className="size-3" /><span className="truncate">{file.path.split('/').pop()}</span><X className="size-3" /></button> : null; })}
@@ -389,6 +419,18 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
           <div className="flex items-center gap-1">
             <input ref={composerFileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []); void uploadProjectFiles(selected); event.target.value = ''; }} tabIndex={-1} type="file" />
             <Button aria-label="Add files" disabled={uploading} onClick={() => composerFileInput.current?.click()} size="icon-sm" title="Add files to the project and to this message. Images are stored, but no model reads them." type="button" variant="ghost">{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}</Button>
+            {speechAvailable && <Button aria-label={talk.phase === 'recording' ? 'Recording, release to transcribe' : 'Hold to talk'} className={cn('touch-none select-none', talk.phase === 'recording' && 'bg-danger-text text-surface-raised hover:bg-danger-text hover:text-surface-raised motion-safe:animate-pulse')} disabled={talk.phase === 'transcribing'}
+              onContextMenu={(event) => event.preventDefault()}
+              onKeyDown={(event) => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); void talk.start(); } }}
+              onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); void talk.stop(); } }}
+              onPointerCancel={() => void talk.stop()}
+              onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); void talk.start(); }}
+              onPointerUp={() => void talk.stop()}
+              size="icon-sm" title={`Hold to talk${holdHint}. Speech becomes text in this browser and is never uploaded.`} type="button" variant="ghost">
+              {talk.phase === 'starting' || talk.phase === 'transcribing' ? <Loader2 className="animate-spin" /> : <Mic />}
+            </Button>}
+            {talk.phase === 'recording' && <output className="text-[11px] font-medium text-danger-text">Listening…</output>}
+            {talk.phase === 'transcribing' && <output className="text-[11px] text-ink-subtle">{talk.progress !== null ? `Downloading the speech model ${talk.progress}%` : 'Transcribing…'}</output>}
             <label className="sr-only" htmlFor="chat-context-mode">How files join a message</label>
             <select className="h-8 rounded-lg bg-transparent px-1.5 text-xs text-ink-muted outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" id="chat-context-mode" onChange={(event) => changeContextMode(parseContextMode(event.target.value) ?? 'manual')} title="Manual: only the files you pick. Auto: files that match the question are added too and shown above before sending." value={contextMode}>
               <option value="manual">Manual context</option>

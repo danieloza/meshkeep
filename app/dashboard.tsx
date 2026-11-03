@@ -32,6 +32,7 @@ import { FolderSyncCard } from '@/features/sync/folder-sync-card';
 import { SyncAgentPanel } from '@/features/sync/sync-agent-panel';
 import { BackupCard, KillSwitchCard } from '@/features/owner/owner-controls';
 import { ProviderCard } from '@/features/providers/provider-card';
+import { MicrophoneSettings } from '@/features/speech/microphone-settings';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
 import { HomeView } from '@/features/home/home-view';
 import { UsageView } from '@/features/usage/usage-view';
@@ -43,6 +44,7 @@ const SECTION_SUBTITLES: Record<Section, string> = {
   conversations: 'Conversation history from every project you can access.',
   team: 'Members, invitations and reconnect links. Up to four people.',
   providers: 'Any service that speaks the OpenAI chat format. Each member can also bring their own key.',
+  microphone: 'Hold to talk instead of typing. Speech becomes text in this browser and is never uploaded.',
   usage: 'Tokens counted per person, by model, and how much of each limit remains.',
   sync: 'The agent on your computer that uploads changed files to a project.',
   activity: 'Who did what, and when. The log never stores message text or file contents.',
@@ -444,6 +446,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
             {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
             {section === 'providers' && <div className="max-w-2xl"><ProviderCard onChanged={() => window.location.reload()} onNotice={setNotice} /></div>}
+            {section === 'microphone' && <div className="max-w-2xl"><MicrophoneSettings onNotice={setNotice} /></div>}
 
             {section === 'usage' && <UsageView dailyLimit={dailyLimit} monthlyLimit={monthlyLimit} onNotice={setNotice} />}
 

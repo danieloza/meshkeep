@@ -53,6 +53,13 @@ export default defineConfig(async () => {
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
+    resolve: {
+      // Speech recognition runs Whisper on the CPU (features/speech). The
+      // WebGPU build of ONNX Runtime that transformers.js imports pulls in a
+      // 27 MB wasm file, over Cloudflare's 25 MB limit for one static asset,
+      // so the CPU-only build is used instead.
+      alias: [{ find: /^onnxruntime-web\/webgpu$/, replacement: 'onnxruntime-web/wasm' }],
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

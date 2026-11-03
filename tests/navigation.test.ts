@@ -86,7 +86,7 @@ describe('owner-only views', () => {
 
 describe('settings views', () => {
   it('puts everything that is not a project under Settings', () => {
-    expect(SECTIONS.filter(isSettingsSection)).toEqual(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
+    expect(SECTIONS.filter(isSettingsSection)).toEqual(['team', 'providers', 'microphone', 'usage', 'sync', 'activity', 'safety']);
   });
 
   it('keeps home, conversations and projects out of Settings', () => {
@@ -96,8 +96,8 @@ describe('settings views', () => {
   });
 
   it('hides the owner-only sections from members in Settings too', () => {
-    expect(visibleSettingsSections(true)).toEqual(['team', 'providers', 'usage', 'sync', 'activity', 'safety']);
-    expect(visibleSettingsSections(false)).toEqual(['team', 'providers', 'usage', 'sync']);
+    expect(visibleSettingsSections(true)).toEqual(['team', 'providers', 'microphone', 'usage', 'sync', 'activity', 'safety']);
+    expect(visibleSettingsSections(false)).toEqual(['team', 'providers', 'microphone', 'usage', 'sync']);
   });
 
   it('serves settings views from /settings and the workspace from /', () => {
