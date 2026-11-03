@@ -21,9 +21,11 @@ Taken from a local build with demonstration data: four made-up people and their 
 | | |
 | --- | --- |
 | [![Project chat with the file context column](docs/screenshots/chat-light.png)](docs/screenshots/chat-light.png) | [![Home page with recent conversations and projects](docs/screenshots/home-light.png)](docs/screenshots/home-light.png) |
-| **Project chat.** The answer lists the files it received and flags a scanned PDF that had no text. The right column picks the files for the next message. | **Home.** Recent conversations and every project you can open, each marked with who can see it. |
+| **Project chat.** The answer lists the files it received and flags a scanned PDF that had no text. Under the message box: files, push-to-talk, the context mode, today's tokens, the model and its Effort. | **Home.** Recent conversations and every project you can open, each marked with who can see it. |
 | [![Ctrl K search results in the dark theme](docs/screenshots/search-dark.png)](docs/screenshots/search-dark.png) | [![Usage and limits settings in the dark theme](docs/screenshots/settings-usage-dark.png)](docs/screenshots/settings-usage-dark.png) |
 | **Search (Ctrl K).** Conversations and file contents, only from projects you can open. | **Settings › Usage and limits.** Tokens per person against their daily and monthly limits. |
+| [![Microphone settings for push-to-talk](docs/screenshots/settings-microphone-light.png)](docs/screenshots/settings-microphone-light.png) | [![Model providers with a model marked for Effort, in the dark theme](docs/screenshots/settings-providers-dark.png)](docs/screenshots/settings-providers-dark.png) |
+| **Settings › Microphone.** Push-to-talk runs Whisper in the browser, so recordings are never uploaded. Pick the microphone, language, model and a key to hold. | **Settings › Model providers.** Mark the models that accept Effort; the chat offers it only for them. |
 
 ## Product tour
 
