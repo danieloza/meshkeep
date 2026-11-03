@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Bot, FolderOpen, Loader2, MessageSquarePlus, PanelRight, Paperclip, Send, Trash2, X } from 'lucide-react';
+import { Bot, FolderOpen, Loader2, MessageSquarePlus, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatMarkdown } from '@/components/chat-markdown';
@@ -12,9 +12,32 @@ import type { ProviderModel } from '@/lib/contracts/providers';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
 import { type Project, PROJECT_FILE_ACCEPT, visibilityBadgeClasses, visibilityLabels } from '@/features/projects/project';
-import { formatBytes } from '@/lib/format';
+import { autoAttachments, CONTEXT_MODE_STORAGE_KEY, type ContextMode, parseContextMode } from '@/lib/context-mode';
+import { formatBytes, formatTokens } from '@/lib/format';
 
 const MAX_SELECTED_FILES = 8;
+// Suggestions are asked for once a question is this long.
+const MIN_SUGGESTION_QUERY = 12;
+
+function storedContextMode(): ContextMode {
+  try { return parseContextMode(localStorage.getItem(CONTEXT_MODE_STORAGE_KEY)) ?? 'manual'; } catch { return 'manual'; }
+}
+
+type TodayUsage = { used: number; limit: number; enabled: boolean };
+
+// Tokens used today against the member's daily limit, the same numbers the
+// server checks before each message. Above 80% it turns to the warning color.
+function UsageMeter({ usage }: { usage: TodayUsage | null }) {
+  if (!usage) return null;
+  if (!usage.enabled) return <span className="text-[11px] text-danger-text">Model access off</span>;
+  const share = usage.limit > 0 ? Math.min(usage.used / usage.limit, 1) : 1;
+  const label = `${formatTokens(usage.used)} of ${formatTokens(usage.limit)} tokens used today`;
+  return <span className="flex items-center gap-1.5 text-[11px] text-ink-subtle" title={label}>
+    <span aria-hidden className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-fill"><span className={cn('block h-full rounded-full', share >= 0.8 ? 'bg-warn-text' : 'bg-brand')} style={{ width: `${Math.round(share * 100)}%` }} /></span>
+    <span aria-hidden className="hidden tabular-nums sm:inline">{formatTokens(usage.used)} / {formatTokens(usage.limit)}</span>
+    <span className="sr-only">{label}</span>
+  </span>;
+}
 
 // Bounded rounds, so opening a project with many older files does not keep
 // the browser busy; whatever is left is picked up the next time.
@@ -67,7 +90,16 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
   const [error, setError] = useState<string | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>(initialFileIds);
-  const [suggestions, setSuggestions] = useState<FileSuggestion[]>([]);
+  // The question the suggestions were made for, so sending can tell whether
+  // they still match what is in the box.
+  const [suggestions, setSuggestions] = useState<{ question: string; files: FileSuggestion[] }>({ question: '', files: [] });
+  const [contextMode, setContextMode] = useState<ContextMode>(storedContextMode);
+  // Auto-added files the member removed from the next message.
+  const [dismissedAuto, setDismissedAuto] = useState<string[]>([]);
+  const [usage, setUsage] = useState<TodayUsage | null>(null);
+  // Bumped after each answer, so the usage meter reads the new totals.
+  const [usageVersion, setUsageVersion] = useState(0);
+  const composerFileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [driveConfigured, setDriveConfigured] = useState(false);
@@ -167,20 +199,36 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
   // after upload, become searchable when their project is opened.
   useEffect(() => { void indexProjectFiles(project.id); }, [project.id]);
 
-  // Files that look relevant to the question being typed. They are only
-  // offered: nothing joins the model context until the person picks it.
+  // Files that look relevant to the question being typed. In manual mode they
+  // are only offered: nothing joins the model context until the person picks
+  // it. In auto mode they join the next message and show in the composer.
   useEffect(() => {
     const question = prompt.trim();
-    if (question.length < 12) return;
+    if (question.length < MIN_SUGGESTION_QUERY) return;
     let active = true;
     const timer = setTimeout(() => {
       api.projects.suggestFiles(project.id, question.slice(0, 500))
-        .then((payload) => { if (active) setSuggestions(payload.files); })
+        .then((payload) => { if (active) setSuggestions({ question, files: payload.files }); })
         .catch(() => undefined);
     }, 500);
     return () => { active = false; clearTimeout(timer); };
   }, [project.id, prompt]);
-  const visibleSuggestions = prompt.trim().length >= 12 ? suggestions.filter((file) => !selectedFileIds.includes(file.fileId)) : [];
+  const visibleSuggestions = prompt.trim().length >= MIN_SUGGESTION_QUERY ? suggestions.files.filter((file) => !selectedFileIds.includes(file.fileId)) : [];
+  const autoFileIds = contextMode === 'auto' ? autoAttachments(visibleSuggestions.map((file) => file.fileId), selectedFileIds, dismissedAuto, MAX_SELECTED_FILES) : [];
+
+  useEffect(() => {
+    let active = true;
+    api.usage()
+      .then((data) => { if (active) setUsage({ used: data.today.inputTokens + data.today.outputTokens, limit: data.limits.dailyTokens, enabled: data.limits.enabled }); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [usageVersion]);
+
+  function changeContextMode(mode: ContextMode) {
+    setContextMode(mode);
+    setDismissedAuto([]);
+    try { localStorage.setItem(CONTEXT_MODE_STORAGE_KEY, mode); } catch { /* the choice lasts until reload */ }
+  }
 
   async function uploadProjectFiles(selected: File[]) {
     if (!selected.length || uploading) return;
@@ -247,7 +295,14 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
       setChatMessages((current) => current.map((message, index) => index === answerIndex ? change(message) : message));
     let streaming = false;
     try {
-      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: selectedFileIds, temperature: 0.4, maxTokens: 2048 });
+      // Sending can beat the debounced suggestions. In auto mode the files are
+      // then looked up for the question that is actually sent.
+      let autoIds = autoFileIds;
+      if (contextMode === 'auto' && content.length >= MIN_SUGGESTION_QUERY && suggestions.question !== content) {
+        const fresh = await api.projects.suggestFiles(project.id, content.slice(0, 500)).catch(() => ({ files: [] as FileSuggestion[] }));
+        autoIds = autoAttachments(fresh.files.map((file) => file.fileId), selectedFileIds, dismissedAuto, MAX_SELECTED_FILES);
+      }
+      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048 });
       streaming = true;
       setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
       const reader = answer.getReader();
@@ -269,6 +324,8 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
           }
           updateAnswer((message) => ({ ...message, pending: false, context: event.context }));
           setSelectedFileIds([]);
+          setDismissedAuto([]);
+          setUsageVersion((version) => version + 1);
         } else {
           finished = true;
           throw new Error(event.error);
@@ -300,11 +357,6 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
           <h1 className="truncate text-lg font-semibold tracking-tight" id="chat-title">{historyLoading ? 'Loading conversation…' : conversationTitle}</h1>
         </div>
         <Badge className={cn('gap-1.5 border-transparent font-medium', visibilityBadgeClasses[project.visibility])} variant="outline"><span aria-hidden className="size-1.5 rounded-full bg-current" />{visibilityLabels[project.visibility]}</Badge>
-        <label className="sr-only" htmlFor="chat-model">Model</label>
-        <select className="h-9 max-w-[210px] rounded-lg border border-line-strong bg-surface-raised px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-ring/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
-          {models.length === 0 && <option value="">No models available</option>}
-          {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-        </select>
         <Button disabled={historyLoading || !chatMessages.length} onClick={startNewConversation} size="sm" title="New conversation" variant="outline"><MessageSquarePlus /><span className="hidden sm:inline">New conversation</span></Button>
         <Button aria-expanded={contextOpen} aria-label="Show files and instructions" className="xl:hidden" onClick={() => setContextOpen(true)} size="icon" variant="ghost"><PanelRight /></Button>
         <Button aria-label="Close project" onClick={onClose} size="icon" variant="ghost"><X /></Button>
@@ -320,10 +372,29 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
       </div>
       <footer className="px-4 pb-4 sm:px-8">
         {error && <p className="mx-auto mb-2 max-w-3xl rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger-text">{error}</p>}
-        {selectedFileIds.length > 0 && <div aria-label="Files for the next message" className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5">{selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-surface-selected px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => toggleFile(id)} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}</div>}
-        <form className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-line-strong bg-surface-raised p-2 shadow-sm focus-within:border-ring" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
-          <textarea aria-label="Message to model" className="max-h-36 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-ink-subtle" maxLength={32_000} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Write a message…" rows={1} value={prompt} />
-          <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-brand-ink" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
+        {(selectedFileIds.length > 0 || autoFileIds.length > 0) && <div aria-label="Files for the next message" className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5">
+          {selectedFileIds.map((id) => { const file = projectFiles.find((item) => item.id === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full bg-surface-selected px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => toggleFile(id)} title="Remove from message context" type="button"><Paperclip className="size-3" /><span className="truncate">{file.name}</span><X className="size-3" /></button> : null; })}
+          {autoFileIds.map((id) => { const file = visibleSuggestions.find((item) => item.fileId === id); return file ? <button className="flex max-w-[220px] items-center gap-1 rounded-full border border-dashed border-line-strong px-2.5 py-1 text-[10px] text-brand-text" key={id} onClick={() => setDismissedAuto((current) => [...current, id])} title={`Added because it matches the question: ${file.path}. Click to leave it out of this message.`} type="button"><Sparkles className="size-3" /><span className="truncate">{file.path.split('/').pop()}</span><X className="size-3" /></button> : null; })}
+        </div>}
+        <form className="mx-auto flex max-w-3xl flex-col gap-1 rounded-2xl border border-line-strong bg-surface-raised p-2 shadow-sm focus-within:border-ring" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+          <textarea aria-label="Message to model" className="max-h-36 min-h-10 w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-ink-subtle" maxLength={32_000} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Write a message…" rows={1} value={prompt} />
+          <div className="flex items-center gap-1">
+            <input ref={composerFileInput} accept={PROJECT_FILE_ACCEPT} className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []); void uploadProjectFiles(selected); event.target.value = ''; }} tabIndex={-1} type="file" />
+            <Button aria-label="Add files" disabled={uploading} onClick={() => composerFileInput.current?.click()} size="icon-sm" title="Add files to the project and to this message. Images are stored, but no model reads them." type="button" variant="ghost">{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}</Button>
+            <label className="sr-only" htmlFor="chat-context-mode">How files join a message</label>
+            <select className="h-8 rounded-lg bg-transparent px-1.5 text-xs text-ink-muted outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" id="chat-context-mode" onChange={(event) => changeContextMode(parseContextMode(event.target.value) ?? 'manual')} title="Manual: only the files you pick. Auto: files that match the question are added too and shown above before sending." value={contextMode}>
+              <option value="manual">Manual context</option>
+              <option value="auto">Auto context</option>
+            </select>
+            <span className="flex-1" />
+            <UsageMeter usage={usage} />
+            <label className="sr-only" htmlFor="chat-model">Model</label>
+            <select className="h-8 max-w-[180px] rounded-lg bg-transparent px-1.5 text-xs font-medium outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
+              {models.length === 0 && <option value="">No models available</option>}
+              {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+            <Button aria-label="Send message" className="size-9 rounded-xl bg-brand text-brand-ink" disabled={(!prompt.trim() && !selectedFileIds.length) || sending} size="icon" type="submit"><Send /></Button>
+          </div>
         </form>
         <p className="mt-2 text-center text-[10px] text-ink-subtle">Enter sends · Shift+Enter adds a new line · FREE models only</p>
       </footer>

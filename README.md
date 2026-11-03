@@ -50,7 +50,8 @@ https://github.com/user-attachments/assets/b1159807-4531-48fb-a4cc-cced15b5b8e5
 - Each answer lists the files the model received, and whether each arrived in full, in part, or not at all
 - Project instructions sent ahead of every message in the project
 - Full-text search across conversations and file contents from a Ctrl K palette, limited to projects the member can open
-- File suggestions for the question being typed, added to the context only when picked
+- File suggestions for the question being typed: in Manual context they are added only when picked; in Auto context they join the message and show in the composer, where any can be left out
+- A composer toolbar with file upload, the context mode, the model, and today's tokens against the daily limit
 - Text, code, ZIP, PDF, DOCX, XLSX, PPTX, RTF, and image uploads
 - Server-side document-to-text extraction for supported documents and PDFs
 - JSON context import from other assistants
@@ -69,7 +70,7 @@ See the unauthenticated `/showcase` page for a provider-free product overview.
 
 The browser never receives a provider credential after it is submitted. User-supplied provider keys are validated, encrypted with AES-GCM, and then stored in D1. The encryption key lives only in `PROVIDER_KEY_ENCRYPTION_KEY` on the server. Backups omit encrypted credentials, and logs contain only provider labels and response status codes.
 
-Local folders are not mounted or watched by the web application. Files enter a project only after an explicit browser import or through the separately authorized sync agent. A chat request receives only the files selected for that message, and the answer shows which of them reached the model and in what form. Unsupported binaries and images remain project assets and are not silently converted into model context.
+Local folders are not mounted or watched by the web application. Files enter a project only after an explicit browser import or through the separately authorized sync agent. A chat request receives only the files selected for that message, and the answer shows which of them reached the model and in what form. In Auto context mode, the files search suggests for the question count as selected: they show in the composer before sending, and any of them can be removed. Unsupported binaries and images remain project assets and are not silently converted into model context.
 
 Uploaded objects use random R2 keys. Invitation, session, and sync-agent credentials are stored as hashes. Authorization is enforced by server routes; client-side visibility is only a user-interface convenience.
 
