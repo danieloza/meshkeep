@@ -7,6 +7,6 @@ import type { Project } from '@/features/projects/project';
 // rather than drawn as a blank avatar.
 export function projectPeople(project: Pick<Project, 'ownerId' | 'sharedWith' | 'visibility'>, team: TeamMember[]): TeamMember[] {
   const active = new Map(team.filter((member) => member.status === 'active').map((member) => [member.id, member]));
-  const others = project.visibility === 'team' ? [...active.keys()] : project.visibility === 'selected' ? project.sharedWith : [];
+  const others = project.visibility === 'team' ? [...active.keys()] : project.visibility === 'selected' ? project.sharedWith.map((share) => share.memberId) : [];
   return [project.ownerId, ...others.filter((id) => id !== project.ownerId)].flatMap((id) => active.get(id) ?? []);
 }

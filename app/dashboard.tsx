@@ -21,6 +21,7 @@ import { AuditView } from '@/features/owner/audit-view';
 import { CreateProjectDialog } from '@/features/projects/create-project-dialog';
 import { projectPeople } from '@/features/projects/people';
 import { ProjectCard } from '@/features/projects/project-card';
+import type { ProjectSharing } from '@/features/projects/project-people';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SearchPalette, type SearchTarget } from '@/features/search/search-palette';
 import { FilterInput } from '@/components/filter-input';
@@ -347,6 +348,12 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
     finally { setSaving(false); }
   }
 
+  // A sharing change from the chat header reaches the list and the open chat.
+  function applySharing(projectId: string, sharing: ProjectSharing) {
+    setProjects((current) => current.map((item) => item.id === projectId ? { ...item, ...sharing, updated: 'now' } : item));
+    setActiveProject((current) => current?.id === projectId ? { ...current, ...sharing } : current);
+  }
+
   async function makeProjectPrivate(project: Project) {
     if (project.visibility === 'private') return;
     try {
@@ -396,7 +403,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         {settingsOpen
           ? <SettingsNav isOwner={currentRole === 'owner'} onBack={() => goToSection(DEFAULT_SECTION)} onSelect={goToSection} section={section} />
           : <ProjectNav activeProjectId={activeProject?.id ?? null} conversations={projectConversations} conversationsLoading={conversationsLoading} currentConversationId={currentConversationId} onClose={() => setMobileMenu(false)} onNewConversation={(project) => openProject(project, { fresh: true })} onNewProject={() => { setMobileMenu(false); setShowCreate(true); }} onOpenConversation={(project, conversationId) => openProject(project, { conversationId })} onOpenProject={(project) => { if (project.id === activeProject?.id) setMobileMenu(false); else openProject(project); }} onSelectSection={goToSection} open={mobileMenu} projects={projects} section={section} syncEnabled={syncEnabled} teamCapacity={teamCapacity} />}
-        {activeProject ? <ChatWorkspace conversationId={activeConversationId} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} project={activeProject} />
+        {activeProject ? <ChatWorkspace conversationId={activeConversationId} currentMemberId={currentMemberId} onSharingChange={(sharing) => applySharing(activeProject.id, sharing)} team={teamMembers} fresh={startFresh} initialFileIds={openWithFileIds} key={`chat-${chatSession}`} models={models} onClose={() => closeProject()} onConversationChange={rememberConversation} onConversationSaved={() => void loadConversations(activeProject.id)} onFileCountChange={(count) => setProjects((current) => current.map((item) => item.id === activeProject.id ? { ...item, files: count } : item))} project={activeProject} />
         : <section className="min-w-0">
           <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
             {settingsOpen && modelsStopped && <output className="mb-6 flex flex-wrap items-center gap-3 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-text">

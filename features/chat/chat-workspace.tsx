@@ -2,7 +2,6 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Bot, FolderOpen, Loader2, MessageSquarePlus, Mic, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatMarkdown } from '@/components/chat-markdown';
 import { api } from '@/lib/api-client';
@@ -11,7 +10,9 @@ import type { FileSuggestion, ProjectFile } from '@/lib/contracts/files';
 import type { ProviderModel } from '@/lib/contracts/providers';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/hint';
-import { type Project, PROJECT_FILE_ACCEPT, visibilityBadgeClasses, visibilityLabels } from '@/features/projects/project';
+import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
+import { ProjectPeople, type ProjectSharing } from '@/features/projects/project-people';
+import type { TeamMember } from '@/lib/contracts/team';
 import { autoAttachments, CONTEXT_MODE_STORAGE_KEY, type ContextMode, parseContextMode } from '@/lib/context-mode';
 import { EFFORT_LABELS, EFFORT_LEVELS, EFFORT_STORAGE_KEY, type EffortLevel, parseEffort } from '@/lib/effort';
 import { appendTranscript, HOLD_KEYS, readSpeechSettings } from '@/lib/speech';
@@ -86,7 +87,7 @@ function ContextChips({ files }: { files: ContextFile[] }) {
 // The two columns are returned side by side, so the page grid places them and
 // the state they share stays here. `conversationId` opens that conversation,
 // `null` the latest one; `fresh` starts a new conversation instead.
-export function ChatWorkspace({ project, models, onClose, onFileCountChange, onConversationChange, onConversationSaved, conversationId: openConversationId, fresh, initialFileIds }: { project: Project; models: ProviderModel[]; onClose: () => void; onFileCountChange: (count: number) => void; onConversationChange: (conversationId: string | undefined) => void; onConversationSaved: () => void; conversationId: string | null; fresh: boolean; initialFileIds: string[] }) {
+export function ChatWorkspace({ project, models, team, currentMemberId, onSharingChange, onClose, onFileCountChange, onConversationChange, onConversationSaved, conversationId: openConversationId, fresh, initialFileIds }: { project: Project; models: ProviderModel[]; team: TeamMember[]; currentMemberId: string; onSharingChange: (sharing: ProjectSharing) => void; onClose: () => void; onFileCountChange: (count: number) => void; onConversationChange: (conversationId: string | undefined) => void; onConversationSaved: () => void; conversationId: string | null; fresh: boolean; initialFileIds: string[] }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
   const [model, setModel] = useState('');
@@ -393,7 +394,7 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
           <p className="truncate text-xs text-ink-subtle">{project.name}</p>
           <h1 className="truncate text-lg font-semibold tracking-tight" id="chat-title">{historyLoading ? 'Loading conversation…' : conversationTitle}</h1>
         </div>
-        <Badge className={cn('gap-1.5 border-transparent font-medium', visibilityBadgeClasses[project.visibility])} variant="outline"><span aria-hidden className="size-1.5 rounded-full bg-current" />{visibilityLabels[project.visibility]}</Badge>
+        <ProjectPeople currentMemberId={currentMemberId} onChange={onSharingChange} project={project} team={team} />
         <Button disabled={historyLoading || !chatMessages.length} onClick={startNewConversation} size="sm" title="New conversation" variant="outline"><MessageSquarePlus /><span className="hidden sm:inline">New conversation</span></Button>
         <Button aria-expanded={contextOpen} aria-label="Show files and instructions" className="xl:hidden" onClick={() => setContextOpen(true)} size="icon" variant="ghost"><PanelRight /></Button>
         <Button aria-label="Close project" onClick={onClose} size="icon" variant="ghost"><X /></Button>
