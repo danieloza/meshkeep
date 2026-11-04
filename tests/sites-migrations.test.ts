@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -8,7 +8,6 @@ import { PUBLIC_HEAD, SITES_PREFIX, sitesMigrationLine, writeSitesMigrationLine 
 
 const PUBLIC_DIR = join(__dirname, '..', 'drizzle');
 const PREFIX_DIR = join(__dirname, '..', 'deploy', 'sites', 'migrations');
-const PREFIX_SIZE = Object.keys(SITES_PREFIX).length;
 
 const scratch: string[] = [];
 afterAll(() => { for (const dir of scratch) rmSync(dir, { recursive: true, force: true }); });
@@ -20,42 +19,46 @@ function tempCopy(dir: string) {
   return copy;
 }
 
-// A migration added later in `drizzle/`, written the way drizzle-kit writes one.
-function addPublicMigration(dir: string, tag: string, sql: string, when = Date.now()) {
+const journalOf = (dir: string) => join(dir, 'meta', '_journal.json');
+
+// A migration added later in `drizzle/`, numbered and recorded the way
+// drizzle-kit does it. Returns its tag.
+function addPublicMigration(dir: string, name: string, sql: string, when = Date.now()) {
+  const journal = JSON.parse(readFileSync(journalOf(dir), 'utf8'));
+  const tag = `${String(journal.entries.length).padStart(4, '0')}_${name}`;
   writeFileSync(join(dir, `${tag}.sql`), sql);
-  const journalPath = join(dir, 'meta', '_journal.json');
-  const journal = JSON.parse(readFileSync(journalPath, 'utf8'));
   journal.entries.push({ idx: journal.entries.length, version: '6', when, tag, breakpoints: true });
-  writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+  writeFileSync(journalOf(dir), JSON.stringify(journal, null, 2));
+  return tag;
 }
 
 describe('Sites migration line', () => {
   it('is the frozen prefix followed by the public migrations from 0006 on', () => {
     const line = sitesMigrationLine();
-    expect(line.migrations.slice(0, PREFIX_SIZE).map((m) => m.tag)).toEqual(Object.keys(SITES_PREFIX));
+    const publicTags = readdirSync(PUBLIC_DIR).filter((name) => name.endsWith('.sql')).sort().map((name) => name.slice(0, -'.sql'.length));
+    expect(line.migrations.map((m) => m.tag)).toEqual([...Object.keys(SITES_PREFIX), ...publicTags.slice(PUBLIC_HEAD.length)]);
     expect(line.journal.entries.map((entry: { tag: string }) => entry.tag)).toEqual(line.migrations.map((m) => m.tag));
   });
 
   it('carries a new public migration over unchanged and under the same name', () => {
     const publicDir = tempCopy(PUBLIC_DIR);
-    addPublicMigration(publicDir, '0006_example', 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\n');
+    const tag = addPublicMigration(publicDir, 'example', 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\n');
     const line = sitesMigrationLine({ publicDir });
-    expect(line.migrations.at(-1)).toEqual({ tag: '0006_example', sql: 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\n' });
-    expect(line.migrations.at(-2)?.tag).toBe('0005_bridge_to_public');
+    expect(line.migrations.at(-1)).toEqual({ tag, sql: 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\n' });
     // The bridge there is the real one, not the public placeholder.
-    expect(line.migrations.at(-2)?.sql).not.toContain('SELECT 1;');
+    const bridge = line.migrations.find((m) => m.tag === '0005_bridge_to_public');
+    expect(bridge?.sql).toContain('CREATE TABLE `providers`');
   });
 
   it('refuses a public line whose names up to 0005 have changed', () => {
+    // Every name up to 0005 is taken on Sites, so a migration that ended up
+    // under one of them would be skipped there as already applied.
     const publicDir = tempCopy(PUBLIC_DIR);
-    // Without the placeholder, the next migration would take number 0005 and
-    // Sites would skip it as already applied.
-    rmSync(join(publicDir, `${PUBLIC_HEAD[5]}.sql`));
-    const journalPath = join(publicDir, 'meta', '_journal.json');
-    const journal = JSON.parse(readFileSync(journalPath, 'utf8'));
-    journal.entries.pop();
-    writeFileSync(journalPath, JSON.stringify(journal));
-    addPublicMigration(publicDir, '0005_new_table', 'CREATE TABLE `x` (`id` text);\n');
+    const renamed = '0005_something_else';
+    renameSync(join(publicDir, `${PUBLIC_HEAD[5]}.sql`), join(publicDir, `${renamed}.sql`));
+    const journal = JSON.parse(readFileSync(journalOf(publicDir), 'utf8'));
+    journal.entries[5].tag = renamed;
+    writeFileSync(journalOf(publicDir), JSON.stringify(journal));
     expect(() => sitesMigrationLine({ publicDir })).toThrow(/must stay/);
   });
 
@@ -69,13 +72,14 @@ describe('Sites migration line', () => {
   it('refuses a public migration dated before the bridge', () => {
     // drizzle's migrator would treat it as older than what Sites has applied.
     const publicDir = tempCopy(PUBLIC_DIR);
-    addPublicMigration(publicDir, '0006_backdated', 'SELECT 1;\n', 1_700_000_000_000);
+    addPublicMigration(publicDir, 'backdated', 'SELECT 1;\n', 1_700_000_000_000);
     expect(() => sitesMigrationLine({ publicDir })).toThrow(/dated before/);
   });
 
   it('refuses a migration file missing from the journal', () => {
     const publicDir = tempCopy(PUBLIC_DIR);
-    writeFileSync(join(publicDir, '0006_unrecorded.sql'), 'SELECT 1;\n');
+    const next = JSON.parse(readFileSync(journalOf(publicDir), 'utf8')).entries.length;
+    writeFileSync(join(publicDir, `${String(next).padStart(4, '0')}_unrecorded.sql`), 'SELECT 1;\n');
     expect(() => sitesMigrationLine({ publicDir })).toThrow(/_journal\.json/);
   });
 
@@ -169,7 +173,7 @@ describe.skipIf(noFts5OnNode22)('Sites migration line on SQLite', () => {
 
   it('still matches after a new public migration', () => {
     const publicDir = tempCopy(PUBLIC_DIR);
-    addPublicMigration(publicDir, '0006_example', 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\nALTER TABLE `invites` ADD `note` text;\n');
+    addPublicMigration(publicDir, 'example', 'CREATE TABLE `example` (`id` text PRIMARY KEY NOT NULL);\nALTER TABLE `invites` ADD `note` text;\n');
     const sites = schemaOf(freshDatabase(sitesMigrationLine({ publicDir }).migrations));
     expect(sites).toEqual(schemaOf(freshDatabase(readPublic(publicDir))));
     expect(sites).toHaveProperty('table example');

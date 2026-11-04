@@ -2,12 +2,13 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { waitUntil } from 'cloudflare:workers';
 import { z } from 'zod';
 import { getDb } from '@/db';
-import { conversations, files, messages, usageEvents } from '@/db/schema';
+import { conversations, files, messages } from '@/db/schema';
 import { type ChatStreamEvent, type ContextFile, createSseParser, estimateTokens } from '@/lib/chat-stream';
 import { chatRequest } from '@/lib/contracts/conversations';
 import { requireMember } from '@/lib/server/auth';
 import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib/server/http';
 import { requireProjectAccess } from '@/lib/server/access';
+import { chargeRun, finishRun, releaseRun, reserveRun } from '@/lib/server/chat-runs';
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
 import { readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
 import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
     const member = await requireMember();
     const input = chatRequest.parse(await readJson(request, 1_000_000));
     const access = await requireProjectAccess(member, input.projectId, 'edit');
-    await assertChatAllowed(member);
+    const limits = await assertChatAllowed(member);
     const db = getDb();
     const now = new Date();
     // Nową rozmowę tylko przygotowujemy — zapis idzie dopiero razem z
@@ -127,10 +128,28 @@ export async function POST(request: Request) {
       ...input.messages,
     ];
 
+    // The budget is reserved last, once nothing else can refuse the request,
+    // and from here on the run must be settled whatever happens.
+    const promptTokens = estimateTokens(promptMessages.map((message) => message.content).join('\n'));
+    const runId = await reserveRun(member, limits, {
+      projectId: input.projectId,
+      conversationId,
+      clientRequestId: input.clientRequestId ?? crypto.randomUUID(),
+      model: input.model,
+      reserved: { inputTokens: promptTokens, outputTokens: input.maxTokens },
+    });
+
     // Everything that can fail before the model starts answering has failed by
     // now and returned JSON with a status. Only a successful answer streams.
     const upstreamControl = new AbortController();
-    const upstream = await streamProvider(provider, { ...input, messages: promptMessages }, upstreamControl.signal);
+    let upstream: Response;
+    try {
+      upstream = await streamProvider(provider, { ...input, messages: promptMessages }, upstreamControl.signal);
+    } catch (error) {
+      // The provider refused before answering, so nothing is charged.
+      await releaseRun(runId).catch(() => undefined);
+      throw error;
+    }
 
     const encoder = new TextEncoder();
     let clientGone = false;
@@ -139,6 +158,8 @@ export async function POST(request: Request) {
       start(controller) { sink = controller; },
       // Closing the tab must not stop the answer from being saved and charged:
       // the provider keeps generating, and the key owner pays for it either way.
+      // The platform gives this work about 30 seconds after the client leaves;
+      // an answer that takes longer is charged later as an abandoned run.
       cancel() { clientGone = true; },
     });
     const send = (event: ChatStreamEvent) => {
@@ -192,10 +213,7 @@ export async function POST(request: Request) {
       }
 
       const estimated = !reported;
-      const usage = reported ?? {
-        inputTokens: estimateTokens(promptMessages.map((message) => message.content).join('\n')),
-        outputTokens: estimateTokens(content),
-      };
+      const usage = reported ?? { inputTokens: promptTokens, outputTokens: estimateTokens(content) };
       const usageRow = { id: crypto.randomUUID(), memberId: member.id, model: input.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, createdAt: new Date() };
 
       try {
@@ -203,7 +221,7 @@ export async function POST(request: Request) {
           // Tokens were spent even without a complete answer, so the limits
           // still count them. The partial text is not saved: in the history it
           // would read as a finished answer.
-          await db.insert(usageEvents).values(usageRow);
+          await db.batch([chargeRun(runId, usageRow), finishRun(runId, 'failed')]);
           send({ type: 'error', error: failure });
           return;
         }
@@ -218,13 +236,15 @@ export async function POST(request: Request) {
           await db.batch([
             db.insert(conversations).values({ id: conversationId, projectId: input.projectId, createdBy: member.id, title: firstUserMessage.slice(0, 80), createdAt: now, updatedAt: new Date() }),
             db.insert(messages).values(rows),
-            db.insert(usageEvents).values(usageRow),
+            chargeRun(runId, usageRow),
+            finishRun(runId, 'succeeded'),
           ]);
         } else {
           await db.batch([
             db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversationId)),
             db.insert(messages).values(rows),
-            db.insert(usageEvents).values(usageRow),
+            chargeRun(runId, usageRow),
+            finishRun(runId, 'succeeded'),
           ]);
         }
         // `done` goes out only after the commit, so a client that sees it can
@@ -232,6 +252,9 @@ export async function POST(request: Request) {
         send({ type: 'done', conversationId, usage: { ...usage, estimated }, context: attachments.files });
       } catch (error) {
         console.error('Saving a streamed answer failed', error instanceof Error ? error.message : 'unknown error');
+        // The tokens were still spent. If this fails too, the run is charged
+        // later as abandoned.
+        await db.batch([chargeRun(runId, usageRow), finishRun(runId, 'failed')]).catch(() => undefined);
         send({ type: 'error', error: 'The answer could not be saved. Try again.' });
       } finally {
         close();
