@@ -109,10 +109,12 @@ export function readModelList(payload: unknown): ProviderModel[] {
     const clean = id.trim().slice(0, 200);
     if (!clean || seen.has(clean)) continue;
     seen.add(clean);
-    // `name` comes from a provider's own list, `label` from the copy stored in
-    // D1, which is this function's output read back. Without `label` a stored
-    // list came back with every model named by its id.
-    const rawName = (entry as { name?: unknown; label?: unknown })?.name ?? (entry as { label?: unknown })?.label;
+    // `name` (OpenRouter) and `display_name` (Anthropic) come from a provider's
+    // own list, `label` from the copy stored in D1, which is this function's
+    // output read back. Without `label` a stored list came back with every
+    // model named by its id.
+    const fields = entry as { name?: unknown; display_name?: unknown; label?: unknown };
+    const rawName = fields?.name ?? fields?.display_name ?? fields?.label;
     const named = typeof rawName === 'string' ? rawName.trim() : '';
     models.push({ id: clean, label: (named && named !== clean ? named : clean).slice(0, 120) });
     if (models.length >= MAX_MODELS) break;
