@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, MessageSquareText, Search, Trash2 } from 'lucide-react';
+import { loupe, query } from '@lucasmarkes/hairline';
+import { Loader2, MessageSquareText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
 import type { ConversationRow } from '@/lib/contracts/conversations';
@@ -45,12 +46,12 @@ export function ConversationsView({ onOpenConversation, onNotice }: { onOpenConv
 
   if (error) return <ViewPlaceholder detail={error} icon={MessageSquareText} title="Something went wrong" />;
   if (!rows) return <ViewPlaceholder detail="This may take a moment." icon={Loader2} title="Loading conversations…" />;
-  if (!rows.length) return <ViewPlaceholder detail="Open a project and send the first message. It will appear here." icon={MessageSquareText} title="No conversations yet" />;
+  if (!rows.length) return <ViewPlaceholder detail="Open a project and send the first message. It will appear here." figure={query} title="No conversations yet" />;
 
   return <section aria-label="Conversations" className="space-y-2">
     <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><FilterInput label="Filter conversations by title or project" onChange={setFilter} value={filter} />
     <p className="text-sm text-ink-muted">{visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'}` : `${visible.length} of ${rows.length} conversations`}</p></div>
-    {!visible.length && <ViewPlaceholder detail="Change the filter above, or press Ctrl K to search inside messages." icon={Search} title="No conversations match" />}
+    {!visible.length && <ViewPlaceholder detail="Change the filter above, or press Ctrl K to search inside messages." figure={loupe} title="No conversations match" />}
     {visible.map((row) => <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-raised/85 pr-2 transition hover:border-black/15 hover:bg-surface-raised" key={row.id}>
       <button className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-4 py-3 text-left" onClick={() => onOpenConversation(row.projectId, row.id)} type="button">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-selected text-brand-text"><MessageSquareText className="size-4" /></span>

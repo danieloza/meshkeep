@@ -241,6 +241,7 @@ The script writes SQL but never executes it. Review the output before applying i
 - R2-compatible object storage
 - OpenAI-compatible model-provider requests
 - Hosting bindings described in `.openai/hosting.json`
+- Empty screens drawn with [Hairline](https://github.com/lucasmarkes/hairline) (MIT), isometric line figures that answer the pointer; only the five figures in use are bundled, about 14 kB gzipped
 
 ## Security
 
