@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Bot, FolderOpen, Loader2, MessageSquarePlus, Mic, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
+import { riffle } from '@lucasmarkes/hairline';
+import { FolderOpen, Loader2, MessageSquarePlus, Mic, PanelRight, Paperclip, Send, Sparkles, Trash2, X } from 'lucide-react';
+import { LineFigure } from '@/components/line-figure';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatMarkdown } from '@/components/chat-markdown';
@@ -399,7 +401,7 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
         <Button aria-label="Close project" onClick={onClose} size="icon" variant="ghost"><X /></Button>
       </header>
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-surface-selected text-brand-text"><Bot /></span><h2 className="text-xl font-semibold tracking-tight">What would you like to work on?</h2><p className="mt-2 text-sm leading-6 text-ink-muted">Ask about code, analyze a project or pick files under Files. The model receives this conversation, the project instructions and only the text files you select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
+        {chatMessages.length === 0 ? <div className="mx-auto grid h-full max-w-lg place-content-center text-center"><LineFigure className="mx-auto mb-2 w-64 max-w-full" figure={riffle} /><h2 className="text-xl font-semibold tracking-tight">What would you like to work on?</h2><p className="mt-2 text-sm leading-6 text-ink-muted">Ask about code, analyze a project or pick files under Files. The model receives this conversation, the project instructions and only the text files you select.</p></div> : <div className="mx-auto max-w-3xl space-y-5">{chatMessages.map((message, index) => message.role === 'user'
           ? <div className="flex justify-end" key={`${message.role}-${index}`}><div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-surface-selected px-4 py-3 text-sm leading-6 text-ink">{message.content}</div></div>
           : <div className="flex flex-col items-start" key={`${message.role}-${index}`}>
             {message.content && <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-line bg-surface-raised px-4 py-3 text-sm leading-6 text-ink shadow-sm"><ChatMarkdown content={message.content} /></div>}
