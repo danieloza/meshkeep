@@ -12,6 +12,9 @@ export type WynikEkstrakcji = {
   // Krotki opis tego, co sie stalo, gdy tekstu nie ma. Wchodzi do kontekstu
   // modelu zamiast tresci, zeby model nie zgadywal, czemu plik jest pusty.
   powod?: string;
+  // Odczyt sie nie udal: plik moze dac sie przeczytac przy kolejnej probie.
+  // Bez tej flagi brak tekstu jest stanem trwalym, np. obraz albo stary .doc.
+  blad?: true;
 };
 
 const DEKODER = new TextDecoder('utf-8');
@@ -260,6 +263,6 @@ export async function wydobadzTekstDokumentu(rozszerzenie: string, bajty: Uint8A
       default: return { tekst: '', powod: `Nieobslugiwany format: ${rozszerzenie}.` };
     }
   } catch (blad) {
-    return { tekst: '', powod: `Could not read the file: ${blad instanceof Error ? blad.message : 'unknown error'}.` };
+    return { tekst: '', powod: `Could not read the file: ${blad instanceof Error ? blad.message : 'unknown error'}.`, blad: true };
   }
 }

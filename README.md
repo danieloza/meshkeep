@@ -97,6 +97,7 @@ Press Ctrl K (⌘ K on macOS) or click the search bar to search conversation mes
 
 - **Access:** results come only from projects the signed-in member can open. The access rule is part of the SQL query, so other projects' content never leaves the database.
 - **Indexing:** plain text and code are indexed as they are uploaded. PDF and Office documents are extracted in small rounds when a project is opened or files are imported. Files uploaded before search existed become searchable the first time their project is opened.
+- **Files that cannot be read:** the files panel says what became of each file's text: still being read, read only in part, no text by design (an image, a legacy `.doc`), or a read that failed, with the reason. A failed read is tried again after a pause, up to three times. Each attempt is counted before the file is read, so a document whose reading takes its round down stops being retried instead of blocking the rest.
 - **Polish text:** words match without diacritics, including `ł` typed as `l`.
 - **File suggestions:** while a question is being typed, the chat suggests up to five project files that match it. A suggestion only offers the file; nothing joins the model context until it is picked.
 

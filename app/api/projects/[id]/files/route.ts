@@ -2,7 +2,8 @@ import { env } from 'cloudflare:workers';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
-import { appSettings, files, projects } from '@/db/schema';
+import { appSettings, files, fileTexts, projects } from '@/db/schema';
+import { fileTextState } from '@/lib/extraction-outcome';
 import { MAX_PRUNE_PATHS, pruneFilesRequest } from '@/lib/contracts/files';
 import { requireMember } from '@/lib/server/auth';
 import { recordAudit } from '@/lib/server/audit';
@@ -44,8 +45,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const member = await requireMember();
     const { id } = await context.params;
     await requireProjectAccess(member, id, 'read');
-    const rows = await getDb().select({ id: files.id, relativePath: files.relativePath, name: files.name, mimeType: files.mimeType, sizeBytes: files.sizeBytes, sha256: files.sha256, createdAt: files.createdAt }).from(files).where(eq(files.projectId, id)).orderBy(desc(files.createdAt));
-    return json({ files: rows });
+    const rows = await getDb()
+      .select({ id: files.id, relativePath: files.relativePath, name: files.name, mimeType: files.mimeType, sizeBytes: files.sizeBytes, sha256: files.sha256, createdAt: files.createdAt, textStatus: fileTexts.status, textReason: fileTexts.reason, textAttempts: fileTexts.attempts })
+      .from(files)
+      .leftJoin(fileTexts, eq(fileTexts.fileId, files.id))
+      .where(eq(files.projectId, id))
+      .orderBy(desc(files.createdAt));
+    return json({
+      files: rows.map(({ textStatus, textReason, textAttempts, ...file }) => ({
+        ...file,
+        text: fileTextState(textStatus === null ? null : { status: textStatus, reason: textReason, attempts: textAttempts ?? 0 }),
+      })),
+    });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -122,7 +133,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     // The files are saved either way. Text that fails to index is picked up by
     // the next indexing round, so it is not worth failing the import over.
     await insertIndexRows(indexRows).catch(() => undefined);
-    return json({ files: rows.map(({ objectKey: _objectKey, uploadedBy: _uploadedBy, ...row }) => row) }, { status: 201 });
+    const settled = new Map(indexRows.map((row) => [row.fileId, row]));
+    return json({
+      files: rows.map(({ objectKey: _objectKey, uploadedBy: _uploadedBy, ...row }) => {
+        const index = settled.get(row.id);
+        // Documents are read by the next indexing round, so they start pending.
+        return { ...row, text: fileTextState(index ? { status: index.status, reason: index.reason, attempts: 0 } : null) };
+      }),
+    }, { status: 201 });
   } catch (error) {
     await Promise.allSettled(storedKeys.map((key) => env.FILES.delete(key)));
     return errorResponse(error);

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getDb } from '@/db';
 import { projects } from '@/db/schema';
 import type { ConversationHit, FileHit, SearchResults } from '@/lib/contracts/search';
+import { MAX_EXTRACTION_ATTEMPTS } from '@/lib/extraction-outcome';
 import { buildMatchQuery } from '@/lib/search';
 import { readableBy, requireProjectAccess } from '@/lib/server/access';
 import { requireMember } from '@/lib/server/auth';
@@ -34,12 +35,13 @@ export async function GET(request: Request) {
     const db = getDb();
 
     // Files waiting for indexing cannot be found yet. Saying how many keeps an
-    // empty result from reading as "this is not in any file".
+    // empty result from reading as "this is not in any file". Waiting are the
+    // files not read yet, being read, or failed with another try to come.
     const [{ n: unindexedFiles }] = await db.all<{ n: number }>(sql`
       SELECT count(*) AS n FROM files f
       JOIN projects ON projects.id = f.project_id
       LEFT JOIN file_texts t ON t.file_id = f.id
-      WHERE t.file_id IS NULL AND ${scope}`);
+      WHERE (t.file_id IS NULL OR t.status = 'extracting' OR (t.status = 'failed' AND t.attempts < ${MAX_EXTRACTION_ATTEMPTS})) AND ${scope}`);
 
     const match = buildMatchQuery(query);
     if (!match) return json({ conversations: [], files: [], unindexedFiles } satisfies SearchResults);

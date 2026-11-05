@@ -51,6 +51,6 @@ export async function wydobadzTekstPdf(bajty: Uint8Array<ArrayBuffer>): Promise<
     }
     return { tekst: przyciety };
   } catch (blad) {
-    return { tekst: '', powod: `Could not read the PDF: ${blad instanceof Error ? blad.message : 'unknown error'}.` };
+    return { tekst: '', powod: `Could not read the PDF: ${blad instanceof Error ? blad.message : 'unknown error'}.`, blad: true };
   }
 }

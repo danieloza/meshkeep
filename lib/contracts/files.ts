@@ -4,6 +4,17 @@
 import { z } from 'zod';
 import { id, isoDate } from './common';
 
+// What became of a file's text. `pending`: not read yet. `indexed`: read, and
+// `note` says if only part of it was. `unsupported`: no text by design, with
+// the reason. `failed`: reading went wrong; `retrying` says whether the index
+// will try again.
+export const fileTextState = z.object({
+  status: z.enum(['pending', 'indexed', 'unsupported', 'failed']),
+  note: z.string().nullable(),
+  retrying: z.boolean(),
+});
+export type FileTextState = z.infer<typeof fileTextState>;
+
 export const projectFile = z.object({
   id,
   relativePath: z.string(),
@@ -12,6 +23,7 @@ export const projectFile = z.object({
   sizeBytes: z.number().int(),
   sha256: z.string(),
   createdAt: isoDate,
+  text: fileTextState,
 });
 export type ProjectFile = z.infer<typeof projectFile>;
 
@@ -32,7 +44,9 @@ export const pruneFilesResponse = z.object({ deleted: z.number().int(), notFound
 export type PruneFilesResponse = z.infer<typeof pruneFilesResponse>;
 
 // POST /api/projects/[id]/search-index
-export const indexRound = z.object({ indexed: z.number().int(), remaining: z.number().int() });
+// `failed`: files this round could not read. `remaining`: files due now; one
+// waiting for its next try after a failure is not counted until it is due.
+export const indexRound = z.object({ indexed: z.number().int(), failed: z.number().int(), remaining: z.number().int() });
 export type IndexRound = z.infer<typeof indexRound>;
 
 // GET /api/projects/[id]/suggest-files

@@ -22,6 +22,14 @@ const DLUGOSC = 205;
 // Projekt z kopia na Dysku Google. W testach Dysk nie jest skonfigurowany, wiec
 // wysylka pada juz po zapisie do R2 - dokladnie tam, gdzie zostawal sierota.
 const PROJEKT_NA_DYSKU = crypto.randomUUID();
+// Pliki w roznych stanach odczytu, w prywatnym projekcie wlasciciela. Ich
+// obiektow nie ma w R2, wiec kazda proba odczytu konczy sie bledem.
+const STAN = { ponowiony: crypto.randomUUID(), wyczerpany: crypto.randomUUID(), zawieszony: crypto.randomUUID() };
+const godzineTemu = t - 3_600_000;
+const plikWStanie = (id: string, sciezka: string, status: string, powod: string | null, proby: number) => [
+  `INSERT INTO files (id,project_id,uploaded_by,object_key,relative_path,name,mime_type,size_bytes,sha256,created_at) VALUES ('${id}','${ID.projektPrywatnyWlasciciela}','${ID.wlasciciel}','brak/${id}','${sciezka}','${sciezka.split('/').pop()}','text/plain',12,'x',${godzineTemu});`,
+  `INSERT INTO file_texts (file_id,project_id,path,content,status,reason,attempts,indexed_at) VALUES ('${id}','${ID.projektPrywatnyWlasciciela}','${sciezka}','','${status}',${powod === null ? 'NULL' : `'${powod}'`},${proby},${godzineTemu});`,
+].join('\n');
 
 const DODATKOWE_WIADOMOSCI = [
   wiadomosc('w-1', ID.rozmowaWlasciciela, ID.wlasciciel, 'Plan migracji bazy na wiosnę'),
@@ -32,6 +40,9 @@ const DODATKOWE_WIADOMOSCI = [
   `INSERT INTO conversations (id,project_id,created_by,title,created_at,updated_at) VALUES ('${DLUGA_ROZMOWA}','${ID.projektWspolny}','${ID.wlasciciel}','Dluga rozmowa',${t},${t});`,
   `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${DLUGOSC}) INSERT INTO messages (id,conversation_id,member_id,role,content,created_at) SELECT 'dluga-' || i, '${DLUGA_ROZMOWA}', '${ID.wlasciciel}', 'user', 'Wpis numer ' || i, ${t} + i FROM n;`,
   `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,drive_folder_id,created_at,updated_at) VALUES ('${PROJEKT_NA_DYSKU}','${ID.wlasciciel}','Projekt na Dysku','','private','google_drive','folder-testowy',${t},${t});`,
+  plikWStanie(STAN.ponowiony, 'stan/ponowiony.txt', 'failed', 'Stary powod', 1),
+  plikWStanie(STAN.wyczerpany, 'stan/wyczerpany.txt', 'failed', 'Wyczerpany powod', 3),
+  plikWStanie(STAN.zawieszony, 'stan/zawieszony.txt', 'extracting', null, 3),
 ].join('\n');
 
 function wyslij(token: string, projekt: string, pliki: Array<{ sciezka: string; tresc: string }>) {
@@ -228,3 +239,58 @@ async function sieroty() {
   expect(odp.status, odp.tekst).toBe(200);
   return (odp.dane as { orphanInStorage: string[] }).orphanInStorage;
 }
+
+describe('stan odczytu plikow', () => {
+  const plikiProjektu = async (projekt: string) => {
+    const odp = await zapytaj(`/api/projects/${projekt}/files`, { headers: jako(TOKENY.wlasciciel) });
+    expect(odp.status, odp.tekst).toBe(200);
+    return projectFiles.parse(odp.dane).files;
+  };
+  const stanPliku = async (projekt: string, id: string) => (await plikiProjektu(projekt)).find((plik) => plik.id === id)?.text;
+
+  it('runda ponawia nieudany odczyt po przerwie, a wyczerpany i zawieszony konczy', async () => {
+    const odp = await indeksuj(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela);
+    expect(odp.status, odp.tekst).toBe(200);
+    // Ponowiony: proba sie odbyla, wiec powod jest nowy, a prob zostalo.
+    expect(await stanPliku(ID.projektPrywatnyWlasciciela, STAN.ponowiony)).toEqual({ status: 'failed', note: 'The file is no longer in storage.', retrying: true });
+    // Po trzech probach plik nie jest juz brany, a jego powod zostaje.
+    expect(await stanPliku(ID.projektPrywatnyWlasciciela, STAN.wyczerpany)).toEqual({ status: 'failed', note: 'Wyczerpany powod', retrying: false });
+    // Runda, ktora zginela trzy razy przy tym pliku, nie zabija juz kolejnych.
+    const zawieszony = await stanPliku(ID.projektPrywatnyWlasciciela, STAN.zawieszony);
+    expect(zawieszony?.status).toBe('failed');
+    expect(zawieszony?.retrying).toBe(false);
+    expect(zawieszony?.note).toContain('did not finish after 3 attempts');
+  });
+
+  it('uszkodzony PDF dostaje powod i czeka na kolejna probe, zamiast od razu wracac', async () => {
+    const wyslany = await wyslij(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela, [{ sciezka: 'stan/zepsuty.pdf', tresc: '%PDF-1.4\nnot a real body\n%%EOF' }]);
+    expect(wyslany.status, wyslany.tekst).toBe(201);
+    const plik = projectFiles.parse(wyslany.dane).files[0];
+    // Dokumenty czyta runda, wiec po wysylce plik czeka.
+    expect(plik.text.status).toBe('pending');
+
+    expect((await indeksuj(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela)).status).toBe(200);
+    const poPierwszej = await stanPliku(ID.projektPrywatnyWlasciciela, plik.id);
+    expect(poPierwszej).toMatchObject({ status: 'failed', retrying: true });
+    expect(poPierwszej?.note).toContain('Could not read the PDF');
+
+    // Kolejna runda zaraz potem go nie bierze: czeka na swoja kolej.
+    const druga = indexRound.parse((await indeksuj(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela)).dane);
+    expect(druga.indexed).toBe(0);
+    expect(await stanPliku(ID.projektPrywatnyWlasciciela, plik.id)).toEqual(poPierwszej);
+  });
+
+  it('obraz od razu mowi, ze nie ma tekstu, a tekst jest od razu przeczytany', async () => {
+    const formularz = new FormData();
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    formularz.append('files', new File([png], 'obraz.png', { type: 'image/png' }));
+    formularz.append('files', new File(['Zwykly tekst'], 'notatka.txt', { type: 'text/plain' }));
+    formularz.append('paths', JSON.stringify(['stan/obraz.png', 'stan/notatka.txt']));
+    const odp = await zapytaj(`/api/projects/${ID.projektPrywatnyWlasciciela}/files`, { method: 'POST', headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel) }, body: formularz });
+    expect(odp.status, odp.tekst).toBe(201);
+    const [obraz, notatka] = projectFiles.parse(odp.dane).files;
+    expect(obraz.text).toMatchObject({ status: 'unsupported', retrying: false });
+    expect(obraz.text.note).toContain('not converted to text');
+    expect(notatka.text).toEqual({ status: 'indexed', note: null, retrying: false });
+  });
+});
