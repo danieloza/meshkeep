@@ -81,17 +81,22 @@ export async function POST(request: Request) {
       const teamEmails = await db.select({ email: members.email }).from(members);
       const pending = await db.select({ email: invites.email }).from(invites).where(pendingInviteCondition());
       const memberEmails = new Set(teamEmails.map((row) => row.email));
-      const reservations = pending.filter((invite) => !memberEmails.has(invite.email));
+      // A new link for an address that already holds a seat takes no other
+      // one: it replaces the old link. Counted, it made a full team refuse it.
+      const reservations = pending.filter((invite) => !memberEmails.has(invite.email) && invite.email !== email);
       if (teamEmails.length + reservations.length >= TEAM_LIMIT) throw new ApiError(409, 'All four seats are occupied or reserved.');
     }
 
-    const id = crypto.randomUUID();
     const token = newInviteToken();
     const tokenHash = await sha256(token);
-    await db
+    // A new link for the same address keeps the invitation's id, so the answer
+    // reads it back rather than reporting the id it would have been given.
+    const [saved] = await db
       .insert(invites)
-      .values({ id, email, tokenHash, createdBy: owner.id, expiresAt })
-      .onConflictDoUpdate({ target: invites.email, set: { tokenHash, acceptedAt: null, expiresAt, createdBy: owner.id } });
+      .values({ id: crypto.randomUUID(), email, tokenHash, createdBy: owner.id, expiresAt })
+      .onConflictDoUpdate({ target: invites.email, set: { tokenHash, acceptedAt: null, expiresAt, createdBy: owner.id } })
+      .returning({ id: invites.id });
+    const { id } = saved;
     await recordAudit({ actorId: owner.id, actorLabel: owner.displayName, action: 'invite.created', targetType: 'invite', targetId: id, targetLabel: email, detail: { kind: existingMember ? 'reconnect' : 'new invitation' } });
     return json(
       {

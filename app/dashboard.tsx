@@ -456,7 +456,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
             {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} />}
 
-            {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
+            {section === 'team' && <div className={currentRole === 'owner' ? 'max-w-4xl' : 'max-w-2xl'}><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
             {section === 'providers' && <div className="max-w-3xl"><ConnectionsPanel onChanged={() => void reloadModels()} onNotice={setNotice} /></div>}
             {section === 'microphone' && <div className="max-w-2xl"><MicrophoneSettings onNotice={setNotice} /></div>}

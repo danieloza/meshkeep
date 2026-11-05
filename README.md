@@ -251,6 +251,7 @@ The script writes SQL but never executes it. Review the output before applying i
 - OpenAI-compatible model-provider requests
 - Hosting bindings described in `.openai/hosting.json`
 - Empty screens drawn with [Hairline](https://github.com/lucasmarkes/hairline) (MIT), isometric line figures that answer the pointer; only the five figures in use are bundled, about 14 kB gzipped
+- The invite card in Settings › Team shows *Team invite* from [Illos](https://illos.dev), an animated illustration that pauses off screen and stays still for reduced motion
 
 ## Security
 
@@ -258,4 +259,4 @@ Read [SECURITY.md](SECURITY.md) before deploying or reporting a vulnerability. R
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except the Illos illustration in `features/team/team-invite-svg.ts`, which is used under the [Illos free license](https://illos.dev/license): free to use and change, but not to sell as part of an illustration pack or to build a competing library.
