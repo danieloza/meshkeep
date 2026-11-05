@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { api, ApiRequestError } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 import type { Visibility } from '@/lib/contracts/common';
 import type { ConversationSummary } from '@/lib/contracts/conversations';
 import type { ProjectShare, StorageProvider } from '@/lib/contracts/projects';
@@ -26,7 +26,8 @@ import type { ProjectSharing } from '@/features/projects/project-people';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SearchPalette, type SearchTarget } from '@/features/search/search-palette';
 import { FilterInput } from '@/components/filter-input';
-import { type AuthMode, SecureGate } from '@/features/shell/secure-gate';
+import { loadFailure } from '@/features/shell/load-failure';
+import { type AuthMode, type Gate, SecureGate } from '@/features/shell/secure-gate';
 import { ProjectNav } from '@/features/shell/project-nav';
 import { SettingsNav } from '@/features/shell/settings-nav';
 import { ThemeToggle } from '@/features/shell/theme-toggle';
@@ -66,7 +67,8 @@ function chatOptions(target: ChatTarget): ChatOptions {
 export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { authMode: AuthMode; initialSection?: Section }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authRequired, setAuthRequired] = useState(false);
+  // Set when the first load shows this person cannot use the dashboard.
+  const [blocked, setBlocked] = useState<Gate | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Narrows the projects list by name; contents are the palette's job.
   const [projectFilter, setProjectFilter] = useState('');
@@ -230,9 +232,9 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
       })
       .catch((error) => {
         if (!active) return;
-        // All three need a session, so a missing one fails them together.
-        if (error instanceof ApiRequestError && error.status === 401) { setAuthRequired(true); return; }
-        setNotice(error instanceof Error && !(error instanceof ApiRequestError) ? error.message : 'Could not load application data.');
+        const failure = loadFailure(error);
+        if (failure.kind === 'error') setNotice(failure.message);
+        else setBlocked(failure);
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -381,8 +383,8 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
     window.location.replace('/');
   }
 
-  if (loading) return <SecureGate title="Loading private cloud…" />;
-  if (authRequired) return <SecureGate authMode={authMode} authRequired title="This workspace requires an invitation" />;
+  if (loading) return <SecureGate gate={{ kind: 'loading' }} />;
+  if (blocked) return <SecureGate authMode={authMode} gate={blocked} />;
 
   return (
     <TooltipProvider delay={200}>

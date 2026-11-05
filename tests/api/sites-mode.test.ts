@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootstrapResponse, signedIn } from '@/lib/contracts/account';
+import { apiError } from '@/lib/contracts/common';
 import { ORIGIN, sesjaZOdpowiedzi, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Tryb `sites`: przed workerem stoi OpenAI Sites i to platforma ustawia
@@ -24,6 +25,17 @@ afterAll(() => {
 });
 
 describe('tryb sites', () => {
+  // Najpierw, przy pustej bazie: tak wygladala produkcja, na ktorej wlasciciel
+  // logowal sie kontem innym niz to z konfiguracji. Ekran braku dostepu
+  // pokazuje ten komunikat, wiec test go przypina.
+  it('inne konto ChatGPT przy pustej bazie dostaje 403 z powodem i nie zostaje wlascicielem', async () => {
+    const obcy = { ...ORIGIN, 'oai-authenticated-user-id': 'inne-konto-chatgpt', 'oai-authenticated-user-email': 'someone@example.com' };
+    const odp = await zapytaj('/api/bootstrap', { headers: obcy });
+    expect(odp.status).toBe(403);
+    expect(apiError.parse(odp.dane).error).toBe('No active invitation exists for this cloud.');
+    expect(sesjaZOdpowiedzi(odp)).toBeNull();
+  });
+
   it('naglowki platformy zakladaja wlasciciela i wydaja sesje', async () => {
     const claim = await zapytaj('/api/auth/claim', {
       method: 'POST',
