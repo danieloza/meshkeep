@@ -19,7 +19,7 @@ import type {
   ContextImportResponse, CreateProjectRequest, CreateProjectResponse, InstructionsResponse, ProjectList,
   UpdateInstructionsRequest, UpdateInstructionsResponse, UpdateSharingRequest, UpdateSharingResponse,
 } from './contracts/projects';
-import type { ProviderState, RemoveProviderResponse, SaveEffortModelsRequest, SaveEffortModelsResponse, SaveProviderRequest, SaveProviderResponse } from './contracts/providers';
+import type { AddConnectionRequest, ConnectionResponse, ProviderConnections, RemoveConnectionResponse, ReplaceKeyRequest, UpdateConnectionRequest } from './contracts/providers';
 import type { SearchResults } from './contracts/search';
 import type { CreateSyncTokenRequest, CreateSyncTokenResponse, SyncCredentials, SyncSetting, UpdateSyncRequest } from './contracts/sync';
 import type { InviteRequest, InviteResponse, TeamResponse, UpdateMemberRequest, UpdateMemberResponse } from './contracts/team';
@@ -137,11 +137,15 @@ export const api = {
       call<UpdateMemberResponse>('PATCH', `/api/team/members/${at(memberId)}`, { json: body }),
   },
 
-  provider: {
-    get: () => call<ProviderState>('GET', '/api/provider'),
-    save: (body: SaveProviderRequest) => call<SaveProviderResponse>('PUT', '/api/provider', { json: body }),
-    saveEffortModels: (body: SaveEffortModelsRequest) => call<SaveEffortModelsResponse>('PATCH', '/api/provider', { json: body }),
-    remove: (scope: 'mine' | 'team') => call<RemoveProviderResponse>('DELETE', `/api/provider?${query({ scope })}`),
+  providers: {
+    list: () => call<ProviderConnections>('GET', '/api/providers'),
+    add: (body: AddConnectionRequest) => call<ConnectionResponse>('POST', '/api/providers', { json: body }),
+    update: (connectionId: string, body: UpdateConnectionRequest) =>
+      call<ConnectionResponse>('PATCH', `/api/providers/${at(connectionId)}`, { json: body }),
+    replaceKey: (connectionId: string, body: ReplaceKeyRequest) =>
+      call<ConnectionResponse>('PUT', `/api/providers/${at(connectionId)}/key`, { json: body }),
+    check: (connectionId: string) => call<ConnectionResponse>('POST', `/api/providers/${at(connectionId)}/check`),
+    remove: (connectionId: string) => call<RemoveConnectionResponse>('DELETE', `/api/providers/${at(connectionId)}`),
   },
 
   usage: () => call<UsageResponse>('GET', '/api/usage'),

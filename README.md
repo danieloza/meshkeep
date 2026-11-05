@@ -81,7 +81,13 @@ Uploaded objects use random R2 keys. Invitation, session, and sync-agent credent
 
 ## Model providers
 
-MeshKeep accepts services that expose OpenAI-compatible `/models` and `/chat/completions` endpoints. A personal provider overrides the optional team default. Without either one, the optional `TOKENROUTER_API_KEY` environment fallback can be used by a self-hosted deployment. A model list does not say which models accept `reasoning_effort`, so whoever manages a configuration marks them in Settings › Model providers. The chat then offers Low, Medium and High effort for those models only and sends the parameter only to them. The environment fallback has nowhere to store marks, so it offers no Effort.
+MeshKeep accepts services that expose OpenAI-compatible `/models` and `/chat/completions` endpoints. Settings › Model providers holds connections: each one is an address and a key. Every member can add up to eight of their own, and the owner up to eight for the whole team. The chat offers the models of all of them, grouped by connection, and sends each message through the connection its model came from. Without any connection, the optional `TOKENROUTER_API_KEY` environment fallback can be used by a self-hosted deployment.
+
+- **Adding a key.** Paste it and the form recognizes the provider by its prefix. The key is checked against the provider before it is stored; OpenRouter, whose model list works without a key, is checked through its key endpoint instead.
+- **Replacing a key.** The new key is checked first and replaces the old one only if the check passes, so a mistyped key never breaks the chat.
+- **Status.** Each connection shows when its key last worked. A key the provider refuses during a chat marks its connection, and the panel counts it as needing attention.
+- **Models.** A short model list is offered in the chat as it is. A long one, such as OpenRouter's, starts with nothing offered, and whoever manages the connection chooses the models the chat shows. A model list does not say which models accept `reasoning_effort` either, so they are marked there too; the chat offers Low, Medium and High effort for those models only and sends the parameter only to them. The environment fallback has nowhere to store marks, so it offers no Effort.
+- **Usage.** Each connection shows the member's own tokens through it over the last seven days.
 
 Provider URLs must use HTTPS. Plain HTTP is accepted only for loopback addresses so a locally running Ollama or LM Studio instance can be used. Redirects, credential-bearing URLs, IP literals, and private-network hostnames are rejected to reduce SSRF and credential-forwarding risk.
 
@@ -223,7 +229,7 @@ npm run smoke -- https://your-meshkeep.example
 
 ## Database and backups
 
-The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` only add tables and columns; apply them in order before deploying a release that includes them.
+The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` never delete data: they add tables and columns, and a table whose primary key changes is rebuilt with every row copied, as SQLite requires. `tests/migration-baseline.test.ts` enforces both. Apply them in order before deploying a release that includes them.
 
 The original deployment on OpenAI Sites has an older migration history, so it takes the same migrations through its own line. `npm run sites:migrations` builds that line; see [deploy/sites/README.md](deploy/sites/README.md).
 

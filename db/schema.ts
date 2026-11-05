@@ -199,6 +199,10 @@ export const usageEvents = sqliteTable(
     model: text('model').notNull(),
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
+    // The connection that answered, for its usage chart. No foreign key: the
+    // usage stays counted after the connection is removed. Null for the
+    // environment's fallback key and for usage recorded before connections.
+    providerId: text('provider_id'),
     createdAt: timestamp('created_at'),
   },
   (table) => [index('usage_events_member_date_idx').on(table.memberId, table.createdAt)],
@@ -272,28 +276,40 @@ export const auditEvents = sqliteTable(
   ],
 );
 
-// Provider configuration. One row per scope: the literal 'team' row is the
-// default the owner sets for everyone, and any other row is keyed by a member
-// id and overrides the default for that person only. Member ids are UUIDs, so
-// they cannot collide with 'team', which keeps the primary key doing the
-// uniqueness work instead of a partial index over a nullable column.
+// Connections to model providers: an address and a key each. `scope` says
+// whose: a member id for a member's own connection, or the literal 'team' for
+// one the owner set up for everyone. Member ids are UUIDs, so they cannot
+// collide with 'team'. A member's chat can use their own connections and the
+// team's, and picks one with each message.
 //
 // Provider credentials are encrypted with AES-GCM before they reach D1. The
 // non-secret preview lets the UI identify a configured key without decrypting
 // it or sending the credential to the browser.
-export const providers = sqliteTable('providers', {
-  scope: text('scope').primaryKey(),
-  label: text('label').notNull(),
-  baseUrl: text('base_url').notNull(),
-  apiKeyCiphertext: text('api_key_ciphertext').notNull(),
-  keyPreview: text('key_preview').notNull(),
-  // Model list as returned by the provider, cached as JSON so that opening the
-  // app does not call an external service on every load.
-  models: text('models').notNull().default('[]'),
-  // Ids of the models whoever manages this configuration marked as accepting
-  // `reasoning_effort`, as JSON. The chat offers Effort only for these.
-  effortModels: text('effort_models').notNull().default('[]'),
-  modelsFetchedAt: integer('models_fetched_at', { mode: 'timestamp_ms' }),
-  createdAt: timestamp('created_at'),
-  updatedAt: timestamp('updated_at'),
-});
+export const providers = sqliteTable(
+  'providers',
+  {
+    id: text('id').primaryKey(),
+    scope: text('scope').notNull(),
+    label: text('label').notNull(),
+    baseUrl: text('base_url').notNull(),
+    apiKeyCiphertext: text('api_key_ciphertext').notNull(),
+    keyPreview: text('key_preview').notNull(),
+    // Model list as returned by the provider, cached as JSON so that opening the
+    // app does not call an external service on every load.
+    models: text('models').notNull().default('[]'),
+    // Ids of the models whoever manages this connection marked as accepting
+    // `reasoning_effort`, as JSON. The chat offers Effort only for these.
+    effortModels: text('effort_models').notNull().default('[]'),
+    // Ids of the models the chat offers, as JSON. Null offers every model,
+    // which suits a short list; a long one, like OpenRouter's, is chosen from.
+    chatModels: text('chat_models'),
+    // How the key fared when last checked: on saving, on request, or when the
+    // provider refused it during a chat. Null until the first check.
+    checkStatus: text('check_status', { enum: ['ok', 'rejected', 'unreachable', 'failed'] }),
+    checkedAt: integer('checked_at', { mode: 'timestamp_ms' }),
+    modelsFetchedAt: integer('models_fetched_at', { mode: 'timestamp_ms' }),
+    createdAt: timestamp('created_at'),
+    updatedAt: timestamp('updated_at'),
+  },
+  (table) => [index('providers_scope_idx').on(table.scope)],
+);

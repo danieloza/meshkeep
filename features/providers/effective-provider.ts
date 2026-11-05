@@ -17,7 +17,7 @@ export function useEffectiveProvider(): { effective: EffectiveProvider | null; l
 
   useEffect(() => {
     let active = true;
-    api.provider.get()
+    api.providers.list()
       .then((payload) => { if (active) setEffective(payload.effective); })
       .catch(() => undefined)
       .finally(() => { if (active) setLoaded(true); });

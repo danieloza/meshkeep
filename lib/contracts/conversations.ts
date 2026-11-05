@@ -73,6 +73,9 @@ export const chatRequest = z.object({
   // New for each message the user sends. The same id twice is refused rather
   // than answered and paid for twice.
   clientRequestId: id.optional(),
+  // The connection the model is reached through, as the chat's model list
+  // says. Without it, the first connection offering the model answers.
+  connectionId: id.optional(),
   // Sent as `reasoning_effort`, and only for a model marked as accepting it.
   effort: effortLevel.optional(),
 });

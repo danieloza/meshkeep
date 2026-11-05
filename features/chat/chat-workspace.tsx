@@ -18,6 +18,7 @@ import type { TeamMember } from '@/lib/contracts/team';
 import { autoAttachments, CONTEXT_MODE_STORAGE_KEY, type ContextMode, parseContextMode } from '@/lib/context-mode';
 import { EFFORT_LABELS, EFFORT_LEVELS, EFFORT_STORAGE_KEY, type EffortLevel, parseEffort } from '@/lib/effort';
 import { appendTranscript, HOLD_KEYS, readSpeechSettings } from '@/lib/speech';
+import { groupByConnection, modelKey } from '@/features/providers/connections';
 import { usePushToTalk } from '@/features/speech/use-push-to-talk';
 import { speechSupported } from '@/features/speech/whisper-client';
 import { formatBytes, formatTokens } from '@/lib/format';
@@ -92,11 +93,15 @@ function ContextChips({ files }: { files: ContextFile[] }) {
 export function ChatWorkspace({ project, models, team, currentMemberId, onSharingChange, onClose, onFileCountChange, onConversationChange, onConversationSaved, conversationId: openConversationId, fresh, initialFileIds }: { project: Project; models: ProviderModel[]; team: TeamMember[]; currentMemberId: string; onSharingChange: (sharing: ProjectSharing) => void; onClose: () => void; onFileCountChange: (count: number) => void; onConversationChange: (conversationId: string | undefined) => void; onConversationSaved: () => void; conversationId: string | null; fresh: boolean; initialFileIds: string[] }) {
   // Pusty stan oznacza „pierwszy z listy serwera” — dzięki temu nie trzeba
   // synchronizować wyboru efektem, gdy lista dojedzie później niż render.
-  const [model, setModel] = useState('');
-  const activeModel = model || models[0]?.id || '';
+  // The choice is keyed by connection and model, because two connections can
+  // offer the same model id. A choice whose connection is gone falls back to
+  // the first model too.
+  const [modelChoice, setModelChoice] = useState('');
+  const activeModel = models.find((item) => modelKey(item) === modelChoice) ?? models[0];
+  const modelGroups = groupByConnection(models);
   const [effort, setEffort] = useState<EffortLevel>(storedEffort);
   // Effort shows, and is sent, only for a model marked as accepting it.
-  const effortAvailable = models.some((item) => item.id === activeModel && item.effort);
+  const effortAvailable = Boolean(activeModel?.effort);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -318,7 +323,7 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
         const fresh = await api.projects.suggestFiles(project.id, content.slice(0, 500)).catch(() => ({ files: [] as FileSuggestion[] }));
         autoIds = autoAttachments(fresh.files.map((file) => file.fileId), selectedFileIds, dismissedAuto, MAX_SELECTED_FILES);
       }
-      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048, effort: effortAvailable ? effort : undefined, clientRequestId: crypto.randomUUID() });
+      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel?.id ?? '', connectionId: activeModel?.connectionId, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048, effort: effortAvailable ? effort : undefined, clientRequestId: crypto.randomUUID() });
       streaming = true;
       setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
       const reader = answer.getReader();
@@ -442,9 +447,12 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
             <span className="flex-1" />
             <UsageMeter usage={usage} />
             <label className="sr-only" htmlFor="chat-model">Model</label>
-            <select className="h-8 max-w-[180px] rounded-lg bg-transparent px-1.5 text-xs font-medium outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" disabled={!models.length} id="chat-model" onChange={(event) => setModel(event.target.value)} value={activeModel}>
+            <select className="h-8 max-w-[180px] rounded-lg bg-transparent px-1.5 text-xs font-medium outline-none hover:bg-surface-fill focus:ring-2 focus:ring-ring/30" disabled={!models.length} id="chat-model" onChange={(event) => setModelChoice(event.target.value)} title={activeModel?.connectionLabel ? `${activeModel.label}, through ${activeModel.connectionLabel}` : undefined} value={activeModel ? modelKey(activeModel) : ''}>
               {models.length === 0 && <option value="">No models available</option>}
-              {models.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              {/* Grouped by connection once there is more than one. */}
+              {modelGroups.length > 1
+                ? modelGroups.map((group) => <optgroup key={group.label ?? 'server'} label={group.label ?? 'Server key'}>{group.models.map((item) => <option key={modelKey(item)} value={modelKey(item)}>{item.label}</option>)}</optgroup>)
+                : models.map((item) => <option key={modelKey(item)} value={modelKey(item)}>{item.label}</option>)}
             </select>
             {effortAvailable && <>
               <label className="sr-only" htmlFor="chat-effort">Effort</label>
