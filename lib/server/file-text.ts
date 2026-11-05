@@ -57,7 +57,7 @@ export async function trescPliku(plik: PlikProjektu, rozszerzenie: string, bajty
   let zawartosc = bajty;
   if (!zawartosc) {
     const obiekt = await env.FILES.get(plik.objectKey);
-    if (!obiekt) return { tekst: '', powod: 'The file is no longer in storage.' };
+    if (!obiekt) return { tekst: '', powod: 'The file is no longer in storage.', blad: true };
     zawartosc = new Uint8Array(await obiekt.arrayBuffer());
   }
 

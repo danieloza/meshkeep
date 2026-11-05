@@ -153,6 +153,17 @@ export const fileTexts = sqliteTable(
     projectId: text('project_id').notNull(),
     path: text('path').notNull(),
     content: text('content').notNull().default(''),
+    // `extracting`: an indexing round has taken the file. `indexed`: text is
+    // here (possibly none, for an empty file). `unsupported`: the file has no
+    // text by design, an image or a legacy .doc. `failed`: reading it went
+    // wrong and is retried, up to a limit.
+    status: text('status', { enum: ['extracting', 'indexed', 'unsupported', 'failed'] }).notNull().default('indexed'),
+    // Why there is no text or only part of it, in words the files panel shows.
+    reason: text('reason'),
+    // Rounds that have taken this file, counted before reading it, so a file
+    // whose reading kills the round is counted too.
+    attempts: integer('attempts').notNull().default(0),
+    // When the file was last taken or settled.
     indexedAt: timestamp('indexed_at'),
   },
   (table) => [index('file_texts_project_idx').on(table.projectId)],

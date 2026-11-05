@@ -53,11 +53,25 @@ function UsageMeter({ usage }: { usage: TodayUsage | null }) {
 
 // Bounded rounds, so opening a project with many older files does not keep
 // the browser busy; whatever is left is picked up the next time.
-async function indexProjectFiles(projectId: string) {
+// Says whether any file was read, so the caller knows the list's text states
+// changed.
+async function indexProjectFiles(projectId: string): Promise<boolean> {
+  let read = false;
   for (let round = 0; round < 5; round += 1) {
-    const round = await api.projects.indexRound(projectId).catch(() => null);
-    if (!round?.remaining) return;
+    const result = await api.projects.indexRound(projectId).catch(() => null);
+    if (result?.indexed) read = true;
+    if (!result?.remaining) break;
   }
+  return read;
+}
+
+// How the files panel describes a file's text, after its size.
+function textLabel(file: ProjectFile): { label: string; className: string; title?: string } | null {
+  const { status, note, retrying } = file.text;
+  if (status === 'pending') return { label: 'reading text…', className: 'text-ink-subtle' };
+  if (status === 'unsupported') return { label: 'no text', className: 'text-ink-subtle', title: note ?? undefined };
+  if (status === 'failed') return { label: retrying ? 'could not read, trying again later' : 'could not read', className: 'text-warn-text', title: note ?? undefined };
+  return note ? { label: 'partly read', className: 'text-warn-text', title: note } : null;
 }
 
 // `context` lists what the answer was built from; `pending` marks an answer
@@ -216,7 +230,16 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
 
   // Files uploaded before search existed, and documents that are extracted
   // after upload, become searchable when their project is opened.
-  useEffect(() => { void indexProjectFiles(project.id); }, [project.id]);
+  // After the rounds, the list is fetched again, so a file read meanwhile no
+  // longer says it is being read.
+  useEffect(() => {
+    let active = true;
+    indexProjectFiles(project.id)
+      .then((read) => (read ? api.projects.files(project.id) : null))
+      .then((payload) => { if (active && payload) setProjectFiles(payload.files); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [project.id]);
 
   // Files that look relevant to the question being typed. In manual mode they
   // are only offered: nothing joins the model context until the person picks
@@ -260,7 +283,11 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
       setProjectFiles((current) => [...files, ...current]);
       setSelectedFileIds((current) => [...new Set([...current, ...files.map((file) => file.id)])].slice(0, MAX_SELECTED_FILES));
       setContextTab('files');
-      void indexProjectFiles(project.id);
+      const projectId = project.id;
+      void indexProjectFiles(projectId)
+        .then((read) => (read ? api.projects.files(projectId) : null))
+        .then((payload) => { if (payload) setProjectFiles(payload.files); })
+        .catch(() => undefined);
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not add files.'); }
     finally { setUploading(false); }
   }
@@ -490,11 +517,11 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
           ? <p className="text-xs leading-5 text-ink-muted">No files yet. Files you add are stored in this project’s private cloud.</p>
           : <ul className="-mx-2 flex flex-col gap-0.5">{projectFiles.map((file) => {
             const selected = selectedFileIds.includes(file.id);
-            const image = file.mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+            const textState = textLabel(file);
             return <li className={cn('flex items-start gap-1 rounded-lg pr-1', selected ? 'bg-surface-selected' : 'hover:bg-surface-fill')} key={file.id}>
               <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-start gap-2.5 p-2">
                 <input checked={selected} className="mt-0.5 size-4 shrink-0 accent-brand" disabled={!selected && selectionFull} onChange={() => toggleFile(file.id)} type="checkbox" />
-                <span className="min-w-0 flex-1"><span className="block break-all font-mono text-xs">{file.relativePath}</span><span className="text-xs text-ink-subtle">{formatBytes(file.sizeBytes)}{image ? ' · image, not read' : ''}</span></span>
+                <span className="min-w-0 flex-1"><span className="block break-all font-mono text-xs">{file.relativePath}</span><span className="text-xs text-ink-subtle">{formatBytes(file.sizeBytes)}{textState && <span className={textState.className} title={textState.title}> · {textState.label}{textState.title && <span className="sr-only">: {textState.title}</span>}</span>}</span></span>
               </label>
               <Button aria-label={`Delete ${file.relativePath} from cloud`} className="mt-2" disabled={deletingFileId === file.id} onClick={() => void deleteProjectFile(file)} size="icon-xs" title="Delete from cloud" variant="ghost"><Trash2 /></Button>
             </li>;
