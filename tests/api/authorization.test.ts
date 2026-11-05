@@ -106,7 +106,7 @@ describe('widocznosc projektow', () => {
     const odp = await zapytaj('/api/projects', { headers: jako(TOKENY.czytelnik) });
     expect(odp.status).toBe(200);
     const lista = projectList.parse(odp.dane).projects;
-    expect(lista.find((p) => p.id === ID.projektWspolny)).toMatchObject({ ownerId: ID.wlasciciel, sharedWith: [ID.edytor, ID.czytelnik] });
+    expect(lista.find((p) => p.id === ID.projektWspolny)).toMatchObject({ ownerId: ID.wlasciciel, sharedWith: [{ memberId: ID.edytor, role: 'editor' }, { memberId: ID.czytelnik, role: 'reader' }] });
     expect(lista.find((p) => p.id === ID.projektZespolowy)?.sharedWith).toEqual([]);
   });
 
@@ -125,7 +125,7 @@ describe('widocznosc projektow', () => {
     });
     expect(zalozenie.status, zalozenie.tekst).toBe(201);
     const { project } = createProjectResponse.parse(zalozenie.dane);
-    expect(project.sharedWith).toEqual([ID.czytelnik]);
+    expect(project.sharedWith).toEqual([{ memberId: ID.czytelnik, role: 'reader' }]);
     expect(await widoczneProjekty(TOKENY.czytelnik)).toContain(project.id);
 
     const zmiana = await zapytaj(`/api/projects/${project.id}`, {
@@ -136,6 +136,45 @@ describe('widocznosc projektow', () => {
     expect(await widoczneProjekty(TOKENY.czytelnik)).not.toContain(project.id);
     // Wlasciciel nadal go widzi, wiec projekt zniknal czytelnikowi, a nie z bazy.
     expect(await widoczneProjekty(TOKENY.wlasciciel)).toContain(project.id);
+  });
+
+  // Panel osob w naglowku czatu: kazda zmiana wysyla cala liste, a serwer
+  // podmienia udzialy i zapisuje zmiane w dzienniku w jednym batchu.
+  it('panel osob dodaje, zmienia role i usuwa, a dziennik to zapisuje', async () => {
+    const naglowki = { ...jako(TOKENY.wlasciciel), ...ORIGIN, 'Content-Type': 'application/json' };
+    const zalozenie = await zapytaj('/api/projects', { method: 'POST', headers: naglowki, body: JSON.stringify({ name: 'Projekt z panelu', visibility: 'private' } satisfies CreateProjectRequest) });
+    expect(zalozenie.status, zalozenie.tekst).toBe(201);
+    const { project } = createProjectResponse.parse(zalozenie.dane);
+    const zmien = (body: UpdateSharingRequest, token = TOKENY.wlasciciel) => zapytaj(`/api/projects/${project.id}`, { method: 'PATCH', headers: { ...naglowki, ...jako(token) }, body: JSON.stringify(body) });
+    const udzialy = async () => projectList.parse((await zapytaj('/api/projects', { headers: jako(TOKENY.wlasciciel) })).dane).projects.find((p) => p.id === project.id)?.sharedWith;
+
+    // Ten sam czlonek dwa razy: wczesniej drugi INSERT lamal klucz juz po
+    // usunieciu starych udzialow i projekt zostawal bez nikogo.
+    const dodanie = await zmien({ visibility: 'selected', members: [{ memberId: ID.czytelnik, role: 'reader' }, { memberId: ID.edytor, role: 'reader' }, { memberId: ID.czytelnik, role: 'editor' }] });
+    expect(dodanie.status, dodanie.tekst).toBe(200);
+    expect(await udzialy()).toEqual([{ memberId: ID.czytelnik, role: 'editor' }, { memberId: ID.edytor, role: 'reader' }]);
+    expect(await widoczneProjekty(TOKENY.czytelnik)).toContain(project.id);
+
+    // Zmiana roli nie przestawia kolejnosci osob w panelu.
+    const rola = await zmien({ visibility: 'selected', members: [{ memberId: ID.edytor, role: 'editor' }, { memberId: ID.czytelnik, role: 'editor' }] });
+    expect(rola.status, rola.tekst).toBe(200);
+    expect(await udzialy()).toEqual([{ memberId: ID.czytelnik, role: 'editor' }, { memberId: ID.edytor, role: 'editor' }]);
+
+    const usuniecie = await zmien({ visibility: 'selected', members: [{ memberId: ID.edytor, role: 'reader' }] });
+    expect(usuniecie.status, usuniecie.tekst).toBe(200);
+    expect(await udzialy()).toEqual([{ memberId: ID.edytor, role: 'reader' }]);
+    expect(await widoczneProjekty(TOKENY.czytelnik)).not.toContain(project.id);
+
+    // Ktos spoza zespolu: odmowa, a udzialy zostaja nietkniete.
+    expect((await zmien({ visibility: 'selected', members: [{ memberId: ID.zawieszony, role: 'reader' }] })).status).toBe(400);
+    expect(await udzialy()).toEqual([{ memberId: ID.edytor, role: 'reader' }]);
+    // Edytor projektu nie zmienia, kto ma dostep; 404, zeby nie zdradzac projektu.
+    expect((await zmien({ visibility: 'team' }, TOKENY.edytor)).status).toBe(404);
+
+    const dziennik = auditLog.parse((await zapytaj('/api/admin/audit', { headers: jako(TOKENY.wlasciciel) })).dane).events.filter((e) => e.action === 'project.sharing_changed' && e.targetLabel === 'Projekt z panelu');
+    // Trzy udane zmiany; odrzucone nie zostawiaja wpisu.
+    expect(dziennik).toHaveLength(3);
+    expect(dziennik.some((e) => e.detail?.includes('"people":"Edytor (reader)"'))).toBe(true);
   });
 
   // Jedna regula, trzy drogi do niej: lista projektow, pojedynczy projekt i
