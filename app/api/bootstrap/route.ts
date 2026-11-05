@@ -3,7 +3,7 @@ import { getDb } from '@/db';
 import { memberLimits, usageEvents } from '@/db/schema';
 import { requireMember } from '@/lib/server/auth';
 import { errorResponse, json } from '@/lib/server/http';
-import { resolveProvider } from '@/lib/server/provider';
+import { availableModels, effectiveProvider } from '@/lib/server/provider';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +21,9 @@ export async function GET() {
     // The monthly limit is enforced by the chat route, so the dashboard must
     // report the same usage window.
     const [monthly] = await db.select({ tokens: sql<number>`coalesce(sum(${usageEvents.inputTokens} + ${usageEvents.outputTokens}), 0)` }).from(usageEvents).where(and(sql`${usageEvents.memberId} = ${member.id}`, gte(usageEvents.createdAt, monthStart), lt(usageEvents.createdAt, monthEnd)));
-    // Which provider answers depends on the member: their own configuration if
-    // they set one, otherwise the team default, otherwise the environment.
-    const provider = await resolveProvider(member);
-    return json({ member: { id: member.id, displayName: member.displayName, email: member.email, role: member.role }, limits: limit, usage: { inputTokens: usage?.input ?? 0, outputTokens: usage?.output ?? 0, monthlyTokens: monthly?.tokens ?? 0 }, models: provider ? provider.models.map((model) => ({ ...model, effort: provider.effortModels.includes(model.id) })) : [], provider: provider ? { label: provider.label, origin: provider.origin } : null });
+    // The chat offers the models of every connection the member can use,
+    // their own first, then the team's; with none, the environment's.
+    const [models, provider] = await Promise.all([availableModels(member), effectiveProvider(member)]);
+    return json({ member: { id: member.id, displayName: member.displayName, email: member.email, role: member.role }, limits: limit, usage: { inputTokens: usage?.input ?? 0, outputTokens: usage?.output ?? 0, monthlyTokens: monthly?.tokens ?? 0 }, models, provider: provider ? { label: provider.label, origin: provider.origin } : null });
   } catch (error) { return errorResponse(error); }
 }

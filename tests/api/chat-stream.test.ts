@@ -6,7 +6,7 @@ import { bootstrapResponse } from '@/lib/contracts/account';
 import { instructionsResponse, updateInstructionsResponse } from '@/lib/contracts/projects';
 import { type UpdateMemberRequest } from '@/lib/contracts/team';
 import { usageResponse } from '@/lib/contracts/usage';
-import { providerState, type SaveEffortModelsRequest, type SaveProviderRequest, saveEffortModelsResponse, saveProviderResponse } from '@/lib/contracts/providers';
+import { type AddConnectionRequest, connectionResponse, providerConnections, type UpdateConnectionRequest } from '@/lib/contracts/providers';
 import { abandonedRunCharge } from '@/lib/usage-policy';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
@@ -17,26 +17,45 @@ import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJes
 // kolejnosc wiadomosci systemowych, a nie tylko odpowiedz.
 
 type Wiadomosc = { role: string; content: string };
-const odebrane: Array<{ stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string }> = [];
+const odebrane: Array<{ stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string; sciezka?: string }> = [];
 let dostawca: Server;
 let adresDostawcy = '';
+// Drugi "dostawca" pod innym adresem tego samego serwera, z innymi modelami:
+// tak test widzi, ktorym polaczeniem poszla wiadomosc.
+let adresDrugiego = '';
+// Klucze, ktore falszywy dostawca odrzuca (401), na kazdym adresie.
+const odrzucaneKlucze = new Set<string>();
 
 function zdarzenieSse(dane: unknown) {
   return `data: ${JSON.stringify(dane)}\n\n`;
 }
 
+const MODELE: Record<string, Array<{ id: string }>> = {
+  '/v1': [{ id: 'falszywy-model' }, { id: 'drugi-model' }],
+  '/v2': [{ id: 'trzeci-model' }],
+  // Dluga lista, jak u OpenRoutera: czat zaczyna od wyboru, a nie od wszystkich.
+  '/v3': Array.from({ length: 40 }, (_, i) => ({ id: `model-${String(i).padStart(2, '0')}` })),
+};
+
 function postawDostawce(): Promise<void> {
   dostawca = createServer((zadanie, odpowiedz) => {
-    if (zadanie.method === 'GET' && zadanie.url === '/v1/models') {
+    const klucz = (zadanie.headers.authorization ?? '').replace(/^Bearer /, '');
+    if (odrzucaneKlucze.has(klucz)) {
+      odpowiedz.writeHead(401, { 'Content-Type': 'application/json' });
+      odpowiedz.end(JSON.stringify({ error: { message: 'bad key' } }));
+      return;
+    }
+    const baza = (zadanie.url ?? '').slice(0, 3);
+    if (zadanie.method === 'GET' && zadanie.url === `${baza}/models` && MODELE[baza]) {
       odpowiedz.writeHead(200, { 'Content-Type': 'application/json' });
-      odpowiedz.end(JSON.stringify({ data: [{ id: 'falszywy-model' }, { id: 'drugi-model' }] }));
+      odpowiedz.end(JSON.stringify({ data: MODELE[baza] }));
       return;
     }
     let cialo = '';
     zadanie.on('data', (kawalek) => { cialo += kawalek; });
     zadanie.on('end', () => {
-      const tresc = JSON.parse(cialo) as { stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string };
-      odebrane.push(tresc);
+      const tresc = JSON.parse(cialo) as { stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string; sciezka?: string };
+      odebrane.push({ ...tresc, sciezka: zadanie.url });
       const pytanie = tresc.messages.at(-1)?.content ?? '';
       if (pytanie.includes('ODMOW')) {
         // Dostawca odmawia, zanim cokolwiek wygeneruje.
@@ -52,6 +71,7 @@ function postawDostawce(): Promise<void> {
   return new Promise((gotowe) => {
     dostawca.listen(0, '127.0.0.1', () => {
       adresDostawcy = `http://127.0.0.1:${(dostawca.address() as AddressInfo).port}/v1`;
+      adresDrugiego = adresDostawcy.replace(/\/v1$/, '/v2');
       gotowe();
     });
   });
@@ -74,13 +94,13 @@ function odpowiedzStrumieniem(odpowiedz: ServerResponse, pytanie: string) {
 
 type Zdarzenie = { type: string; text?: string; error?: string; conversationId?: string; usage?: { inputTokens: number; outputTokens: number; estimated: boolean }; context?: Array<{ id: string; path: string; status: string }> };
 
-type OpcjeCzatu = Partial<Pick<ChatRequest, 'effort' | 'model' | 'maxTokens' | 'clientRequestId'>>;
+type OpcjeCzatu = Partial<Pick<ChatRequest, 'effort' | 'model' | 'maxTokens' | 'clientRequestId' | 'connectionId' | 'projectId'>>;
 
 async function czat(token: string, pytanie: string, zalaczniki: string[] = [], opcje: OpcjeCzatu = {}) {
   const odp = await zapytaj('/api/chat', {
     method: 'POST',
     headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId: ID.projektWspolny, model: opcje.model ?? 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki, effort: opcje.effort, maxTokens: opcje.maxTokens, clientRequestId: opcje.clientRequestId } satisfies ChatRequest),
+    body: JSON.stringify({ projectId: opcje.projectId ?? ID.projektWspolny, model: opcje.model ?? 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki, effort: opcje.effort, maxTokens: opcje.maxTokens, clientRequestId: opcje.clientRequestId, connectionId: opcje.connectionId } satisfies ChatRequest),
   });
   const zdarzenia = odp.tekst.split('\n').filter((linia) => linia.trim()).map((linia) => JSON.parse(linia) as Zdarzenie);
   return { odp, zdarzenia, tekst: zdarzenia.filter((z) => z.type === 'delta').map((z) => z.text).join('') };
@@ -102,14 +122,22 @@ beforeAll(async () => {
   await postawDostawce();
   zbudujJesliTrzeba();
   await startWorkera({ zmienne: { PROVIDER_KEY_ENCRYPTION_KEY: KLUCZ_SZYFROWANIA }, dodatkowySql: PORZUCONY_SQL });
-  const zapis = await zapytaj('/api/provider', {
-    method: 'PUT',
-    headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ label: 'Falszywy', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY, scope: 'mine' } satisfies SaveProviderRequest),
-  });
-  if (zapis.status >= 300) throw new Error(`Zapis dostawcy nie powiodl sie: ${zapis.status} ${zapis.tekst}`);
-  saveProviderResponse.parse(zapis.dane);
+  polaczenieWlasciciela = await dodajPolaczenie(TOKENY.wlasciciel, { label: 'Falszywy', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY });
 }, 300_000);
+
+let polaczenieWlasciciela = '';
+
+async function dodajPolaczenie(token: string, cialo: AddConnectionRequest) {
+  const zapis = await zapytaj('/api/providers', { method: 'POST', headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' }, body: JSON.stringify(cialo) });
+  if (zapis.status !== 201) throw new Error(`Dodanie polaczenia nie powiodlo sie: ${zapis.status} ${zapis.tekst}`);
+  return connectionResponse.parse(zapis.dane).connection.id;
+}
+
+async function polaczenia(token: string) {
+  const odp = await zapytaj('/api/providers', { headers: jako(token) });
+  expect(odp.status, odp.tekst).toBe(200);
+  return providerConnections.parse(odp.dane);
+}
 
 afterAll(() => {
   stopWorkera();
@@ -210,7 +238,7 @@ describe('strumien odpowiedzi', () => {
 // nic nie jest oznaczone, potem oznaczamy falszywy-model.
 describe('effort', () => {
   const naglowki = (token: string) => ({ ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' });
-  const oznacz = (token: string, cialo: SaveEffortModelsRequest) => zapytaj('/api/provider', { method: 'PATCH', headers: naglowki(token), body: JSON.stringify(cialo) });
+  const oznacz = (token: string, cialo: UpdateConnectionRequest, id = polaczenieWlasciciela) => zapytaj(`/api/providers/${id}`, { method: 'PATCH', headers: naglowki(token), body: JSON.stringify(cialo) });
 
   it('bez oznaczenia modelu odrzuca effort, zanim cokolwiek pojdzie do dostawcy', async () => {
     const ile = odebrane.length;
@@ -220,22 +248,21 @@ describe('effort', () => {
     expect(odebrane.length).toBe(ile);
   });
 
-  it('oznaczyc mozna tylko model dostawcy, a konfiguracje zespolu tylko wlasciciel', async () => {
-    expect((await oznacz(TOKENY.wlasciciel, { scope: 'mine', effortModels: ['nie-ma-takiego'] })).status).toBe(400);
-    expect((await oznacz(TOKENY.czytelnik, { scope: 'team', effortModels: [] })).status).toBe(403);
-    // Czytelnik nie ma wlasnego dostawcy, wiec nie ma czego oznaczac.
-    expect((await oznacz(TOKENY.czytelnik, { scope: 'mine', effortModels: [] })).status).toBe(404);
+  it('oznaczyc mozna tylko model polaczenia, i tylko we wlasnym polaczeniu', async () => {
+    expect((await oznacz(TOKENY.wlasciciel, { effortModels: ['nie-ma-takiego'] })).status).toBe(400);
+    // Cudze wlasne polaczenie: dla czytelnika go nie ma.
+    expect((await oznacz(TOKENY.czytelnik, { effortModels: [] })).status).toBe(404);
   });
 
   it('oznaczony model dostaje reasoning_effort, a bez wyboru parametru nie ma', async () => {
-    const zapis = await oznacz(TOKENY.wlasciciel, { scope: 'mine', effortModels: ['falszywy-model', 'falszywy-model'] });
+    const zapis = await oznacz(TOKENY.wlasciciel, { effortModels: ['falszywy-model', 'falszywy-model'] });
     expect(zapis.status, zapis.tekst).toBe(200);
-    expect(saveEffortModelsResponse.parse(zapis.dane).effortModels).toEqual(['falszywy-model']);
+    expect(connectionResponse.parse(zapis.dane).connection.effortModels).toEqual(['falszywy-model']);
 
-    const stan = providerState.parse((await zapytaj('/api/provider', { headers: jako(TOKENY.wlasciciel) })).dane);
-    expect(stan.mine?.effortModels).toEqual(['falszywy-model']);
+    const stan = await polaczenia(TOKENY.wlasciciel);
+    expect(stan.connections.find((c) => c.id === polaczenieWlasciciela)?.effortModels).toEqual(['falszywy-model']);
     const start = bootstrapResponse.parse((await zapytaj('/api/bootstrap', { headers: jako(TOKENY.wlasciciel) })).dane);
-    expect(start.models.map((model) => [model.id, model.effort])).toEqual([['drugi-model', false], ['falszywy-model', true]]);
+    expect(start.models.map((model) => [model.id, model.effort, model.connectionId])).toEqual([['drugi-model', false, polaczenieWlasciciela], ['falszywy-model', true, polaczenieWlasciciela]]);
 
     const z = await czat(TOKENY.wlasciciel, 'Pytanie z effort', [], { effort: 'high' });
     expect(z.odp.status, z.odp.tekst).toBe(200);
@@ -254,12 +281,7 @@ describe('budzet odpowiedzi', () => {
   // Na koncie edytora, z jego wlasnym dostawca: ma osobny limit i osobny
   // licznik zadan na minute, wiec testy wlasciciela nie wplywaja na wynik.
   beforeAll(async () => {
-    const zapis = await zapytaj('/api/provider', {
-      method: 'PUT',
-      headers: { ...ORIGIN, ...jako(TOKENY.edytor), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: 'Falszywy edytora', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY, scope: 'mine' } satisfies SaveProviderRequest),
-    });
-    if (zapis.status >= 300) throw new Error(`Zapis dostawcy edytora nie powiodl sie: ${zapis.status} ${zapis.tekst}`);
+    await dodajPolaczenie(TOKENY.edytor, { label: 'Falszywy edytora', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY });
   });
 
   async function zuzyteDzis() {
@@ -346,5 +368,124 @@ describe('porzucona generacja', () => {
     // Suma po dniach, bo 40 minut temu mogl byc jeszcze wczoraj.
     const suma = stan.byDay.reduce((razem, dzien) => razem + dzien.inputTokens + dzien.outputTokens, 0);
     expect(suma).toBe(oplata.inputTokens + oplata.outputTokens);
+  });
+});
+
+describe('polaczenia z dostawcami', () => {
+  // Na koncie obcego, w jego prywatnym projekcie: ma osobny licznik zadan na
+  // minute, wiec czaty z reszty pliku nie dobijaja tu do limitu.
+  const czatObcego = (pytanie: string, opcje: OpcjeCzatu = {}) => czat(TOKENY.obcy, pytanie, [], { projectId: ID.projektPrywatnyObcego, ...opcje });
+  const naglowki = (token: string) => ({ ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' });
+  const zmien = (token: string, id: string, cialo: UpdateConnectionRequest) => zapytaj(`/api/providers/${id}`, { method: 'PATCH', headers: naglowki(token), body: JSON.stringify(cialo) });
+  const podmien = (token: string, id: string, apiKey: string) => zapytaj(`/api/providers/${id}/key`, { method: 'PUT', headers: naglowki(token), body: JSON.stringify({ apiKey }) });
+  const usun = (token: string, id: string) => zapytaj(`/api/providers/${id}`, { method: 'DELETE', headers: naglowki(token) });
+  const modeleCzatu = async (token: string) => bootstrapResponse.parse((await zapytaj('/api/bootstrap', { headers: jako(token) })).dane).models;
+
+  const KLUCZ_DRUGIEGO = 'd'.repeat(24);
+  // Zawsze odrzucany: sprawdza, ze zly klucz nie zastepuje dobrego.
+  const ZLY_KLUCZ = 'z'.repeat(24);
+  let pierwsze = '';
+  let drugie = '';
+
+  beforeAll(async () => {
+    odrzucaneKlucze.add(ZLY_KLUCZ);
+    pierwsze = await dodajPolaczenie(TOKENY.obcy, { label: 'Pierwsze', baseUrl: adresDostawcy, apiKey: 'p'.repeat(24) });
+    drugie = await dodajPolaczenie(TOKENY.obcy, { label: 'Drugie', baseUrl: adresDrugiego, apiKey: KLUCZ_DRUGIEGO });
+  });
+
+  it('nie zapisuje klucza, ktory dostawca odrzuca', async () => {
+    const odp = await zapytaj('/api/providers', { method: 'POST', headers: naglowki(TOKENY.obcy), body: JSON.stringify({ label: 'Zle', baseUrl: adresDostawcy, apiKey: ZLY_KLUCZ } satisfies AddConnectionRequest) });
+    expect(odp.status, odp.tekst).toBe(400);
+    expect((await polaczenia(TOKENY.obcy)).connections.map((c) => c.label)).toEqual(['Pierwsze', 'Drugie']);
+  });
+
+  it('czat oferuje modele obu polaczen i wysyla tym, ktore wybrano', async () => {
+    expect((await modeleCzatu(TOKENY.obcy)).map((m) => [m.id, m.connectionLabel])).toEqual([['drugi-model', 'Pierwsze'], ['falszywy-model', 'Pierwsze'], ['trzeci-model', 'Drugie']]);
+
+    const wybrane = await czatObcego('Przez drugie', { model: 'trzeci-model', connectionId: drugie });
+    expect(wybrane.odp.status, wybrane.odp.tekst).toBe(200);
+    expect(odebrane.at(-1)?.sciezka).toBe('/v2/chat/completions');
+    // Bez wskazania odpowiada pierwsze polaczenie, ktore oferuje ten model.
+    const samo = await czatObcego('Bez wskazania', { model: 'trzeci-model' });
+    expect(samo.odp.status, samo.odp.tekst).toBe(200);
+    expect(odebrane.at(-1)?.sciezka).toBe('/v2/chat/completions');
+
+    // Zuzycie liczy sie przy polaczeniu, ktore odpowiedzialo.
+    const stan = await polaczenia(TOKENY.obcy);
+    expect(stan.connections.find((c) => c.id === drugie)?.usage7d.at(-1)).toBeGreaterThan(0);
+    expect(stan.connections.find((c) => c.id === pierwsze)?.usage7d.at(-1)).toBe(0);
+  });
+
+  it('odrzucony w czacie klucz oznacza polaczenie, a zly zamiennik nie zastepuje starego', async () => {
+    odrzucaneKlucze.add(KLUCZ_DRUGIEGO);
+    try {
+      expect((await czatObcego('Po odrzuceniu', { model: 'trzeci-model', connectionId: drugie })).odp.status).toBe(502);
+      expect((await polaczenia(TOKENY.obcy)).connections.find((c) => c.id === drugie)?.status).toBe('rejected');
+
+      const zly = await podmien(TOKENY.obcy, drugie, ZLY_KLUCZ);
+      expect(zly.status, zly.tekst).toBe(400);
+      expect(zly.tekst).toContain('previous key is still in use');
+      expect((await polaczenia(TOKENY.obcy)).connections.find((c) => c.id === drugie)?.keyPreview).toBe('dddd••••dddd');
+
+      const dobry = await podmien(TOKENY.obcy, drugie, 'n'.repeat(24));
+      expect(dobry.status, dobry.tekst).toBe(200);
+      expect(connectionResponse.parse(dobry.dane).connection).toMatchObject({ keyPreview: 'nnnn••••nnnn', status: 'ok' });
+      expect((await czatObcego('Po podmianie', { model: 'trzeci-model', connectionId: drugie })).odp.status).toBe(200);
+    } finally {
+      odrzucaneKlucze.delete(KLUCZ_DRUGIEGO);
+    }
+  });
+
+  it('sprawdzenie zapisuje wynik i odswieza liste modeli', async () => {
+    const odp = await zapytaj(`/api/providers/${pierwsze}/check`, { method: 'POST', headers: naglowki(TOKENY.obcy) });
+    expect(odp.status, odp.tekst).toBe(200);
+    const polaczenie = connectionResponse.parse(odp.dane).connection;
+    expect(polaczenie.status).toBe('ok');
+    expect(polaczenie.checkedAt).not.toBeNull();
+    expect(polaczenie.models.map((m) => m.id)).toEqual(['drugi-model', 'falszywy-model']);
+  });
+
+  it('dluga lista modeli zaczyna od wyboru, a czat pokazuje tylko wybrane', async () => {
+    const dlugie = await dodajPolaczenie(TOKENY.obcy, { label: 'Dlugie', baseUrl: adresDostawcy.replace(/\/v1$/, '/v3'), apiKey: 'l'.repeat(24) });
+    const stan = (await polaczenia(TOKENY.obcy)).connections.find((c) => c.id === dlugie)!;
+    expect(stan.models).toHaveLength(40);
+    expect(stan.chatModels).toEqual([]);
+    expect((await modeleCzatu(TOKENY.obcy)).some((m) => m.connectionId === dlugie)).toBe(false);
+
+    expect((await zmien(TOKENY.obcy, dlugie, { chatModels: ['model-07', 'nie-ma-takiego'] })).status).toBe(400);
+    expect((await zmien(TOKENY.obcy, dlugie, { chatModels: ['model-07', 'model-03'] })).status).toBe(200);
+    expect((await modeleCzatu(TOKENY.obcy)).filter((m) => m.connectionId === dlugie).map((m) => m.id)).toEqual(['model-03', 'model-07']);
+    expect((await usun(TOKENY.obcy, dlugie)).status).toBe(200);
+  });
+
+  it('cudze wlasne polaczenie nie istnieje dla innych', async () => {
+    expect((await zmien(TOKENY.edytor, pierwsze, { label: 'Przejete' })).status).toBe(404);
+    expect((await podmien(TOKENY.edytor, pierwsze, 'e'.repeat(24))).status).toBe(404);
+    expect((await zapytaj(`/api/providers/${pierwsze}/check`, { method: 'POST', headers: naglowki(TOKENY.edytor) })).status).toBe(404);
+    expect((await usun(TOKENY.edytor, pierwsze)).status).toBe(404);
+    // Ani nie da sie nim wyslac wiadomosci.
+    expect((await czat(TOKENY.edytor, 'Cudzym kluczem', [], { connectionId: pierwsze })).odp.status).toBe(404);
+    expect((await polaczenia(TOKENY.edytor)).connections.some((c) => c.id === pierwsze)).toBe(false);
+  });
+
+  it('polaczenie zespolu: korzysta kazdy, zmienia tylko wlasciciel', async () => {
+    const proba = await zapytaj('/api/providers', { method: 'POST', headers: naglowki(TOKENY.obcy), body: JSON.stringify({ label: 'Nie wolno', baseUrl: adresDrugiego, apiKey: 't'.repeat(24), scope: 'team' } satisfies AddConnectionRequest) });
+    expect(proba.status).toBe(403);
+
+    const zespolowe = await dodajPolaczenie(TOKENY.wlasciciel, { label: 'Zespolowe', baseUrl: adresDrugiego, apiKey: 't'.repeat(24), scope: 'team' });
+    expect((await polaczenia(TOKENY.obcy)).connections.find((c) => c.id === zespolowe)).toMatchObject({ scope: 'team', canManage: false });
+    expect((await zmien(TOKENY.obcy, zespolowe, { label: 'Moje' })).status).toBe(403);
+    expect((await usun(TOKENY.obcy, zespolowe)).status).toBe(403);
+
+    const odp = await czatObcego('Kluczem zespolu', { model: 'trzeci-model', connectionId: zespolowe });
+    expect(odp.odp.status, odp.odp.tekst).toBe(200);
+
+    expect((await usun(TOKENY.wlasciciel, zespolowe)).status).toBe(200);
+    expect((await polaczenia(TOKENY.obcy)).connections.some((c) => c.id === zespolowe)).toBe(false);
+  });
+
+  it('usuniete polaczenie znika z czatu', async () => {
+    expect((await usun(TOKENY.obcy, pierwsze)).status).toBe(200);
+    expect((await modeleCzatu(TOKENY.obcy)).map((m) => m.connectionLabel)).toEqual(['Drugie']);
   });
 });

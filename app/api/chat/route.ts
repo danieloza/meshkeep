@@ -10,7 +10,7 @@ import { ApiError, assertSameOrigin, errorResponse, json, readJson } from '@/lib
 import { requireProjectAccess } from '@/lib/server/access';
 import { chargeRun, finishRun, releaseRun, reserveRun } from '@/lib/server/chat-runs';
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
-import { readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
+import { KeyRejectedError, markRejected, readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
 import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';
 
 const MAX_ATTACHMENT_CONTEXT_CHARS = 80_000;
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       if (!conversation || conversation.projectId !== input.projectId) return json({ error: 'Conversation not found.' }, { status: 404 });
     }
     const attachments = await buildAttachmentContext(input.projectId, input.attachmentIds);
-    const provider = await resolveProvider(member);
+    const provider = await resolveProvider(member, { connectionId: input.connectionId, model: input.model });
     if (!provider) throw new ApiError(503, 'No model provider is configured. Connect one in Settings.');
     // The model has to be one the resolved provider actually offers. A provider
     // that does not publish a list leaves `models` empty, and then anything the
@@ -146,8 +146,10 @@ export async function POST(request: Request) {
     try {
       upstream = await streamProvider(provider, { ...input, messages: promptMessages }, upstreamControl.signal);
     } catch (error) {
-      // The provider refused before answering, so nothing is charged.
+      // The provider refused before answering, so nothing is charged. A
+      // refused key is marked on its connection, for the settings to show.
       await releaseRun(runId).catch(() => undefined);
+      if (error instanceof KeyRejectedError && provider.id) await markRejected(provider.id).catch(() => undefined);
       throw error;
     }
 
@@ -214,7 +216,7 @@ export async function POST(request: Request) {
 
       const estimated = !reported;
       const usage = reported ?? { inputTokens: promptTokens, outputTokens: estimateTokens(content) };
-      const usageRow = { id: crypto.randomUUID(), memberId: member.id, model: input.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, createdAt: new Date() };
+      const usageRow = { id: crypto.randomUUID(), memberId: member.id, model: input.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, providerId: provider.id, createdAt: new Date() };
 
       try {
         if (failure) {

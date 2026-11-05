@@ -33,7 +33,7 @@ import { ThemeToggle } from '@/features/shell/theme-toggle';
 import { FolderSyncCard } from '@/features/sync/folder-sync-card';
 import { SyncAgentPanel } from '@/features/sync/sync-agent-panel';
 import { BackupCard, KillSwitchCard } from '@/features/owner/owner-controls';
-import { ProviderCard } from '@/features/providers/provider-card';
+import { ConnectionsPanel } from '@/features/providers/connections-panel';
 import { MicrophoneSettings } from '@/features/speech/microphone-settings';
 import { type TeamCapacity, TeamPanel } from '@/features/team/team-panel';
 import { HomeView } from '@/features/home/home-view';
@@ -121,6 +121,9 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
   const [reconnectLinks, setReconnectLinks] = useState<PendingInvite[]>([]);
   const [teamCapacity, setTeamCapacity] = useState<TeamCapacity>({ used: 1, total: 4 });
   const [models, setModels] = useState<ProviderModel[]>([]);
+  // The chat's models follow the connections, so a change in the settings
+  // refreshes them rather than reloading the page.
+  const reloadModels = () => api.bootstrap().then((payload) => setModels(payload.models ?? [])).catch(() => undefined);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const contextInput = useRef<HTMLInputElement>(null);
@@ -453,7 +456,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
             {section === 'team' && <div className="max-w-2xl"><TeamPanel canInvite={currentRole === 'owner'} capacity={teamCapacity} currentMemberId={currentMemberId} members={teamMembers} onNotice={setNotice} onTeamChanged={() => void refreshTeam()} pendingInvites={pendingInvites} reconnectLinks={reconnectLinks} /></div>}
 
-            {section === 'providers' && <div className="max-w-2xl"><ProviderCard onChanged={() => window.location.reload()} onNotice={setNotice} /></div>}
+            {section === 'providers' && <div className="max-w-3xl"><ConnectionsPanel onChanged={() => void reloadModels()} onNotice={setNotice} /></div>}
             {section === 'microphone' && <div className="max-w-2xl"><MicrophoneSettings onNotice={setNotice} /></div>}
 
             {section === 'usage' && <UsageView dailyLimit={dailyLimit} monthlyLimit={monthlyLimit} onNotice={setNotice} />}

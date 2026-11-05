@@ -81,7 +81,9 @@ export function maskKey(key: string): string {
   return `${clean.slice(0, 4)}••••${clean.slice(-4)}`;
 }
 
-const MAX_MODELS = 200;
+// OpenRouter alone lists over 300 models, and a cut list would hide some of
+// them from the choice of what the chat shows.
+const MAX_MODELS = 500;
 
 // Providers disagree about the envelope: OpenAI answers { data: [...] }, some
 // answer { models: [...] }, a few answer a bare array. Entries are sometimes

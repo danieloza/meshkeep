@@ -27,6 +27,9 @@ export const AUDIT_ACTIONS = [
   'sync_token.revoked',
   'backup.exported',
   'provider.configured',
+  'provider.key_replaced',
+  'provider.renamed',
+  'provider.chat_models',
   'provider.effort_models',
   'provider.removed',
 ] as const;
@@ -55,6 +58,9 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   'sync_token.revoked': 'Agent key revoked',
   'backup.exported': 'Backup exported',
   'provider.configured': 'Model provider configured',
+  'provider.key_replaced': 'Model provider key replaced',
+  'provider.renamed': 'Model provider renamed',
+  'provider.chat_models': 'Models shown in chat changed',
   'provider.effort_models': 'Models with Effort changed',
   'provider.removed': 'Model provider removed',
 };

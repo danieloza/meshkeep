@@ -3,7 +3,7 @@ import { getDb } from '@/db';
 import { memberLimits, members, usageEvents } from '@/db/schema';
 import { requireMember } from '@/lib/server/auth';
 import { errorResponse, json } from '@/lib/server/http';
-import { resolveProvider } from '@/lib/server/provider';
+import { availableModels } from '@/lib/server/provider';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,8 +74,9 @@ export async function GET() {
       .orderBy(members.displayName)
       : [];
 
-    const provider = await resolveProvider(member);
-    const etykiety = new Map((provider?.models ?? []).map((entry) => [entry.id, entry.label]));
+    // Labels from every connection the member can use, so a model reached
+    // through any of them is named, not shown by its raw id.
+    const etykiety = new Map((await availableModels(member)).map((entry) => [entry.id, entry.label]));
     return json({
       historyDays: HISTORY_DAYS,
       team,

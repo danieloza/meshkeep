@@ -74,6 +74,8 @@ export function chargeRun(runId: string, usage: UsageRow) {
       model: sql<string>`${usage.model}`.as('model'),
       inputTokens: sql<number>`${usage.inputTokens ?? 0}`.as('input_tokens'),
       outputTokens: sql<number>`${usage.outputTokens ?? 0}`.as('output_tokens'),
+      // drizzle requires every column of the table here, in its order.
+      providerId: sql<string | null>`${usage.providerId ?? null}`.as('provider_id'),
       createdAt: sql<Date>`${(usage.createdAt ?? new Date()).getTime()}`.as('created_at'),
     })
     .from(chatRuns)

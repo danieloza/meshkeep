@@ -16,7 +16,8 @@ export const bootstrapResponse = z.object({
     outputTokens: z.number().int(),
     monthlyTokens: z.number().int(),
   }),
-  // The models of the provider that answers this member.
+  // The models the chat offers this member, each with the connection it goes
+  // through: their own connections first, then the team's.
   models: z.array(providerModel),
   provider: effectiveProvider.pick({ label: true, origin: true }).nullable(),
 });
