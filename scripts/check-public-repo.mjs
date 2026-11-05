@@ -42,7 +42,8 @@ for (const file of files) {
     }
     pattern.lastIndex = 0;
   }
-  if (file.startsWith('drizzle/') && file.endsWith('.sql') && /\bDELETE\s+FROM\b/i.test(content)) {
+  const isMigration = file.startsWith('drizzle/') || file.startsWith('deploy/sites/migrations/');
+  if (isMigration && file.endsWith('.sql') && /\bDELETE\s+FROM\b/i.test(content)) {
     findings.push(`${file}: public migrations must never delete existing data`);
   }
 }

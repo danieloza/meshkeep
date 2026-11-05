@@ -28,6 +28,7 @@
     "build": "vinext build",
     "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "sites:migrations": "node scripts/sites-migrations.mjs",
     "deploy": "npm run db:migrate && wrangler deploy",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint app lib db proxy.ts features components hooks scripts tests",
