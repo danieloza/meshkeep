@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788106688380,
+      "tag": "0000_odd_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788209733372,
+      "tag": "0001_dapper_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788210675986,
+      "tag": "0002_naive_photon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788369891609,
+      "tag": "0003_cheerful_alice",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788467069965,
+      "tag": "0004_sanitize_public_demo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793664000000,
+      "tag": "0005_bridge_to_public",
+      "breakpoints": true
+    }
+  ]
+}

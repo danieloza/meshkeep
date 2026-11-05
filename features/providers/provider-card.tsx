@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { CircleCheck, Trash2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
 import type { ProviderModel, ProviderState } from '@/lib/contracts/providers';
 import { Hint } from '@/components/hint';
 import { ORIGIN_LABEL } from '@/features/providers/effective-provider';
+import { isProviderPresetId, PROVIDER_PRESET_IDS, PROVIDER_PRESETS, type ProviderPresetId, recognizeKey } from '@/lib/provider-presets';
+import { cn } from '@/lib/utils';
+
+type ProviderChoice = ProviderPresetId | 'other' | '';
 
 // A model list does not say which models accept `reasoning_effort`, so whoever
 // manages the configuration marks them here. The chat offers Effort only for
@@ -49,6 +53,10 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
   const [label, setLabel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [provider, setProvider] = useState<ProviderChoice>('');
+  // A provider picked from the list stays picked; until then a recognized key
+  // picks it.
+  const [pickedByHand, setPickedByHand] = useState(false);
   const [forTeam, setForTeam] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +72,36 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
     api.provider.get().then((payload) => { if (active) setState(payload); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
+
+  // A preset fills in the name and the address, which stay editable. "Other"
+  // keeps whatever is typed there.
+  function choose(choice: ProviderChoice, byHand: boolean) {
+    // Fields still holding the previous preset's values were filled in, not
+    // typed, so they go with it.
+    const previous = isProviderPresetId(provider) ? PROVIDER_PRESETS[provider] : null;
+    setProvider(choice);
+    setPickedByHand(byHand);
+    if (isProviderPresetId(choice)) {
+      setLabel(PROVIDER_PRESETS[choice].label);
+      setBaseUrl(PROVIDER_PRESETS[choice].baseUrl);
+      return;
+    }
+    if (previous && label === previous.label) setLabel('');
+    if (previous && baseUrl === previous.baseUrl) setBaseUrl('');
+  }
+
+  function changeKey(value: string) {
+    setApiKey(value);
+    if (pickedByHand) return;
+    const recognized = recognizeKey(value);
+    if (recognized.kind === 'recognized') {
+      if (recognized.preset.id !== provider) choose(recognized.preset.id, false);
+    } else if (provider !== '') {
+      // A provider this form picked for an earlier key must not carry over to
+      // a key it cannot place: that key would go to the wrong company.
+      choose('', false);
+    }
+  }
 
   async function save() {
     setBusy(true); setError(null);
@@ -93,15 +131,19 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
   if (!state) return null;
 
   const field = 'h-9 w-full rounded-lg border border-line-strong bg-surface-raised px-2 text-xs outline-none focus:ring-2 focus:ring-[#4d8b80]/30';
+  const recognized = recognizeKey(apiKey);
+  const preset = isProviderPresetId(provider) ? PROVIDER_PRESETS[provider] : null;
+  // A key that plainly belongs to one vendor but is about to go to another.
+  const mismatch = recognized.kind === 'recognized' && provider !== '' && recognized.preset.id !== provider ? recognized.preset : null;
 
   return <Card className="border-0 bg-surface-raised/90 shadow-none ring-line">
     <CardHeader>
       <CardTitle className="flex items-center gap-1.5 text-base">Model provider
-        <Hint text="Any service that speaks the OpenAI format works: OpenAI, OpenRouter, Groq, Together, Mistral, or a model running on your own machine. Your key is stored on the server, never sent to the browser and never included in a backup." />
+        <Hint text="Paste a key and the form recognizes OpenAI, Anthropic, Google Gemini, OpenRouter, Groq and xAI by its prefix. DeepSeek, Kimi and Mistral are in the list, and Other takes any service that speaks the OpenAI format, a model on your own machine included. Your key is stored on the server, never sent to the browser and never included in a backup." />
       </CardTitle>
       <CardDescription>
         {state.effective
-          ? <>Messages currently go to <b>{state.effective.label}</b> using {ORIGIN_LABEL[state.effective.origin]}, with {state.effective.modelCount} models available.</>
+          ? <>Messages currently go to <b>{state.effective.label}</b> using {ORIGIN_LABEL[state.effective.origin]}, with {state.effective.modelCount} {state.effective.modelCount === 1 ? 'model' : 'models'} available.</>
           : 'No provider is connected, so the chat cannot reach a model.'}
       </CardDescription>
     </CardHeader>
@@ -120,6 +162,29 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
         </div>
       ))}
 
+      <label className="block text-[11px] font-medium" htmlFor="provider-key">API key
+        {/* type=password so a shoulder or a screen share does not reveal it. */}
+        <input aria-describedby="provider-key-status" autoComplete="off" className={cn(field, 'font-mono')} id="provider-key" maxLength={400} onChange={(event) => changeKey(event.target.value)} placeholder="Paste the key from your provider" spellCheck={false} type="password" value={apiKey} />
+      </label>
+      {/* Read out as the key is pasted; it never repeats the key itself. */}
+      <div aria-live="polite" className="text-[11px] leading-4" id="provider-key-status">
+        {recognized.kind === 'recognized' && !mismatch && <p className="flex items-center gap-1.5 text-ok-text"><CircleCheck aria-hidden className="size-3.5 shrink-0" />{recognized.preset.label}, recognized by {recognized.by}.</p>}
+        {mismatch && <p className="flex items-start gap-1.5 text-warn-text"><TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />This looks like a {mismatch.label} key, but {preset?.label ?? 'another provider'} is chosen, so it would be sent there.</p>}
+        {recognized.kind === 'ambiguous' && !isProviderPresetId(provider) && provider !== 'other' && <div className="space-y-1.5">
+          <p className="text-ink-muted">Several providers issue keys that start with sk-. Which one is this?</p>
+          <div className="flex flex-wrap gap-1.5">{recognized.presets.map((candidate) => <button className="min-h-8 rounded-lg border border-line-strong px-2.5 font-medium transition hover:bg-surface-fill" key={candidate.id} onClick={() => choose(candidate.id, true)} type="button">{candidate.label}</button>)}</div>
+        </div>}
+        {recognized.kind === 'unknown' && provider === '' && <p className="text-ink-muted">No provider recognized from this key. Choose one below, or Other for any OpenAI-compatible service.</p>}
+      </div>
+
+      <label className="block text-[11px] font-medium" htmlFor="provider-choice">Provider
+        <select className={field} id="provider-choice" onChange={(event) => choose(event.target.value as ProviderChoice, true)} value={provider}>
+          <option disabled value="">Choose a provider</option>
+          {PROVIDER_PRESET_IDS.map((id) => <option key={id} value={id}>{PROVIDER_PRESETS[id].label}</option>)}
+          <option value="other">Other (OpenAI-compatible)</option>
+        </select>
+      </label>
+      {preset?.note && <p className="rounded-lg bg-warn-soft px-3 py-2 text-[11px] leading-4 text-warn-text">{preset.note}</p>}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-[11px] font-medium" htmlFor="provider-label">Name
           <input className={field} id="provider-label" maxLength={60} onChange={(event) => setLabel(event.target.value)} placeholder="OpenRouter" value={label} />
@@ -128,10 +193,6 @@ export function ProviderCard({ onNotice, onChanged }: { onNotice: (message: stri
           <input className={field} id="provider-url" maxLength={400} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://openrouter.ai/api/v1" value={baseUrl} />
         </label>
       </div>
-      <label className="block text-[11px] font-medium" htmlFor="provider-key">API key
-        {/* type=password so a shoulder or a screen share does not reveal it. */}
-        <input autoComplete="off" className={field} id="provider-key" maxLength={400} onChange={(event) => setApiKey(event.target.value)} placeholder="sk-…" type="password" value={apiKey} />
-      </label>
       {state.canSetTeam && <label className="flex items-center gap-2 text-[11px]">
         <input checked={forTeam} onChange={(event) => setForTeam(event.target.checked)} type="checkbox" />
         Use for the whole team instead of only me

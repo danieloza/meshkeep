@@ -12,7 +12,7 @@
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, openSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -219,6 +219,16 @@ export async function startWorkera(opcje: OpcjeWorkera = {}) {
   await podnieProces();
 }
 
+// Wyjscie workera, w tym `console.error` z serwera, jest domyslnie odrzucane.
+// MESHKEEP_WORKER_LOG=<plik> dopisuje je do pliku, gdy trzeba zobaczyc, czemu
+// zadanie skonczylo sie bledem 500 albo zdarzeniem `error`.
+function wyjscieWorkera() {
+  const plik = process.env.MESHKEEP_WORKER_LOG;
+  if (!plik) return 'ignore' as const;
+  const deskryptor = openSync(plik, 'a');
+  return ['ignore', deskryptor, deskryptor] as ['ignore', number, number];
+}
+
 function podnieProces() {
   proces = spawn('npx', [
     'wrangler', 'dev', '--config', KONFIG_WORKERA, '--persist-to', katalogStanu,
@@ -229,7 +239,7 @@ function podnieProces() {
     '--var', 'TOKENROUTER_API_KEY:klucz-testowy-nieprawidlowy',
     ...Object.entries(zmienneWorkera).flatMap(([nazwa, wartosc]) => ['--var', `${nazwa}:${wartosc}`]),
   ].map(cytuj), {
-    cwd: KATALOG, shell: true, stdio: 'ignore',
+    cwd: KATALOG, shell: true, stdio: wyjscieWorkera(),
   });
   return czekajNaWorkera();
 }

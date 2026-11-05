@@ -225,6 +225,8 @@ npm run smoke -- https://your-meshkeep.example
 
 The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` only add tables and columns; apply them in order before deploying a release that includes them.
 
+The original deployment on OpenAI Sites has an older migration history, so it takes the same migrations through its own line. `npm run sites:migrations` builds that line; see [deploy/sites/README.md](deploy/sites/README.md).
+
 Owners can export D1 data as JSON from Settings › Backup and safety. The export omits provider credentials, live sessions, invitation hashes, sync-agent hashes, R2 object bytes, and the search index. The index is derived data: restored messages are indexed again as they are inserted, and files are indexed again when their project is opened. Convert a reviewed export into restoration SQL with:
 
 ```powershell
@@ -241,6 +243,7 @@ The script writes SQL but never executes it. Review the output before applying i
 - R2-compatible object storage
 - OpenAI-compatible model-provider requests
 - Hosting bindings described in `.openai/hosting.json`
+- Empty screens drawn with [Hairline](https://github.com/lucasmarkes/hairline) (MIT), isometric line figures that answer the pointer; only the five figures in use are bundled, about 14 kB gzipped
 
 ## Security
 

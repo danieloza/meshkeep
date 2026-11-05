@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { sieve } from '@lucasmarkes/hairline';
 import { Bot, Folder, LockKeyhole, Menu, MessageSquareText, LogOut, Plus, Search, Settings2, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -445,7 +446,7 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
                   <span className="font-semibold">Add another project</span><span className="mt-1 max-w-[230px] text-sm leading-5 text-ink-muted">Create an empty project or import a folder or ZIP archive.</span>
                 </button>
               </div>
-              {filteredProjects.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-line-strong bg-surface-veil p-12 text-center"><Folder className="mx-auto mb-3 text-ink-muted" /><p className="font-medium">No projects found</p><p className="mt-1 text-sm text-ink-muted">Change the filters above.</p></div>}
+              {filteredProjects.length === 0 && <ViewPlaceholder detail="Change the filters above." figure={sieve} title="No projects found" />}
             </section>}
 
             {section === 'conversations' && <ConversationsView onNotice={setNotice} onOpenConversation={(projectId, conversationId) => { const target = projects.find((item) => item.id === projectId); if (!target) { setNotice('You no longer have access to this conversation’s project.'); return; } openProject(target, { conversationId }); }} />}

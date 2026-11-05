@@ -81,6 +81,11 @@ describe('model list — providers disagree about the envelope', () => {
     expect(model).toEqual({ id: 'meta/llama-4', label: 'Llama 4' });
   });
 
+  it('reads the display name in the shape Anthropic lists models', () => {
+    const [model] = readModelList({ data: [{ type: 'model', id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5' }], has_more: false });
+    expect(model).toEqual({ id: 'claude-opus-5-5', label: 'Claude Opus 5.5' });
+  });
+
   // The list is stored in D1 as this function's output and read back with it,
   // so the names have to survive the round trip.
   it('keeps the names when it reads back a list it produced', () => {

@@ -161,6 +161,16 @@ body {
   --line: #dfe3dd;
   --line-strong: #c9cfc8;
 
+  /* Line figures (Hairline), in the palette's green-grey instead of the
+     library's neutral grey: what is lit, silhouettes, other strokes, what
+     recedes. Plates are filled, so they take the colour of the surface the
+     figure sits on; a figure on a raised surface overrides the plate. */
+  --hairline-plate: var(--surface);
+  --hairline-hi: var(--brand-text);
+  --hairline-edge: #9aa7a2;
+  --hairline-mid: #bcc6c1;
+  --hairline-lo: #dbe1dc;
+
   /* States: warning, danger, success, information. */
   --warn-soft: #f6ecd9;
   --warn-soft-strong: #fef3c6;
@@ -247,6 +257,11 @@ body {
   /* Borders and rings. */
   --line: #22322e;
   --line-strong: #2f433e;
+
+  /* Line figures: the plate and the lit stroke follow the tokens above. */
+  --hairline-edge: #5a6c66;
+  --hairline-mid: #3c4c47;
+  --hairline-lo: #273430;
 
   /* States: warning, danger, success, information. */
   --warn-soft: #2e2510;

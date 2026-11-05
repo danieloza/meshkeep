@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { drawer } from '@lucasmarkes/hairline';
 import { ScrollText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-client';
@@ -52,7 +53,7 @@ export function AuditView() {
 
   if (error) return <ViewPlaceholder detail={error} icon={ScrollText} title="Something went wrong" />;
   if (!rows) return <ViewPlaceholder detail="This may take a moment." icon={Loader2} title="Loading activity log…" />;
-  if (!rows.length) return <ViewPlaceholder detail="Invitations, suspensions, limit changes and file or project deletions appear here." icon={ScrollText} title="The activity log is empty" />;
+  if (!rows.length) return <ViewPlaceholder detail="Invitations, suspensions, limit changes and file or project deletions appear here." figure={drawer} title="The activity log is empty" />;
 
   const klasaPola = 'h-8 rounded-lg border border-line-strong bg-surface-raised px-2 text-xs outline-none focus:ring-2 focus:ring-[#4d8b80]/30';
 

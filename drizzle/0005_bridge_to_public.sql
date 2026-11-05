@@ -1,0 +1,13 @@
+-- Changes nothing. It holds this number so that the migration line on OpenAI
+-- Sites and this one share every name from 0006 on.
+--
+-- The MeshKeep database on Sites was first migrated with an older line
+-- (0000_odd_havok .. 0004_sanitize_public_demo) and reached this schema through
+-- a bridge migration with this same name, kept in `deploy/sites/migrations`.
+-- Migrations are recorded by file name, so the two lines cannot share names
+-- below this one. From 0006 on, `scripts/sites-migrations.mjs` copies each
+-- migration from here to the Sites line unchanged.
+--
+-- A statement is needed because `wrangler d1 execute --file` refuses a file
+-- that holds only comments.
+SELECT 1;

@@ -36,6 +36,20 @@
       "when": 1793716558528,
       "tag": "0004_model_effort",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793824216077,
+      "tag": "0005_bridge_to_public",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793825863551,
+      "tag": "0006_chat_runs",
+      "breakpoints": true
     }
   ]
 }

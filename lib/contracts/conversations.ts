@@ -70,6 +70,9 @@ export const chatRequest = z.object({
   attachmentIds: z.array(id).max(8).default([]),
   temperature: z.number().min(0).max(1.5).default(0.4),
   maxTokens: z.number().int().min(64).max(4096).default(2048),
+  // New for each message the user sends. The same id twice is refused rather
+  // than answered and paid for twice.
+  clientRequestId: id.optional(),
   // Sent as `reasoning_effort`, and only for a model marked as accepting it.
   effort: effortLevel.optional(),
 });

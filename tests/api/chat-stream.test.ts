@@ -1,10 +1,13 @@
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ChatRequest, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
 import { bootstrapResponse } from '@/lib/contracts/account';
 import { instructionsResponse, updateInstructionsResponse } from '@/lib/contracts/projects';
+import { type UpdateMemberRequest } from '@/lib/contracts/team';
+import { usageResponse } from '@/lib/contracts/usage';
 import { providerState, type SaveEffortModelsRequest, type SaveProviderRequest, saveEffortModelsResponse, saveProviderResponse } from '@/lib/contracts/providers';
+import { abandonedRunCharge } from '@/lib/usage-policy';
 import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Czat od poczatku do konca, ale z falszywym dostawca modelu postawionym w tym
@@ -35,18 +38,15 @@ function postawDostawce(): Promise<void> {
       const tresc = JSON.parse(cialo) as { stream?: boolean; messages: Wiadomosc[]; reasoning_effort?: string };
       odebrane.push(tresc);
       const pytanie = tresc.messages.at(-1)?.content ?? '';
-      odpowiedz.writeHead(200, { 'Content-Type': 'text/event-stream' });
-      odpowiedz.write(zdarzenieSse({ choices: [{ delta: { content: 'Hello' } }] }));
-      if (pytanie.includes('PRZERWIJ')) {
-        // Zerwane polaczenie w polowie odpowiedzi, jak przy awarii dostawcy.
-        setTimeout(() => odpowiedz.destroy(), 50);
+      if (pytanie.includes('ODMOW')) {
+        // Dostawca odmawia, zanim cokolwiek wygeneruje.
+        odpowiedz.writeHead(500, { 'Content-Type': 'application/json' });
+        odpowiedz.end(JSON.stringify({ error: { message: 'awaria' } }));
         return;
       }
-      odpowiedz.write(zdarzenieSse({ choices: [{ delta: { content: ' **world**' } }] }));
-      if (!pytanie.includes('BEZ_USAGE')) {
-        odpowiedz.write(zdarzenieSse({ choices: [], usage: { prompt_tokens: 11, completion_tokens: 3 } }));
-      }
-      odpowiedz.end('data: [DONE]\n\n');
+      // Wolny dostawca trzyma generacje otwarta, zeby drugie zadanie trafilo
+      // na nia w trakcie.
+      setTimeout(() => odpowiedzStrumieniem(odpowiedz, pytanie), pytanie.includes('WOLNO') ? 4_000 : 0);
     });
   });
   return new Promise((gotowe) => {
@@ -57,13 +57,30 @@ function postawDostawce(): Promise<void> {
   });
 }
 
+function odpowiedzStrumieniem(odpowiedz: ServerResponse, pytanie: string) {
+  odpowiedz.writeHead(200, { 'Content-Type': 'text/event-stream' });
+  odpowiedz.write(zdarzenieSse({ choices: [{ delta: { content: 'Hello' } }] }));
+  if (pytanie.includes('PRZERWIJ')) {
+    // Zerwane polaczenie w polowie odpowiedzi, jak przy awarii dostawcy.
+    setTimeout(() => odpowiedz.destroy(), 50);
+    return;
+  }
+  odpowiedz.write(zdarzenieSse({ choices: [{ delta: { content: ' **world**' } }] }));
+  if (!pytanie.includes('BEZ_USAGE')) {
+    odpowiedz.write(zdarzenieSse({ choices: [], usage: { prompt_tokens: 11, completion_tokens: 3 } }));
+  }
+  odpowiedz.end('data: [DONE]\n\n');
+}
+
 type Zdarzenie = { type: string; text?: string; error?: string; conversationId?: string; usage?: { inputTokens: number; outputTokens: number; estimated: boolean }; context?: Array<{ id: string; path: string; status: string }> };
 
-async function czat(token: string, pytanie: string, zalaczniki: string[] = [], opcje: Partial<Pick<ChatRequest, 'effort' | 'model'>> = {}) {
+type OpcjeCzatu = Partial<Pick<ChatRequest, 'effort' | 'model' | 'maxTokens' | 'clientRequestId'>>;
+
+async function czat(token: string, pytanie: string, zalaczniki: string[] = [], opcje: OpcjeCzatu = {}) {
   const odp = await zapytaj('/api/chat', {
     method: 'POST',
     headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId: ID.projektWspolny, model: opcje.model ?? 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki, effort: opcje.effort } satisfies ChatRequest),
+    body: JSON.stringify({ projectId: ID.projektWspolny, model: opcje.model ?? 'falszywy-model', messages: [{ role: 'user', content: pytanie }], attachmentIds: zalaczniki, effort: opcje.effort, maxTokens: opcje.maxTokens, clientRequestId: opcje.clientRequestId } satisfies ChatRequest),
   });
   const zdarzenia = odp.tekst.split('\n').filter((linia) => linia.trim()).map((linia) => JSON.parse(linia) as Zdarzenie);
   return { odp, zdarzenia, tekst: zdarzenia.filter((z) => z.type === 'delta').map((z) => z.text).join('') };
@@ -75,10 +92,16 @@ async function czat(token: string, pytanie: string, zalaczniki: string[] = [], o
 const KLUCZ_SZYFROWANIA = 'k'.repeat(48);
 const KLUCZ_DOSTAWCY = 'f'.repeat(24);
 
+// Generacja, po ktorej worker zniknal 40 minut temu: wciaz `running`, nigdy
+// nierozliczona. Na koncie czytelnika, ktory sam nie rozmawia, wiec cale jego
+// zuzycie to jej rozliczenie.
+const PORZUCONY = { reservedInputTokens: 1_000, reservedOutputTokens: 2_048 };
+const PORZUCONY_SQL = `INSERT INTO chat_runs (id,member_id,project_id,conversation_id,client_request_id,model,status,reserved_input_tokens,reserved_output_tokens,created_at) VALUES ('${crypto.randomUUID()}','${ID.czytelnik}','${ID.projektWspolny}','${crypto.randomUUID()}','${crypto.randomUUID()}','falszywy-model','running',${PORZUCONY.reservedInputTokens},${PORZUCONY.reservedOutputTokens},${Date.now() - 40 * 60_000});`;
+
 beforeAll(async () => {
   await postawDostawce();
   zbudujJesliTrzeba();
-  await startWorkera({ zmienne: { PROVIDER_KEY_ENCRYPTION_KEY: KLUCZ_SZYFROWANIA } });
+  await startWorkera({ zmienne: { PROVIDER_KEY_ENCRYPTION_KEY: KLUCZ_SZYFROWANIA }, dodatkowySql: PORZUCONY_SQL });
   const zapis = await zapytaj('/api/provider', {
     method: 'PUT',
     headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel), 'Content-Type': 'application/json' },
@@ -224,5 +247,104 @@ describe('effort', () => {
 
     // Drugi model nie jest oznaczony, wiec effort dla niego dalej odpada.
     expect((await czat(TOKENY.wlasciciel, 'Pytanie z effort', [], { effort: 'low', model: 'drugi-model' })).odp.status).toBe(400);
+  });
+});
+
+describe('budzet odpowiedzi', () => {
+  // Na koncie edytora, z jego wlasnym dostawca: ma osobny limit i osobny
+  // licznik zadan na minute, wiec testy wlasciciela nie wplywaja na wynik.
+  beforeAll(async () => {
+    const zapis = await zapytaj('/api/provider', {
+      method: 'PUT',
+      headers: { ...ORIGIN, ...jako(TOKENY.edytor), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'Falszywy edytora', baseUrl: adresDostawcy, apiKey: KLUCZ_DOSTAWCY, scope: 'mine' } satisfies SaveProviderRequest),
+    });
+    if (zapis.status >= 300) throw new Error(`Zapis dostawcy edytora nie powiodl sie: ${zapis.status} ${zapis.tekst}`);
+  });
+
+  async function zuzyteDzis() {
+    const stan = usageResponse.parse((await zapytaj('/api/usage', { headers: jako(TOKENY.edytor) })).dane);
+    return stan.today.inputTokens + stan.today.outputTokens;
+  }
+
+  async function ustawLimitDzienny(dailyTokens: number) {
+    const odp = await zapytaj(`/api/team/members/${ID.edytor}`, {
+      method: 'PATCH',
+      headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dailyTokens } satisfies UpdateMemberRequest),
+    });
+    expect(odp.status, odp.tekst).toBe(200);
+  }
+
+  const czekaj = (ms: number) => new Promise((gotowe) => setTimeout(gotowe, ms));
+
+  it('dwa zadania naraz nie przechodza przez limit, w ktorym miesci sie jedna rezerwacja', async () => {
+    // Zostaje 50 tokenow, a kazda odpowiedz rezerwuje co najmniej 64 na sam
+    // sufit odpowiedzi. Pierwsze zadanie przechodzi, bo nic nie bylo zajete.
+    // Drugie przychodzi, gdy pierwsze czeka na dostawce, i widzi jego
+    // rezerwacje. Bez rezerwacji przeszlyby oba, bo zuzycie zapisuje sie
+    // dopiero po odpowiedzi.
+    await ustawLimitDzienny((await zuzyteDzis()) + 50);
+    try {
+      const pierwsze = czat(TOKENY.edytor, 'WOLNO pierwsze', [], { maxTokens: 64 });
+      await czekaj(1_500);
+      const drugie = await czat(TOKENY.edytor, 'Drugie', [], { maxTokens: 64 });
+      expect(drugie.odp.status, drugie.odp.tekst).toBe(429);
+      expect(String(drugie.odp.dane.error)).toMatch(/in progress/);
+
+      const wynik = await pierwsze;
+      expect(wynik.zdarzenia.at(-1)?.type, wynik.odp.tekst).toBe('done');
+
+      // Rozliczone 11 + 3 tokeny mieszcza sie w limicie, a rezerwacja juz
+      // niczego nie trzyma.
+      const trzecie = await czat(TOKENY.edytor, 'Trzecie', [], { maxTokens: 64 });
+      expect(trzecie.odp.status, trzecie.odp.tekst).toBe(200);
+    } finally {
+      await ustawLimitDzienny(400_000);
+    }
+  });
+
+  it('odmowa dostawcy oddaje rezerwacje i niczego nie nalicza', async () => {
+    const przed = await zuzyteDzis();
+    await ustawLimitDzienny(przed + 50);
+    try {
+      const odmowa = await czat(TOKENY.edytor, 'ODMOW', [], { maxTokens: 64 });
+      expect(odmowa.odp.status, odmowa.odp.tekst).toBe(502);
+      expect(await zuzyteDzis()).toBe(przed);
+      // Gdyby rezerwacja zostala, to zadanie odbiloby sie od limitu.
+      const potem = await czat(TOKENY.edytor, 'Po odmowie', [], { maxTokens: 64 });
+      expect(potem.odp.status, potem.odp.tekst).toBe(200);
+    } finally {
+      await ustawLimitDzienny(400_000);
+    }
+  });
+
+  it('ta sama wiadomosc wyslana drugi raz nie dostaje drugiej odpowiedzi', async () => {
+    const clientRequestId = crypto.randomUUID();
+    const pytanie = `Pytanie z identyfikatorem ${clientRequestId}`;
+    await czat(TOKENY.edytor, pytanie, [], { clientRequestId });
+    const powtorka = await czat(TOKENY.edytor, pytanie, [], { clientRequestId });
+    expect(powtorka.odp.status, powtorka.odp.tekst).toBe(409);
+
+    // Jedna rozmowa z jedna odpowiedzia, takze gdy harness ponowil pierwsze
+    // zadanie po zgubionej odpowiedzi wranglera.
+    const lista = projectConversations.parse((await zapytaj(`/api/projects/${ID.projektWspolny}/conversations`, { headers: jako(TOKENY.edytor) })).dane);
+    const rozmowy = lista.conversations.filter((rozmowa) => rozmowa.title === pytanie);
+    expect(rozmowy).toHaveLength(1);
+    const szczegoly = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${rozmowy[0].id}`, { headers: jako(TOKENY.edytor) });
+    expect(conversationDetail.parse(szczegoly.dane).messages.filter((w) => w.role === 'assistant')).toHaveLength(1);
+  });
+});
+
+describe('porzucona generacja', () => {
+  it('jest rozliczona przy nastepnej odpowiedzi, wedlug polityki, raz', async () => {
+    // Kazda rezerwacja najpierw rozlicza porzucone generacje, a wczesniejsze
+    // testy w tym pliku juz rezerwowaly. Ta jeszcze dla pewnosci.
+    expect((await czat(TOKENY.wlasciciel, 'Po porzuconej')).odp.status).toBe(200);
+    const oplata = abandonedRunCharge(PORZUCONY);
+    const stan = usageResponse.parse((await zapytaj('/api/usage', { headers: jako(TOKENY.czytelnik) })).dane);
+    // Suma po dniach, bo 40 minut temu mogl byc jeszcze wczoraj.
+    const suma = stan.byDay.reduce((razem, dzien) => razem + dzien.inputTokens + dzien.outputTokens, 0);
+    expect(suma).toBe(oplata.inputTokens + oplata.outputTokens);
   });
 });
