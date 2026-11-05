@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deletedResponse } from '@/lib/contracts/common';
-import { allConversations, projectConversations } from '@/lib/contracts/conversations';
+import { allConversations, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
 import { fileSuggestions, indexRound, projectFiles } from '@/lib/contracts/files';
 import { searchResults } from '@/lib/contracts/search';
 import { MARK_START } from '@/lib/search';
@@ -15,12 +15,23 @@ const t = Date.now();
 const wiadomosc = (id: string, rozmowa: string, autor: string, tresc: string) =>
   `INSERT INTO messages (id,conversation_id,member_id,role,content,created_at) VALUES ('${id}','${rozmowa}','${autor}','user','${tresc}',${t});`;
 
+// Rozmowa dluzsza niz limit historii (200): wiadomosci 1..205, kazda o
+// milisekunde pozniej od poprzedniej.
+const DLUGA_ROZMOWA = crypto.randomUUID();
+const DLUGOSC = 205;
+// Projekt z kopia na Dysku Google. W testach Dysk nie jest skonfigurowany, wiec
+// wysylka pada juz po zapisie do R2 - dokladnie tam, gdzie zostawal sierota.
+const PROJEKT_NA_DYSKU = crypto.randomUUID();
+
 const DODATKOWE_WIADOMOSCI = [
   wiadomosc('w-1', ID.rozmowaWlasciciela, ID.wlasciciel, 'Plan migracji bazy na wiosnę'),
   wiadomosc('w-2', ID.rozmowaObcego, ID.obcy, 'Tajny plan migracji obcego'),
   wiadomosc('w-3', ID.rozmowaKasowanaPrzezAutora, ID.edytor, 'Notatka o kolibrach do usunięcia'),
   wiadomosc('w-4', ID.rozmowaZespolowa, ID.obcy, 'Harmonogram dyżurów całego zespołu'),
   wiadomosc('w-5', ID.rozmowaObcego, ID.obcy, 'Prywatny harmonogram obcego'),
+  `INSERT INTO conversations (id,project_id,created_by,title,created_at,updated_at) VALUES ('${DLUGA_ROZMOWA}','${ID.projektWspolny}','${ID.wlasciciel}','Dluga rozmowa',${t},${t});`,
+  `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${DLUGOSC}) INSERT INTO messages (id,conversation_id,member_id,role,content,created_at) SELECT 'dluga-' || i, '${DLUGA_ROZMOWA}', '${ID.wlasciciel}', 'user', 'Wpis numer ' || i, ${t} + i FROM n;`,
+  `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,drive_folder_id,created_at,updated_at) VALUES ('${PROJEKT_NA_DYSKU}','${ID.wlasciciel}','Projekt na Dysku','','private','google_drive','folder-testowy',${t},${t});`,
 ].join('\n');
 
 function wyslij(token: string, projekt: string, pliki: Array<{ sciezka: string; tresc: string }>) {
@@ -188,3 +199,32 @@ describe('liczniki wiadomosci', () => {
     expect(allConversations.parse(wszystkie.dane).conversations.find((r) => r.id === ID.rozmowaObcego)).toMatchObject({ messageCount: 2 });
   });
 });
+
+describe('dluga rozmowa', () => {
+  it('po odswiezeniu pokazuje najnowsze wiadomosci, w kolejnosci od najstarszej', async () => {
+    const odp = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${DLUGA_ROZMOWA}`, { headers: jako(TOKENY.wlasciciel) });
+    expect(odp.status, odp.tekst).toBe(200);
+    const tresci = conversationDetail.parse(odp.dane).messages.map((w) => w.content);
+    // Limit to 200, wiec z 205 wypada piec najstarszych, a nie piec najnowszych.
+    expect(tresci).toHaveLength(200);
+    expect(tresci[0]).toBe(`Wpis numer ${DLUGOSC - 199}`);
+    expect(tresci.at(-1)).toBe(`Wpis numer ${DLUGOSC}`);
+  });
+});
+
+describe('wysylka z kopia na Dysk Google', () => {
+  it('nieudana kopia na Dysk nie zostawia w R2 pliku bez wiersza w bazie', async () => {
+    const sierotyPrzed = await sieroty();
+    const odp = await wyslij(TOKENY.wlasciciel, PROJEKT_NA_DYSKU, [{ sciezka: 'notatki/dysk.txt', tresc: 'Tresc dla Dysku' }]);
+    // Dysk nie jest skonfigurowany, wiec wysylka pada po zapisie do R2.
+    expect(odp.status, odp.tekst).toBe(503);
+    expect(await sieroty()).toEqual(sierotyPrzed);
+  });
+});
+
+// Obiekty w R2 bez wiersza w bazie, wedlug manifestu wlasciciela.
+async function sieroty() {
+  const odp = await zapytaj('/api/admin/backup', { method: 'POST', headers: jako(TOKENY.wlasciciel) });
+  expect(odp.status, odp.tekst).toBe(200);
+  return (odp.dane as { orphanInStorage: string[] }).orphanInStorage;
+}

@@ -89,10 +89,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((value) => value.toString(16).padStart(2, '0')).join('');
       const objectKey = `projects/${id}/${crypto.randomUUID()}`;
       await env.FILES.put(objectKey, bytes, { httpMetadata: { contentType: 'application/octet-stream' }, customMetadata: { sha256: hash } });
+      // Recorded as soon as it is in R2, so a failure from here on, the Drive
+      // copy included, removes it again instead of leaving it orphaned.
+      storedKeys.push(objectKey);
       if (access.project.storageProvider === 'google_drive' && access.project.driveFolderId) {
         await uploadDriveFile({ name: relativePath, parentId: access.project.driveFolderId, bytes, mimeType: file.type || 'application/octet-stream' });
       }
-      storedKeys.push(objectKey);
       const row = { id: crypto.randomUUID(), projectId: id, uploadedBy: member.id, objectKey, relativePath, name: relativePath.split('/').at(-1) ?? file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size, sha256: hash, createdAt: new Date() };
       rows.push(row);
       const indexRow = await uploadIndexRow(row, byteView);

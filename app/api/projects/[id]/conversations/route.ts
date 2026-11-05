@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from '@/db';
 import { conversations, messages } from '@/db/schema';
@@ -33,12 +33,16 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .where(and(eq(conversations.id, parsed.data), eq(conversations.projectId, id)))
         .limit(1);
       if (!conversation) return json({ error: 'Conversation not found.' }, { status: 404 });
-      const rows = await db
+      // The newest messages, shown oldest first. Taking the first ones instead
+      // made a conversation longer than the limit lose its latest exchanges
+      // on reload. `rowid` orders rows written in the same millisecond.
+      const newest = await db
         .select({ role: messages.role, content: messages.content, model: messages.model, contextFiles: messages.contextFiles, createdAt: messages.createdAt })
         .from(messages)
         .where(eq(messages.conversationId, conversation.id))
-        .orderBy(asc(messages.createdAt))
+        .orderBy(desc(messages.createdAt), desc(sql`rowid`))
         .limit(MAX_MESSAGES);
+      const rows = newest.reverse();
       return json({ conversation, messages: rows.map((row) => ({ ...row, contextFiles: readContextFiles(row.contextFiles) })) });
     }
 
