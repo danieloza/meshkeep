@@ -204,6 +204,36 @@ export const usageEvents = sqliteTable(
   (table) => [index('usage_events_member_date_idx').on(table.memberId, table.createdAt)],
 );
 
+// One answer requested from a model, written before the provider is called.
+// While it runs, it holds a reservation against the member's limits, so that
+// requests sent at the same time see each other. It stays behind if the worker
+// is stopped before the answer is saved, and is then charged as abandoned.
+export const chatRuns = sqliteTable(
+  'chat_runs',
+  {
+    id: text('id').primaryKey(),
+    memberId: text('member_id').notNull().references(() => members.id),
+    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    // No foreign key: a new conversation is written only with its first answer.
+    conversationId: text('conversation_id').notNull(),
+    // Chosen by the browser for each message, so the same message sent twice
+    // is refused rather than answered and paid for twice.
+    clientRequestId: text('client_request_id').notNull(),
+    model: text('model').notNull(),
+    status: text('status', { enum: ['running', 'succeeded', 'failed', 'abandoned'] }).notNull().default('running'),
+    // Estimated prompt size and the answer's token ceiling (`maxTokens`).
+    reservedInputTokens: integer('reserved_input_tokens').notNull(),
+    reservedOutputTokens: integer('reserved_output_tokens').notNull(),
+    createdAt: timestamp('created_at'),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    uniqueIndex('chat_runs_member_request_uq').on(table.memberId, table.clientRequestId),
+    index('chat_runs_member_status_idx').on(table.memberId, table.status, table.createdAt),
+    index('chat_runs_status_created_idx').on(table.status, table.createdAt),
+  ],
+);
+
 export const memberLimits = sqliteTable('member_limits', {
   memberId: text('member_id').primaryKey().references(() => members.id, { onDelete: 'cascade' }),
   dailyTokens: integer('daily_tokens').notNull().default(400_000),

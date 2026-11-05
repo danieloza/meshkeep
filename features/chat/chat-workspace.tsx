@@ -317,7 +317,7 @@ export function ChatWorkspace({ project, models, onClose, onFileCountChange, onC
         const fresh = await api.projects.suggestFiles(project.id, content.slice(0, 500)).catch(() => ({ files: [] as FileSuggestion[] }));
         autoIds = autoAttachments(fresh.files.map((file) => file.fileId), selectedFileIds, dismissedAuto, MAX_SELECTED_FILES);
       }
-      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048, effort: effortAvailable ? effort : undefined });
+      const answer = await api.chat({ projectId: project.id, conversationId, model: activeModel, messages: nextMessages.slice(-20).map(({ role, content: text }) => ({ role, content: text })), attachmentIds: [...selectedFileIds, ...autoIds], temperature: 0.4, maxTokens: 2048, effort: effortAvailable ? effort : undefined, clientRequestId: crypto.randomUUID() });
       streaming = true;
       setChatMessages((current) => [...current, { role: 'assistant', content: '', pending: true }]);
       const reader = answer.getReader();
