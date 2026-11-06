@@ -55,12 +55,15 @@ npm run check:public
 ```
 
 Database changes add migrations and must not lose data.
-`tests/migration-baseline.test.ts` catches `DELETE FROM`, `DROP COLUMN` and a
-`DROP TABLE` that is not a full-copy rebuild. It does not catch an `UPDATE`
-that overwrites values, and it does not prove a rebuild copied every value. So
-a migration that changes existing rows is named in the brief, checked on a copy
-of representative data (the deploy handoff's verification script does this),
-and deployed after a backup. The hosted instance takes migrations through its
+`tests/migration-baseline.test.ts` rejects `DELETE FROM` and `DROP COLUMN`, and
+allows `DROP TABLE` only in the shape of a rebuild: an `INSERT` into `__new_x`
+from `x` without `WHERE`, then a rename. It checks the text of the SQL, not
+what it does: an `UPDATE` that overwrites values passes, and so does a rebuild
+that copies fewer rows than it drops (for example with `SELECT COUNT(*)`). So a
+migration that changes existing rows or rebuilds a table is named in the brief,
+checked on a copy of representative data with row counts and values compared
+before and after (the deploy handoff's verification script does this), and
+deployed after a backup. The hosted instance takes migrations through its
 own line: never edit `deploy/sites/migrations/` (`deploy/sites/README.md`).
 
 ## Gates: what needs the owner

@@ -32,11 +32,12 @@ would verify it; it never counts as passed.
       answer used as an instruction, as HTML, or in SQL without a guard?
 - [ ] **Secrets.** No keys, tokens, real addresses or private hostnames in code,
       tests, logs or the description.
-- [ ] **Data.** Migrations add, and a table rebuild copies every row. A
-      migration or bulk operation that changes existing rows is named in the
-      brief, tested on representative data and deployed after a backup. (An
-      ordinary write a person asks for in the app, such as a renamed project, is
-      not this.)
+- [ ] **Data.** Migrations add. A migration that rebuilds a table, or a
+      migration or bulk operation that changes existing rows, is named in the
+      brief, checked on representative data with row counts and values
+      compared before and after, and deployed after a backup. The migration
+      test only checks the SQL's shape. (An ordinary write a person asks for in
+      the app, such as a renamed project, is not this.)
 - [ ] **What the person sees.** Text and errors say what happened and what to do.
 
 ## 3. Report

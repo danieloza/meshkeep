@@ -8,8 +8,10 @@ const read = (name: string) => readFileSync(join(migrationDirectory, name), 'utf
 
 // SQLite cannot change a table's primary key in place. The only way is to
 // rebuild it: create `__new_x`, copy every row of `x` into it, drop `x` and
-// rename `__new_x` to `x`. That drops a table without losing a row, so it is
-// the one DROP TABLE allowed here, and only in that exact shape.
+// rename `__new_x` to `x`. Done right, that drops a table without losing a
+// row, so it is the one DROP TABLE allowed here, and only in that shape. This
+// checks the shape of the SQL, not that every row was copied: a copy with
+// `SELECT COUNT(*)` would pass. That takes a check on real data.
 function isRebuild(sql: string, table: string): boolean {
   const copy = new RegExp(`INSERT INTO \`__new_${table}\`[\\s\\S]*?FROM \`${table}\`\\s*;`, 'i').exec(sql);
   const renamed = new RegExp(`ALTER TABLE \`__new_${table}\` RENAME TO \`${table}\``, 'i').test(sql);

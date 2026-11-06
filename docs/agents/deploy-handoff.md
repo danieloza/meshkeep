@@ -30,11 +30,16 @@ release expects that is not there). Leave empty only after checking.
 The deployer checks the digest before deploying and records it after.
 
 ## 2. Database
-- The live migration line and journal, as the deployer's backup shows it, not as
-  the builder assumes it.
+- The live migration line, and **how it is known**: *observed* (the deployer
+  read the migration journal on the instance) or *inferred* (from the line of
+  the last deployed package and the deploy reports). A logical export of user
+  tables has no journal and no schema, so it cannot show the line; say so
+  rather than present an inferred line as observed.
 - The migrations this release applies, and only those; what each one does to
   existing rows.
 - Prerequisites (data that must or must not be there).
+- If what is known cannot show that the next migration is safe, stop and ask
+  the owner. Never write a guessed journal.
 
 ## 3. Environment
 Variables and secrets that are added, changed or removed, **by name only**.
@@ -42,13 +47,17 @@ Values the release must keep unchanged are listed too (for example, an
 encryption key that existing data depends on).
 
 ## 4. Backup
-How the backup is taken before deploying, what it covers, and what it does not
-(for example, stored files, or rows past an export limit). A backup nobody has
-restored is a hope, not a recovery plan: say whether a restore was tested.
+How the backup is taken before deploying, what it covers, and what it does not.
+For example, a logical export of user tables has no migration journal, no
+schema and no stored file bytes, and may stop at a row limit. A backup nobody
+has restored is a hope, not a recovery plan: say whether a restore was tested,
+and by which path.
 
 ## 5. What was verified, and how
-The verification script and its result, run on a copy of the live state (from
-the backup, not a seeded guess), with the package itself.
+The verification script and its result, run with the package itself on a copy
+of the live state: the data from the backup, on the migration line from
+section 2 (say whether that line was observed or inferred), never a seeded
+guess.
 
 ## 6. After deploying
 Probes anyone can run without signing in, each with the expected result: a file
