@@ -2,7 +2,7 @@ import 'server-only';
 
 import { env } from 'cloudflare:workers';
 import { count, eq } from 'drizzle-orm';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { type ChatGPTUser, getChatGPTUser } from '@/app/chatgpt-auth';
 import { getDb } from '@/db';
 import { invites, memberLimits, members, projects } from '@/db/schema';
 import { ApiError } from './http';
@@ -43,6 +43,26 @@ export function ownerInserts(db: ReturnType<typeof getDb>, owner: CurrentMember)
   ] as const;
 }
 
+// The name the platform gives a person, when it gives one. Only the full name
+// counts: without it the platform falls back to the email address, and that
+// can be a private relay address nobody wants to see as a name.
+function platformName(identity: ChatGPTUser | null): string | null {
+  const name = identity?.fullName?.trim().slice(0, 100);
+  return name ? name : null;
+}
+
+// On Sites the platform knows each person's name, and nobody can rename
+// themselves in the app. A member whose name differs from the platform's takes
+// the platform's, at sign-in. That is how the first owner, once created as
+// "Demo Owner", gets a real name. Only for the account the session belongs to.
+export async function syncPlatformName(member: CurrentMember, identity: ChatGPTUser | null): Promise<CurrentMember> {
+  const name = platformName(identity);
+  if (!identity || !name || name === member.displayName) return member;
+  if (member.providerUserId !== await sha256(`chatgpt:${identity.userId}`)) return member;
+  await getDb().update(members).set({ displayName: name, updatedAt: new Date() }).where(eq(members.id, member.id));
+  return { ...member, displayName: name };
+}
+
 export async function requireMember(): Promise<CurrentMember> {
   const sessionMember = await getSessionMember();
   if (sessionMember) return sessionMember;
@@ -72,7 +92,7 @@ export async function requireMember(): Promise<CurrentMember> {
     if (existing.status !== 'active') {
       throw new ApiError(403, 'This account has been suspended.');
     }
-    return existing;
+    return syncPlatformName(existing, identity);
   }
 
   const [{ value: memberCount }] = await db.select({ value: count() }).from(members);
@@ -103,7 +123,7 @@ export async function requireMember(): Promise<CurrentMember> {
 
   const now = new Date();
   const member: CurrentMember = mayBootstrapOwner
-    ? newOwnerMember(providerUserId, 'Demo Owner')
+    ? newOwnerMember(providerUserId, platformName(identity) ?? 'Owner')
     : {
         id: crypto.randomUUID(),
         providerUserId,
