@@ -201,7 +201,13 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.bootstrap(), api.projects.list(), api.team.get()])
+    // Claim first. It activates the session and takes the name the platform
+    // has now (see `syncPlatformName`), so everything loaded after it, the
+    // header, the team and each view's own requests, shows the same name. A
+    // failed claim changes nothing: the requests below still pass on the
+    // platform's identity, or fail with their own status.
+    api.auth.claim().catch(() => undefined)
+      .then(() => Promise.all([api.bootstrap(), api.projects.list(), api.team.get()]))
       .then(([bootstrap, payload, team]) => {
         if (!active) return;
         setCurrentRole(bootstrap.member.role);
@@ -228,16 +234,6 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
           if (cleaned !== window.location.search) writeUrl(cleaned, 'replace');
           if (target) setNotice('That project is not available, or you no longer have access to it.');
         }
-        // Claiming also takes the name the platform has now (see
-        // `syncPlatformName`). When it changed, the header and the team list
-        // show it on this load, not the next. A failed claim changes nothing
-        // here: requests still pass on the platform's identity.
-        void api.auth.claim().then((signed) => {
-          const name = signed.member.displayName;
-          if (!active || name === bootstrap.member.displayName) return;
-          setCurrentMemberName(name);
-          setTeamMembers((current) => current.map((member) => (member.id === bootstrap.member.id ? { ...member, displayName: name } : member)));
-        }).catch(() => undefined);
       })
       .catch((error) => {
         if (!active) return;
