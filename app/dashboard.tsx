@@ -228,7 +228,16 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
           if (cleaned !== window.location.search) writeUrl(cleaned, 'replace');
           if (target) setNotice('That project is not available, or you no longer have access to it.');
         }
-        void api.auth.claim().catch(() => undefined);
+        // Claiming also takes the name the platform has now (see
+        // `syncPlatformName`). When it changed, the header and the team list
+        // show it on this load, not the next. A failed claim changes nothing
+        // here: requests still pass on the platform's identity.
+        void api.auth.claim().then((signed) => {
+          const name = signed.member.displayName;
+          if (!active || name === bootstrap.member.displayName) return;
+          setCurrentMemberName(name);
+          setTeamMembers((current) => current.map((member) => (member.id === bootstrap.member.id ? { ...member, displayName: name } : member)));
+        }).catch(() => undefined);
       })
       .catch((error) => {
         if (!active) return;
