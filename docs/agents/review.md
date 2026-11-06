@@ -16,7 +16,8 @@ check each one against evidence the author did not produce:
 - the documentation of a library or platform, for claims about how it behaves.
 
 For each claim write: the claim, how you checked it, what you found, and whether
-it holds.
+it holds. A claim you could not check is reported as **not verified**, with what
+would verify it; it never counts as passed.
 
 ## 2. Checklist
 
@@ -31,8 +32,11 @@ it holds.
       answer used as an instruction, as HTML, or in SQL without a guard?
 - [ ] **Secrets.** No keys, tokens, real addresses or private hostnames in code,
       tests, logs or the description.
-- [ ] **Data.** Migrations only add; nothing deletes or rewrites existing data
-      without a copy.
+- [ ] **Data.** Migrations add, and a table rebuild copies every row. A
+      migration or bulk operation that changes existing rows is named in the
+      brief, tested on representative data and deployed after a backup. (An
+      ordinary write a person asks for in the app, such as a renamed project, is
+      not this.)
 - [ ] **What the person sees.** Text and errors say what happened and what to do.
 
 ## 3. Report

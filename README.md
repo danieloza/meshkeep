@@ -230,7 +230,7 @@ npm run smoke -- https://your-meshkeep.example
 
 ## Database and backups
 
-The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` never delete data: they add tables and columns, and a table whose primary key changes is rebuilt with every row copied, as SQLite requires. `tests/migration-baseline.test.ts` enforces both. Apply them in order before deploying a release that includes them.
+The public repository starts with one non-destructive baseline migration. It does not contain the one-time production cleanup migration used by the original private deployment. Later migrations in `drizzle/` never delete data: they add tables and columns, and a table whose primary key changes is rebuilt with every row copied, as SQLite requires. `tests/migration-baseline.test.ts` rejects `DELETE FROM`, `DROP COLUMN` and a `DROP TABLE` outside such a rebuild; it does not catch an `UPDATE` that overwrites values, so a migration that changes existing rows is also tested on a copy of real data before release. Apply them in order before deploying a release that includes them.
 
 The original deployment on OpenAI Sites has an older migration history, so it takes the same migrations through its own line. `npm run sites:migrations` builds that line; see [deploy/sites/README.md](deploy/sites/README.md).
 
