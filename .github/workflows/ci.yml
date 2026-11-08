@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  # On install, onnxruntime-node downloads optional GPU binaries from NuGet, and
+  # `npm ci` fails when that host times out. MeshKeep does not use them: speech
+  # runs in the browser on WebAssembly, and the CPU binaries come with the package.
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 jobs:
   quality:
     name: Quality (Node ${{ matrix.node }})
