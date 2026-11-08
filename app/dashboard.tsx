@@ -26,6 +26,7 @@ import type { ProjectSharing } from '@/features/projects/project-people';
 import { type Project, PROJECT_FILE_ACCEPT } from '@/features/projects/project';
 import { SearchPalette, type SearchTarget } from '@/features/search/search-palette';
 import { FilterInput } from '@/components/filter-input';
+import { claimFirst } from '@/features/shell/claim-first';
 import { loadFailure } from '@/features/shell/load-failure';
 import { type AuthMode, type Gate, SecureGate } from '@/features/shell/secure-gate';
 import { ProjectNav } from '@/features/shell/project-nav';
@@ -201,12 +202,11 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
 
   useEffect(() => {
     let active = true;
-    // Claim first. It activates the session and takes the name the platform
-    // has now (see `syncPlatformName`), so everything loaded after it, the
-    // header, the team and each view's own requests, shows the same name. A
-    // failed claim changes nothing: the requests below still pass on the
-    // platform's identity, or fail with their own status.
-    api.auth.claim().catch(() => undefined)
+    // Claim first: it activates the session and takes the platform's current
+    // name, so the header, the team and each view's own requests agree. A
+    // claim that fails or runs out of time changes nothing: the requests below
+    // still pass on the platform's identity, or fail with their own status.
+    claimFirst((signal) => api.auth.claim(signal))
       .then(() => Promise.all([api.bootstrap(), api.projects.list(), api.team.get()]))
       .then(([bootstrap, payload, team]) => {
         if (!active) return;

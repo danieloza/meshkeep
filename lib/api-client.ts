@@ -56,8 +56,8 @@ async function failure(response: Response): Promise<ApiRequestError> {
 
 type Body = { json: unknown } | { form: FormData };
 
-function send(method: string, path: string, body?: Body): Promise<Response> {
-  const init: RequestInit = { method, cache: 'no-store' };
+function send(method: string, path: string, body?: Body, signal?: AbortSignal): Promise<Response> {
+  const init: RequestInit = { method, cache: 'no-store', signal };
   if (body && 'json' in body) {
     init.headers = { 'Content-Type': 'application/json' };
     init.body = JSON.stringify(body.json);
@@ -68,8 +68,8 @@ function send(method: string, path: string, body?: Body): Promise<Response> {
   return fetch(path, init);
 }
 
-async function call<T>(method: string, path: string, body?: Body): Promise<T> {
-  const response = await send(method, path, body);
+async function call<T>(method: string, path: string, body?: Body, signal?: AbortSignal): Promise<T> {
+  const response = await send(method, path, body, signal);
   if (!response.ok) throw await failure(response);
   return (await response.json()) as T;
 }
@@ -81,7 +81,7 @@ export const api = {
   bootstrap: () => call<BootstrapResponse>('GET', '/api/bootstrap'),
 
   auth: {
-    claim: () => call<SignedIn>('POST', '/api/auth/claim'),
+    claim: (signal?: AbortSignal) => call<SignedIn>('POST', '/api/auth/claim', undefined, signal),
     join: (body: JoinRequest) => call<JoinResponse>('POST', '/api/auth/join', { json: body }),
     setup: (body: SetupRequest) => call<SetupResponse>('POST', '/api/auth/setup', { json: body }),
     logout: () => call<SignedOut>('POST', '/api/auth/logout'),

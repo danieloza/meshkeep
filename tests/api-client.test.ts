@@ -23,6 +23,14 @@ afterEach(() => {
 });
 
 describe('requests', () => {
+  it('hands the claim its signal, so a claim that runs out of time is cancelled', async () => {
+    const calls = fakeFetch(() => json({ authenticated: true, member: { displayName: 'A' } }));
+    const { signal } = new AbortController();
+    await api.auth.claim(signal);
+    expect(calls[0].url).toBe('/api/auth/claim');
+    expect(calls[0].init.signal).toBe(signal);
+  });
+
   it('reads without a cache and returns the parsed body', async () => {
     const calls = fakeFetch(() => json({ projects: [] }));
     expect(await api.projects.list()).toEqual({ projects: [] });
