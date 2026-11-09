@@ -363,6 +363,8 @@ export function ChatWorkspace({ project, models, team, currentMemberId, onSharin
         if (event.type === 'delta') {
           updateAnswer((message) => ({ ...message, content: message.content + event.text }));
         } else if (event.type === 'done') {
+          // A local of this async handler, not a value read during render.
+          // oxlint-disable-next-line react/immutability
           finished = true;
           if (!conversationId) setConversationTitle(visibleContent.slice(0, 80));
           setConversationId(event.conversationId);

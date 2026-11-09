@@ -55,6 +55,8 @@ export function SearchPalette({ projects, onClose, onOpenProject, onOpenResult }
     const timer = setTimeout(() => {
       api.search(term).then((data) => { if (current) setResults({ term, data }); }).catch(() => undefined);
     }, 250);
+    // An effect cleanup runs outside render. This is how a stale answer is dropped.
+    // oxlint-disable-next-line react/immutability
     return () => { current = false; clearTimeout(timer); };
   }, [term]);
 

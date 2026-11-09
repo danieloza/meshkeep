@@ -237,6 +237,8 @@ export function Dashboard({ authMode, initialSection = DEFAULT_SECTION }: { auth
         else setBlocked(failure);
       })
       .finally(() => { if (active) setLoading(false); });
+    // An effect cleanup runs outside render. This is how a late answer is dropped.
+    // oxlint-disable-next-line react/immutability
     return () => { active = false; };
   }, []);
 
