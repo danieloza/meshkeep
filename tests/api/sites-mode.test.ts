@@ -11,6 +11,8 @@ import { ORIGIN, sesjaZOdpowiedzi, startWorkera, stopWorkera, zapytaj, zbudujJes
 
 const KLUCZ = 'test-owner-setup-key-0123456789abcdef0123456789';
 const ADRES_WLASCICIELA = 'owner@example.com';
+// Sesja wlasciciela z testu, ktory go zaklada; kolejne testy z niej korzystaja.
+let sesjaWlasciciela: Record<string, string> = {};
 
 beforeAll(async () => {
   zbudujJesliTrzeba();
@@ -48,7 +50,30 @@ describe('tryb sites', () => {
 
     const bootstrap = await zapytaj('/api/bootstrap', { headers: sesja! });
     expect(bootstrap.status).toBe(200);
-    expect(bootstrapResponse.parse(bootstrap.dane).member.role).toBe('owner');
+    const { member } = bootstrapResponse.parse(bootstrap.dane);
+    expect(member.role).toBe('owner');
+    // Bez imienia od platformy: zwykle „Owner”, nie dawne „Demo Owner” i nie
+    // adres e-mail, ktory moze byc ukrytym adresem przekaznikowym.
+    expect(member.displayName).toBe('Owner');
+    sesjaWlasciciela = sesja!;
+  });
+
+  // Wlasciciel na produkcji powstal jako „Demo Owner”, a w aplikacji nie ma
+  // gdzie zmienic nazwy. Imie z platformy przychodzi przy logowaniu, czyli przy
+  // `claim`, ktory panel wola przy kazdym wczytaniu, takze z istniejaca sesja.
+  it('imie z platformy zastepuje nazwe przy logowaniu, tylko dla tego samego konta', async () => {
+    const imie = (nazwa: string) => ({ 'oai-authenticated-user-full-name': encodeURIComponent(nazwa), 'oai-authenticated-user-full-name-encoding': 'percent-encoded-utf-8' });
+    const nazwa = async () => bootstrapResponse.parse((await zapytaj('/api/bootstrap', { headers: sesjaWlasciciela })).dane).member.displayName;
+
+    // Cudze konto z ta sama sesja niczego nie zmienia.
+    const obcy = await zapytaj('/api/auth/claim', { method: 'POST', headers: { ...ORIGIN, ...sesjaWlasciciela, 'oai-authenticated-user-id': 'inne-konto-chatgpt', 'oai-authenticated-user-email': 'someone@example.com', ...imie('Ktos Inny') } });
+    expect(obcy.status).toBe(200);
+    expect(await nazwa()).toBe('Owner');
+
+    const swoj = await zapytaj('/api/auth/claim', { method: 'POST', headers: { ...ORIGIN, ...sesjaWlasciciela, 'oai-authenticated-user-id': 'uzytkownik-chatgpt', 'oai-authenticated-user-email': ADRES_WLASCICIELA, ...imie('Łucja Żółkiewska') } });
+    expect(swoj.status).toBe(200);
+    expect(signedIn.parse(swoj.dane).member.displayName).toBe('Łucja Żółkiewska');
+    expect(await nazwa()).toBe('Łucja Żółkiewska');
   });
 
   it('klucz wlasciciela jest wylaczony', async () => {
