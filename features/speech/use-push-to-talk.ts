@@ -46,6 +46,8 @@ export function usePushToTalk(settings: SpeechSettings, onTranscript: (text: str
       const { deviceId } = latest.current.settings;
       const constraints: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+      // This runs in an async event handler, not during render.
+      // oxlint-disable-next-line react/purity
       const current: Session = { recorder: new MediaRecorder(stream), stream, chunks: [], startedAt: Date.now() };
       current.recorder.ondataavailable = (event) => { if (event.data.size) current.chunks.push(event.data); };
       current.recorder.start();
