@@ -1,0 +1,8 @@
+{
+  "members": [
+    { "id": "ola", "name": "Ola Wrona", "role": "owner" },
+    { "id": "marek", "name": "Marek Lis", "role": "member" },
+    { "id": "jagoda", "name": "Jagoda Sroka", "role": "member" },
+    { "id": "tomek", "name": "Tomek Bóbr", "role": "member" }
+  ]
+}

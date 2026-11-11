@@ -1,0 +1,18 @@
+Retrospektywa sprintu 12 (start sklepu), 26 maja 2026
+Obecni: Marek, Tomek, Jagoda, Ola
+
+CO POSZŁO DOBRZE
+- Testy obciążeniowe zrobiliśmy tydzień przed startem i zdążyliśmy poprawić generowanie faktur.
+- Reakcja na błąd podwójnego importu z hurtowni była szybka, poprawka wyszła następnego dnia.
+- Szkolenie obsługi sklepu: pracownicy Kormorana sami obsłużyli pierwsze zwroty.
+
+CO POSZŁO ŹLE
+- Nie mieliśmy alertu o wygasającym certyfikacie. O awarii płatności dowiedzieliśmy się od klienta.
+- Zmiany zamroziliśmy dopiero 2 dni przed startem. Ostatnie poprawki koszyka weszły bez pełnych testów.
+- Drugi worker uruchomiony na start nie był opisany w runbooku.
+
+USTALENIA
+- Zamrożenie kodu 5 dni roboczych przed każdym dużym wydaniem.
+- Przegląd alertów raz na kwartał, pierwszy w lipcu. Prowadzi Tomek.
+- Każda zmiana w infrastrukturze trafia do runbooka tego samego dnia.
+- Retrospektywy po incydentach robimy w ciągu tygodnia.

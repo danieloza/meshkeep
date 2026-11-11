@@ -1,0 +1,2441 @@
+{
+  "version": 1,
+  "set": "dev",
+  "observed": {
+    "mostSuggestions": 5,
+    "files": 38,
+    "fileText": {
+      "indexed": 37,
+      "unsupported": 1
+    }
+  },
+  "totals": {
+    "scored": {
+      "n": 40,
+      "complete": 0.925,
+      "found": 0.925,
+      "firstRank": 1.2432,
+      "delivered": 0.8
+    },
+    "byKind": {
+      "answerable": {
+        "n": 32,
+        "complete": 0.9063,
+        "found": 0.9063,
+        "firstRank": 1.3103,
+        "delivered": 0.8125
+      },
+      "multi-file": {
+        "n": 8,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1,
+        "delivered": 0.75
+      }
+    },
+    "byLang": {
+      "en": {
+        "n": 17,
+        "complete": 0.9412,
+        "found": 0.9412,
+        "firstRank": 1.375,
+        "delivered": 0.6471
+      },
+      "pl": {
+        "n": 23,
+        "complete": 0.913,
+        "found": 0.913,
+        "firstRank": 1.1429,
+        "delivered": 0.913
+      }
+    },
+    "byTag": {
+      "cross-language": {
+        "n": 5,
+        "complete": 0.4,
+        "found": 0.4,
+        "firstRank": 1.5,
+        "delivered": 0.4
+      },
+      "deep": {
+        "n": 3,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1,
+        "delivered": 0
+      },
+      "diacritics": {
+        "n": 3,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1.3333,
+        "delivered": 1
+      },
+      "exact": {
+        "n": 3,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1.3333,
+        "delivered": 1
+      },
+      "inflection": {
+        "n": 6,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1,
+        "delivered": 1
+      },
+      "plain": {
+        "n": 12,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1.25,
+        "delivered": 0.9167
+      },
+      "synonym": {
+        "n": 3,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 2,
+        "delivered": 1
+      },
+      "table": {
+        "n": 8,
+        "complete": 1,
+        "found": 1,
+        "firstRank": 1,
+        "delivered": 0.875
+      }
+    },
+    "context": {
+      "scored": {
+        "n": 40,
+        "meanChars": 25588,
+        "maxChars": 80626,
+        "meanFiles": 4.05,
+        "included": 127,
+        "truncated": 11,
+        "unreadable": 2,
+        "skipped": 22
+      },
+      "noAnswer": {
+        "n": 5,
+        "meanChars": 20924,
+        "maxChars": 80564,
+        "meanFiles": 5,
+        "included": 21,
+        "truncated": 1,
+        "unreadable": 1,
+        "skipped": 2
+      }
+    },
+    "noAnswer": {
+      "n": 7,
+      "withSuggestions": 5,
+      "onlyRelated": 0
+    },
+    "access": {
+      "n": 7,
+      "refused": 7
+    }
+  },
+  "questions": [
+    {
+      "id": "pl-001",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/aneks-nr-2.docx"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/sla.pdf"
+        }
+      ],
+      "context": {
+        "chars": 7885,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-002",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "diacritics",
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/cennik-2026.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/sla.pdf"
+        }
+      ],
+      "context": {
+        "chars": 7061,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/cennik-2026.xlsx",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-003",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "diacritics"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/cennik-2026.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        }
+      ],
+      "context": {
+        "chars": 5624,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/aneks-nr-1.docx",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-004",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-02-12.md"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        }
+      ],
+      "context": {
+        "chars": 7521,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-005",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/sla.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/protokol-odbioru-etap-1-skan.pdf"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/harmonogram-platnosci.xlsx"
+        }
+      ],
+      "context": {
+        "chars": 6305,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 1,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-006",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "diacritics",
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/sla.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/aneks-nr-2.docx"
+        }
+      ],
+      "context": {
+        "chars": 5823,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/sla.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-007",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/zakres-prac.md"
+        }
+      ],
+      "context": {
+        "chars": 5287,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/faq-rozliczenia.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-008",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection",
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/harmonogram-platnosci.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-02-12.md"
+        }
+      ],
+      "context": {
+        "chars": 2799,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-009",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "synonym"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/protokol-odbioru-etap-1-skan.pdf"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/zakres-prac.md"
+        }
+      ],
+      "context": {
+        "chars": 6594,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 1,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-010",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "exact"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/decyzje-techniczne.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 4010,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/decyzje-techniczne.md",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-011",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 5470,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/testy-wydajnosci.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-012",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "cross-language"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        }
+      ],
+      "context": {
+        "chars": 1600,
+        "included": 2,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/runbook.md",
+          "rank": null,
+          "manifest": null,
+          "delivered": false
+        }
+      ],
+      "complete": false,
+      "delivered": false
+    },
+    {
+      "id": "pl-013",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "cross-language"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        }
+      ],
+      "context": {
+        "chars": 2029,
+        "included": 2,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/incident-2026-03-14.md",
+          "rank": null,
+          "manifest": null,
+          "delivered": false
+        }
+      ],
+      "complete": false,
+      "delivered": false
+    },
+    {
+      "id": "pl-014",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/decyzje-techniczne.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        }
+      ],
+      "context": {
+        "chars": 3147,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/retro-sprint-12.txt",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-015",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/oferta.docx"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/konkurencja.md"
+        },
+        {
+          "rank": 5,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        }
+      ],
+      "context": {
+        "chars": 5601,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/oferta.docx",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-016",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/kosztorys.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/oferta.docx"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 5,
+          "file": "oferta-zielony-dach/harmonogram.md"
+        }
+      ],
+      "context": {
+        "chars": 3868,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/kosztorys.xlsx",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-017",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/harmonogram.md"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/konkurencja.md"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        }
+      ],
+      "context": {
+        "chars": 4368,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-018",
+      "lang": "pl",
+      "kind": "answerable",
+      "tags": [
+        "inflection"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/harmonogram.md"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        },
+        {
+          "rank": 5,
+          "file": "oferta-zielony-dach/konkurencja.md"
+        }
+      ],
+      "context": {
+        "chars": 5307,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/brief-klienta.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-001",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "synonym"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/architecture.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/api-reference.md"
+        }
+      ],
+      "context": {
+        "chars": 80372,
+        "included": 4,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/runbook.md",
+          "rank": 3,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-002",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/architecture.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/monitoring.md"
+        }
+      ],
+      "context": {
+        "chars": 80561,
+        "included": 1,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 3
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/architecture.md",
+          "rank": 3,
+          "manifest": "skipped",
+          "delivered": false
+        }
+      ],
+      "complete": true,
+      "delivered": false
+    },
+    {
+      "id": "en-003",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/changelog.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 80432,
+        "included": 3,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 1
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/onboarding.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-004",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 80434,
+        "included": 3,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 1
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/monitoring.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-005",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "exact"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/changelog.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/runbook.md"
+        }
+      ],
+      "context": {
+        "chars": 80330,
+        "included": 1,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 1
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/changelog.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-006",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/api-reference.md"
+        }
+      ],
+      "context": {
+        "chars": 80390,
+        "included": 4,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/incident-2026-03-14.md",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-007",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "deep"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        }
+      ],
+      "context": {
+        "chars": 80626,
+        "included": 0,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 4
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/api-reference.md",
+          "rank": 1,
+          "manifest": "truncated",
+          "delivered": false
+        }
+      ],
+      "complete": true,
+      "delivered": false
+    },
+    {
+      "id": "en-008",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "deep"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 80513,
+        "included": 0,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 3
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/api-reference.md",
+          "rank": 1,
+          "manifest": "truncated",
+          "delivered": false
+        }
+      ],
+      "complete": true,
+      "delivered": false
+    },
+    {
+      "id": "en-009",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "exact"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        }
+      ],
+      "context": {
+        "chars": 80557,
+        "included": 1,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 3
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/README.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-010",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "cross-language"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-02-12.md"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/zakres-prac.md"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        }
+      ],
+      "context": {
+        "chars": 4954,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "rank": null,
+          "manifest": null,
+          "delivered": false
+        }
+      ],
+      "complete": false,
+      "delivered": false
+    },
+    {
+      "id": "en-011",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "cross-language"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/sla.pdf"
+        }
+      ],
+      "context": {
+        "chars": 1555,
+        "included": 1,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/sla.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-012",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "cross-language"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        }
+      ],
+      "context": {
+        "chars": 2782,
+        "included": 2,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/brief-klienta.pdf",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-013",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [
+        "synonym"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/runbook.md"
+        }
+      ],
+      "context": {
+        "chars": 1466,
+        "included": 1,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/runbook.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-014",
+      "lang": "en",
+      "kind": "answerable",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/onboarding.md"
+        }
+      ],
+      "context": {
+        "chars": 3160,
+        "included": 3,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/runbook.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-m01",
+      "lang": "pl",
+      "kind": "multi-file",
+      "tags": [
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/aneks-nr-2.docx"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/sla.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/cennik-2026.xlsx"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        }
+      ],
+      "context": {
+        "chars": 7129,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/aneks-nr-2.docx",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "umowy-kormoran/cennik-2026.xlsx",
+          "rank": 4,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-m02",
+      "lang": "pl",
+      "kind": "multi-file",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        }
+      ],
+      "context": {
+        "chars": 4552,
+        "included": 2,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-m03",
+      "lang": "pl",
+      "kind": "multi-file",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/aneks-nr-2.docx"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/harmonogram-platnosci.xlsx"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/zakres-prac.md"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        }
+      ],
+      "context": {
+        "chars": 6628,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "umowy-kormoran/aneks-nr-2.docx",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-m04",
+      "lang": "pl",
+      "kind": "multi-file",
+      "tags": [
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/README.md"
+        }
+      ],
+      "context": {
+        "chars": 4096,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "sklep-wdrozenie/testy-wydajnosci.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "pl-m05",
+      "lang": "pl",
+      "kind": "multi-file",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/oferta.docx"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 5,
+          "file": "oferta-zielony-dach/konkurencja.md"
+        }
+      ],
+      "context": {
+        "chars": 5601,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "oferta-zielony-dach/oferta.docx",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "oferta-zielony-dach/brief-klienta.pdf",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-m01",
+      "lang": "en",
+      "kind": "multi-file",
+      "tags": [
+        "table"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/architecture.md"
+        }
+      ],
+      "context": {
+        "chars": 80513,
+        "included": 2,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 2
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/incident-2026-03-14.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "sklep-wdrozenie/monitoring.md",
+          "rank": 4,
+          "manifest": "skipped",
+          "delivered": false
+        }
+      ],
+      "complete": true,
+      "delivered": false
+    },
+    {
+      "id": "en-m02",
+      "lang": "en",
+      "kind": "multi-file",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/changelog.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/architecture.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/README.md"
+        }
+      ],
+      "context": {
+        "chars": 5960,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/changelog.md",
+          "rank": 1,
+          "manifest": "included",
+          "delivered": true
+        },
+        {
+          "file": "sklep-wdrozenie/incident-2026-05-19.md",
+          "rank": 2,
+          "manifest": "included",
+          "delivered": true
+        }
+      ],
+      "complete": true,
+      "delivered": true
+    },
+    {
+      "id": "en-m03",
+      "lang": "en",
+      "kind": "multi-file",
+      "tags": [
+        "deep"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/architecture.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/runbook.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/monitoring.md"
+        }
+      ],
+      "context": {
+        "chars": 80620,
+        "included": 0,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 4
+      },
+      "sources": [
+        {
+          "file": "sklep-wdrozenie/api-reference.md",
+          "rank": 1,
+          "manifest": "truncated",
+          "delivered": false
+        },
+        {
+          "file": "sklep-wdrozenie/architecture.md",
+          "rank": 2,
+          "manifest": "skipped",
+          "delivered": false
+        }
+      ],
+      "complete": true,
+      "delivered": false
+    },
+    {
+      "id": "pl-n01",
+      "lang": "pl",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-02-12.md"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/zakres-prac.md"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/faq-rozliczenia.md"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md"
+        }
+      ],
+      "context": {
+        "chars": 7326,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": [
+        "umowy-kormoran/umowa-ramowa.pdf"
+      ]
+    },
+    {
+      "id": "pl-n02",
+      "lang": "pl",
+      "kind": "no-answer",
+      "tags": [
+        "scan"
+      ],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "umowy-kormoran/umowa-ramowa.pdf"
+        },
+        {
+          "rank": 2,
+          "file": "umowy-kormoran/protokol-odbioru-etap-1-skan.pdf"
+        },
+        {
+          "rank": 3,
+          "file": "umowy-kormoran/zakres-prac.md"
+        },
+        {
+          "rank": 4,
+          "file": "umowy-kormoran/aneks-nr-1.docx"
+        },
+        {
+          "rank": 5,
+          "file": "umowy-kormoran/harmonogram-platnosci.xlsx"
+        }
+      ],
+      "context": {
+        "chars": 5805,
+        "included": 4,
+        "truncated": 0,
+        "unreadable": 1,
+        "skipped": 0
+      },
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": [
+        "umowy-kormoran/umowa-ramowa.pdf",
+        "umowy-kormoran/protokol-odbioru-etap-1-skan.pdf"
+      ]
+    },
+    {
+      "id": "pl-n03",
+      "lang": "pl",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "oferta-zielony-dach/pytania-do-klienta.txt"
+        },
+        {
+          "rank": 2,
+          "file": "oferta-zielony-dach/wymagania-dostepnosc.md"
+        },
+        {
+          "rank": 3,
+          "file": "oferta-zielony-dach/harmonogram.md"
+        },
+        {
+          "rank": 4,
+          "file": "oferta-zielony-dach/oferta.docx"
+        },
+        {
+          "rank": 5,
+          "file": "oferta-zielony-dach/brief-klienta.pdf"
+        }
+      ],
+      "context": {
+        "chars": 5252,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": [
+        "oferta-zielony-dach/pytania-do-klienta.txt",
+        "oferta-zielony-dach/oferta.docx"
+      ]
+    },
+    {
+      "id": "pl-n04",
+      "lang": "pl",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": []
+    },
+    {
+      "id": "en-n01",
+      "lang": "en",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/architecture.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/testy-wydajnosci.md"
+        }
+      ],
+      "context": {
+        "chars": 80564,
+        "included": 2,
+        "truncated": 1,
+        "unreadable": 0,
+        "skipped": 2
+      },
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": [
+        "sklep-wdrozenie/architecture.md"
+      ]
+    },
+    {
+      "id": "en-n02",
+      "lang": "en",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/monitoring.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/runbook.md"
+        }
+      ],
+      "context": {
+        "chars": 5671,
+        "included": 5,
+        "truncated": 0,
+        "unreadable": 0,
+        "skipped": 0
+      },
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": [
+        "sklep-wdrozenie/runbook.md"
+      ]
+    },
+    {
+      "id": "en-n03",
+      "lang": "en",
+      "kind": "no-answer",
+      "tags": [],
+      "status": 200,
+      "suggestions": [],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "related": []
+    },
+    {
+      "id": "pl-a01",
+      "lang": "pl",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        }
+      ],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "kadry",
+            "status": 404
+          }
+        ],
+        "probe": "wynagrodzenie brutto",
+        "ownerFound": [
+          "kadry/wynagrodzenia-2026.xlsx"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "pl-a02",
+      "lang": "pl",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "kadry",
+            "status": 404
+          }
+        ],
+        "probe": "premia kwartalna",
+        "ownerFound": [
+          "kadry/premie-kwartalne.md"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "pl-a03",
+      "lang": "pl",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/README.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/api-reference.md"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/onboarding.md"
+        }
+      ],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "umowy-kormoran",
+            "status": 404
+          }
+        ],
+        "probe": "kara umowna",
+        "ownerFound": [
+          "umowy-kormoran/umowa-ramowa.pdf"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "pl-a04",
+      "lang": "pl",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        }
+      ],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "kadry",
+            "status": 404
+          }
+        ],
+        "probe": "urlopy lipca",
+        "ownerFound": [
+          "kadry/urlopy-2026.md"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "en-a01",
+      "lang": "en",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "oferta-zielony-dach",
+            "status": 404
+          }
+        ],
+        "probe": "oferta ważna",
+        "ownerFound": [
+          "oferta-zielony-dach/oferta.docx"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "en-a02",
+      "lang": "en",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [
+        {
+          "rank": 1,
+          "file": "sklep-wdrozenie/onboarding.md"
+        },
+        {
+          "rank": 2,
+          "file": "sklep-wdrozenie/retro-sprint-12.txt"
+        },
+        {
+          "rank": 3,
+          "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx"
+        },
+        {
+          "rank": 4,
+          "file": "sklep-wdrozenie/incident-2026-03-14.md"
+        },
+        {
+          "rank": 5,
+          "file": "sklep-wdrozenie/incident-2026-05-19.md"
+        }
+      ],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "notatki-tomka",
+            "status": 404
+          }
+        ],
+        "probe": "podwyżkę styczniu",
+        "ownerFound": [
+          "notatki-tomka/pomysly.md"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    },
+    {
+      "id": "en-a03",
+      "lang": "en",
+      "kind": "access",
+      "tags": [],
+      "status": 200,
+      "suggestions": [],
+      "context": null,
+      "sources": [],
+      "complete": false,
+      "delivered": false,
+      "access": {
+        "forbiddenProjects": [
+          {
+            "project": "kadry",
+            "status": 404
+          }
+        ],
+        "probe": "praca zdalna",
+        "ownerFound": [
+          "kadry/regulamin-pracy.docx"
+        ],
+        "askerFound": [],
+        "refused": true
+      }
+    }
+  ]
+}

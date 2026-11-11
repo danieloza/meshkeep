@@ -1,0 +1,616 @@
+{
+  "version": 1,
+  "set": "dev",
+  "questions": [
+    {
+      "id": "pl-001",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Jaki jest okres wypowiedzenia umowy ramowej?",
+      "expected": [
+        { "file": "umowy-kormoran/umowa-ramowa.pdf", "quote": "okresu wypowiedzenia, który wynosi trzy miesiące", "locator": { "page": 4 } }
+      ]
+    },
+    {
+      "id": "pl-002",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Ile wynosi stawka za godzine pracy testera?",
+      "expected": [
+        { "file": "umowy-kormoran/cennik-2026.xlsx", "quote": "Tester 120", "locator": { "sheet": 1 } }
+      ],
+      "tags": ["diacritics", "table"]
+    },
+    {
+      "id": "pl-003",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Od kiedy obowiazuje wyzsza stawka programisty?",
+      "expected": [
+        { "file": "umowy-kormoran/aneks-nr-1.docx", "quote": "od dnia 1 lipca 2026 r. stawka za godzinę pracy programisty wzrasta" }
+      ],
+      "tags": ["diacritics"]
+    },
+    {
+      "id": "pl-004",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Na jaki dzień przesunięto start sklepu?",
+      "expected": [
+        { "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md", "quote": "start sklepu został przesunięty z 4 maja na 18 maja 2026", "locator": { "heading": "Zmiany w planie" } }
+      ],
+      "tags": ["inflection"]
+    },
+    {
+      "id": "pl-005",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Po ilu dniach roboczych następuje odbiór dorozumiany?",
+      "expected": [
+        { "file": "umowy-kormoran/umowa-ramowa.pdf", "quote": "odbiór dorozumiany następuje po upływie 10 dni roboczych", "locator": { "page": 3 } }
+      ],
+      "tags": ["inflection"]
+    },
+    {
+      "id": "pl-006",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Jak dlugo trwa naprawa bledu krytycznego wedlug SLA?",
+      "expected": [
+        { "file": "umowy-kormoran/sla.pdf", "quote": "Błąd krytyczny 2 godziny robocze 8 godzin roboczych", "locator": { "page": 1 } }
+      ],
+      "tags": ["diacritics", "table"]
+    },
+    {
+      "id": "pl-007",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Czy klient płaci za dojazdy do swojej siedziby?",
+      "expected": [
+        { "file": "umowy-kormoran/faq-rozliczenia.md", "quote": "Dojazdy do siedziby klienta nie są płatne." }
+      ],
+      "tags": ["inflection"]
+    },
+    {
+      "id": "pl-008",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Ile pieniędzy dostaliśmy jako zaliczkę?",
+      "expected": [
+        { "file": "umowy-kormoran/harmonogram-platnosci.xlsx", "quote": "Zaliczka 29600", "locator": { "sheet": 1 } }
+      ],
+      "tags": ["inflection", "table"]
+    },
+    {
+      "id": "pl-009",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Jak rozstrzygnięto spór o spóźnione oddanie etapu 1?",
+      "expected": [
+        { "file": "umowy-kormoran/korespondencja-reklamacja.txt", "quote": "proponujemy 6 godzin prac bez opłat" }
+      ],
+      "tags": ["synonym"]
+    },
+    {
+      "id": "pl-010",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "Dlaczego wybraliśmy PostgreSQL?",
+      "expected": [
+        { "file": "sklep-wdrozenie/decyzje-techniczne.md", "quote": "PostgreSQL ma wbudowane wyszukiwanie pełnotekstowe", "locator": { "heading": "1. PostgreSQL zamiast MySQL" } }
+      ],
+      "tags": ["exact"]
+    },
+    {
+      "id": "pl-011",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "Ile zamówień na minutę wytrzymał sklep po optymalizacji?",
+      "expected": [
+        { "file": "sklep-wdrozenie/testy-wydajnosci.md", "quote": "sklep obsłużył 1100 zamówień na minutę", "locator": { "heading": "Wyniki" } }
+      ]
+    },
+    {
+      "id": "pl-012",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "Jak cofnąć nieudane wdrożenie na produkcji?",
+      "expected": [
+        { "file": "sklep-wdrozenie/runbook.md", "quote": "make rollback TO=<previous version>", "locator": { "heading": "Rollback" } }
+      ],
+      "tags": ["cross-language"]
+    },
+    {
+      "id": "pl-013",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "Jak długo trwała marcowa awaria płatności?",
+      "expected": [
+        { "file": "sklep-wdrozenie/incident-2026-03-14.md", "quote": "Duration: 47 minutes" }
+      ],
+      "tags": ["cross-language"]
+    },
+    {
+      "id": "pl-014",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "Na ile dni przed dużym wydaniem zamrażamy kod?",
+      "expected": [
+        { "file": "sklep-wdrozenie/retro-sprint-12.txt", "quote": "Zamrożenie kodu 5 dni roboczych przed każdym dużym wydaniem." }
+      ],
+      "tags": ["inflection"]
+    },
+    {
+      "id": "pl-015",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "oferta-zielony-dach",
+      "question": "Do kiedy ważna jest oferta dla fundacji?",
+      "expected": [
+        { "file": "oferta-zielony-dach/oferta.docx", "quote": "Oferta jest ważna do 30 listopada 2026 r." }
+      ]
+    },
+    {
+      "id": "pl-016",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "oferta-zielony-dach",
+      "question": "Ile godzin programowania przewiduje kosztorys?",
+      "expected": [
+        { "file": "oferta-zielony-dach/kosztorys.xlsx", "quote": "Programowanie 260", "locator": { "sheet": 1 } }
+      ],
+      "tags": ["table"]
+    },
+    {
+      "id": "pl-017",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "oferta-zielony-dach",
+      "question": "Jaki minimalny kontrast tekstu jest wymagany?",
+      "expected": [
+        { "file": "oferta-zielony-dach/wymagania-dostepnosc.md", "quote": "Kontrast tekstu do tła co najmniej 4,5:1", "locator": { "heading": "Najważniejsze punkty" } }
+      ]
+    },
+    {
+      "id": "pl-018",
+      "lang": "pl",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "oferta-zielony-dach",
+      "question": "Ilu stałych darczyńców fundacja chce mieć po roku?",
+      "expected": [
+        { "file": "oferta-zielony-dach/brief-klienta.pdf", "quote": "z 1200 do 2000", "locator": { "page": 1 } }
+      ],
+      "tags": ["inflection"]
+    },
+    {
+      "id": "en-001",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "On which days do we deploy to production?",
+      "expected": [
+        { "file": "sklep-wdrozenie/runbook.md", "quote": "Releases go out on Tuesday and Thursday", "locator": { "heading": "Deploying" } }
+      ],
+      "tags": ["synonym"]
+    },
+    {
+      "id": "en-002",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "How long is a cart kept before it expires?",
+      "expected": [
+        { "file": "sklep-wdrozenie/architecture.md", "quote": "A cart lives in Redis for 14 days", "locator": { "heading": "Limits and lifetimes" } }
+      ]
+    },
+    {
+      "id": "en-003",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "How many approvals does a change to the payments module need?",
+      "expected": [
+        { "file": "sklep-wdrozenie/onboarding.md", "quote": "A change to the payments module needs two approvals.", "locator": { "heading": "Code review" } }
+      ]
+    },
+    {
+      "id": "en-004",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "What error rate pages the person on call?",
+      "expected": [
+        { "file": "sklep-wdrozenie/monitoring.md", "quote": "above 2% for 5 minutes", "locator": { "heading": "Alerts that page the person on call" } }
+      ],
+      "tags": ["table"]
+    },
+    {
+      "id": "en-005",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "When did guest checkout ship?",
+      "expected": [
+        { "file": "sklep-wdrozenie/changelog.md", "quote": "Guest checkout: ordering without an account.", "locator": { "heading": "1.3.0 (2026-08-11)" } }
+      ],
+      "tags": ["exact"]
+    },
+    {
+      "id": "en-006",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "How many orders were stuck during the certificate outage?",
+      "expected": [
+        { "file": "sklep-wdrozenie/incident-2026-03-14.md", "quote": "63 orders stayed in", "locator": { "heading": "Impact" } }
+      ]
+    },
+    {
+      "id": "en-007",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "How many times is a failed webhook delivery retried?",
+      "expected": [
+        { "file": "sklep-wdrozenie/api-reference.md", "quote": "A failed webhook delivery is retried 8 times", "locator": { "heading": "Webhooks" } }
+      ],
+      "tags": ["deep"]
+    },
+    {
+      "id": "en-008",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "What is the rate limit for creating refunds?",
+      "expected": [
+        { "file": "sklep-wdrozenie/api-reference.md", "quote": "Creating refunds is limited to 20 requests per minute per API key", "locator": { "heading": "Refunds" } }
+      ],
+      "tags": ["deep"]
+    },
+    {
+      "id": "en-009",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "What should SHOP_DATABASE_URL point at for local development?",
+      "expected": [
+        { "file": "sklep-wdrozenie/README.md", "quote": "For local development point it at `localhost:5433`", "locator": { "heading": "Environment variables" } }
+      ],
+      "tags": ["exact"]
+    },
+    {
+      "id": "en-010",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "What is the notice period in the framework agreement with Kormoran?",
+      "expected": [
+        { "file": "umowy-kormoran/umowa-ramowa.pdf", "quote": "okresu wypowiedzenia, który wynosi trzy miesiące", "locator": { "page": 4 } }
+      ],
+      "tags": ["cross-language"]
+    },
+    {
+      "id": "en-011",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "What uptime does the SLA guarantee?",
+      "expected": [
+        { "file": "umowy-kormoran/sla.pdf", "quote": "na poziomie 99,5% w miesiącu kalendarzowym", "locator": { "page": 2 } }
+      ],
+      "tags": ["cross-language"]
+    },
+    {
+      "id": "en-012",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "oferta-zielony-dach",
+      "question": "By when does the foundation need the new site to launch?",
+      "expected": [
+        { "file": "oferta-zielony-dach/brief-klienta.pdf", "quote": "serwis musi ruszyć przed 1 marca 2027 r.", "locator": { "page": 3 } }
+      ],
+      "tags": ["cross-language"]
+    },
+    {
+      "id": "en-013",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "How do we undo a bad release?",
+      "expected": [
+        { "file": "sklep-wdrozenie/runbook.md", "quote": "make rollback TO=<previous version>", "locator": { "heading": "Rollback" } }
+      ],
+      "tags": ["synonym"]
+    },
+    {
+      "id": "en-014",
+      "lang": "en",
+      "kind": "answerable",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "When does the on-call handover happen?",
+      "expected": [
+        { "file": "sklep-wdrozenie/runbook.md", "quote": "with a handover every Monday at 10:00", "locator": { "heading": "On-call" } }
+      ]
+    },
+    {
+      "id": "pl-m01",
+      "lang": "pl",
+      "kind": "multi-file",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Ile kosztuje miesięcznie abonament utrzymania z aneksu nr 2 według cennika?",
+      "expected": [
+        { "file": "umowy-kormoran/aneks-nr-2.docx", "quote": "abonamentu obejmującego 12 godzin miesięcznie" },
+        { "file": "umowy-kormoran/cennik-2026.xlsx", "quote": "Średni 12 2040", "locator": { "sheet": 2 } }
+      ],
+      "tags": ["table"]
+    },
+    {
+      "id": "pl-m02",
+      "lang": "pl",
+      "kind": "multi-file",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Jaka kara umowna groziłaby nam za opóźnienie opisane w reklamacji, gdyby wynikało z naszej winy?",
+      "expected": [
+        { "file": "umowy-kormoran/umowa-ramowa.pdf", "quote": "0,2% wynagrodzenia etapu za każdy rozpoczęty dzień opóźnienia", "locator": { "page": 3 } },
+        { "file": "umowy-kormoran/korespondencja-reklamacja.txt", "quote": "To 4 dni opóźnienia." }
+      ]
+    },
+    {
+      "id": "pl-m03",
+      "lang": "pl",
+      "kind": "multi-file",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Jaki termin płatności faktur obowiązywał przed aneksem nr 2, a jaki po nim?",
+      "expected": [
+        { "file": "umowy-kormoran/umowa-ramowa.pdf", "quote": "Termin płatności wynosi 14 dni", "locator": { "page": 2 } },
+        { "file": "umowy-kormoran/aneks-nr-2.docx", "quote": "wydłużony do 21 dni" }
+      ]
+    },
+    {
+      "id": "pl-m04",
+      "lang": "pl",
+      "kind": "multi-file",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "Kto przeprowadził testy obciążeniowe i czy wynik spełnił cel z umowy?",
+      "expected": [
+        { "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx", "quote": "Testy obciążeniowe Tomek", "locator": { "sheet": 1 } },
+        { "file": "sklep-wdrozenie/testy-wydajnosci.md", "quote": "Cel z umowy jest spełniony z zapasem.", "locator": { "heading": "Wnioski" } }
+      ],
+      "tags": ["table"]
+    },
+    {
+      "id": "pl-m05",
+      "lang": "pl",
+      "kind": "multi-file",
+      "asker": "jagoda",
+      "project": "oferta-zielony-dach",
+      "question": "Czy cena z naszej oferty mieści się w budżecie z briefu fundacji?",
+      "expected": [
+        { "file": "oferta-zielony-dach/oferta.docx", "quote": "Cena całości wynosi 86 400 zł netto" },
+        { "file": "oferta-zielony-dach/brief-klienta.pdf", "quote": "Budżet: do 90 000 zł netto", "locator": { "page": 3 } }
+      ]
+    },
+    {
+      "id": "en-m01",
+      "lang": "en",
+      "kind": "multi-file",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "Which alert was added after the March payment incident, and how far ahead does it fire?",
+      "expected": [
+        { "file": "sklep-wdrozenie/incident-2026-03-14.md", "quote": "Add a certificate expiry alert", "locator": { "heading": "Action items" } },
+        { "file": "sklep-wdrozenie/monitoring.md", "quote": "| Certificate expiry | 21 days ahead |", "locator": { "heading": "Alerts that open a ticket" } }
+      ],
+      "tags": ["table"]
+    },
+    {
+      "id": "en-m02",
+      "lang": "en",
+      "kind": "multi-file",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "Which release fixed the duplicate warehouse import, and how long did that incident last?",
+      "expected": [
+        { "file": "sklep-wdrozenie/changelog.md", "quote": "Fixed the duplicate warehouse feed import", "locator": { "heading": "1.0.1 (2026-05-20)" } },
+        { "file": "sklep-wdrozenie/incident-2026-05-19.md", "quote": "Duration: 3 hours 20 minutes" }
+      ]
+    },
+    {
+      "id": "en-m03",
+      "lang": "en",
+      "kind": "multi-file",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "How does the refunds rate limit compare with the limit on the public API?",
+      "expected": [
+        { "file": "sklep-wdrozenie/api-reference.md", "quote": "Creating refunds is limited to 20 requests per minute per API key", "locator": { "heading": "Refunds" } },
+        { "file": "sklep-wdrozenie/architecture.md", "quote": "The public API allows 120 requests per minute per IP address.", "locator": { "heading": "Limits and lifetimes" } }
+      ],
+      "tags": ["deep"]
+    },
+    {
+      "id": "pl-n01",
+      "lang": "pl",
+      "kind": "no-answer",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Jaka jest wysokość kaucji gwarancyjnej w umowie z Kormoranem?",
+      "related": ["umowy-kormoran/umowa-ramowa.pdf"]
+    },
+    {
+      "id": "pl-n02",
+      "lang": "pl",
+      "kind": "no-answer",
+      "asker": "marek",
+      "project": "umowy-kormoran",
+      "question": "Którego dnia podpisano protokół odbioru etapu 1?",
+      "related": ["umowy-kormoran/protokol-odbioru-etap-1-skan.pdf", "umowy-kormoran/umowa-ramowa.pdf"],
+      "tags": ["scan"]
+    },
+    {
+      "id": "pl-n03",
+      "lang": "pl",
+      "kind": "no-answer",
+      "asker": "jagoda",
+      "project": "oferta-zielony-dach",
+      "question": "Ile będzie kosztował hosting serwisu fundacji po wdrożeniu?",
+      "related": ["oferta-zielony-dach/pytania-do-klienta.txt", "oferta-zielony-dach/oferta.docx"]
+    },
+    {
+      "id": "pl-n04",
+      "lang": "pl",
+      "kind": "no-answer",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "Jaki jest numer telefonu dyżurnego?",
+      "related": ["sklep-wdrozenie/runbook.md"]
+    },
+    {
+      "id": "en-n01",
+      "lang": "en",
+      "kind": "no-answer",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "Which CDN serves the product cover images?",
+      "related": ["sklep-wdrozenie/architecture.md"]
+    },
+    {
+      "id": "en-n02",
+      "lang": "en",
+      "kind": "no-answer",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "How long do we keep database backups?",
+      "related": ["sklep-wdrozenie/runbook.md", "sklep-wdrozenie/architecture.md"]
+    },
+    {
+      "id": "en-n03",
+      "lang": "en",
+      "kind": "no-answer",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "Does the framework agreement contain a non-compete clause?",
+      "related": ["umowy-kormoran/umowa-ramowa.pdf"]
+    },
+    {
+      "id": "pl-a01",
+      "lang": "pl",
+      "kind": "access",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "Ile zarabia Tomek Bóbr?",
+      "forbidden": ["kadry/wynagrodzenia-2026.xlsx"],
+      "probe": "wynagrodzenie brutto"
+    },
+    {
+      "id": "pl-a02",
+      "lang": "pl",
+      "kind": "access",
+      "asker": "jagoda",
+      "project": "oferta-zielony-dach",
+      "question": "Do ilu procent wynagrodzenia może dojść premia kwartalna?",
+      "forbidden": ["kadry/premie-kwartalne.md"],
+      "probe": "premia kwartalna"
+    },
+    {
+      "id": "pl-a03",
+      "lang": "pl",
+      "kind": "access",
+      "asker": "tomek",
+      "project": "sklep-wdrozenie",
+      "question": "Jaka kara umowna grozi nam za opóźnienie etapu w umowie z Kormoranem?",
+      "forbidden": ["umowy-kormoran/umowa-ramowa.pdf"],
+      "probe": "kara umowna"
+    },
+    {
+      "id": "pl-a04",
+      "lang": "pl",
+      "kind": "access",
+      "asker": "jagoda",
+      "project": "sklep-wdrozenie",
+      "question": "Kiedy Marek ma urlop w lipcu?",
+      "forbidden": ["kadry/urlopy-2026.md"],
+      "probe": "urlopy lipca"
+    },
+    {
+      "id": "en-a01",
+      "lang": "en",
+      "kind": "access",
+      "asker": "ola",
+      "project": "umowy-kormoran",
+      "question": "What is the total price in our offer for Fundacja Zielony Dach?",
+      "forbidden": ["oferta-zielony-dach/oferta.docx", "oferta-zielony-dach/kosztorys.xlsx"],
+      "probe": "oferta ważna"
+    },
+    {
+      "id": "en-a02",
+      "lang": "en",
+      "kind": "access",
+      "asker": "marek",
+      "project": "sklep-wdrozenie",
+      "question": "What does Tomek plan to ask Ola for in January?",
+      "forbidden": ["notatki-tomka/pomysly.md"],
+      "probe": "podwyżkę styczniu"
+    },
+    {
+      "id": "en-a03",
+      "lang": "en",
+      "kind": "access",
+      "asker": "tomek",
+      "project": "oferta-zielony-dach",
+      "question": "How many days a week may we work from home under the work rules?",
+      "forbidden": ["kadry/regulamin-pracy.docx"],
+      "probe": "praca zdalna"
+    }
+  ]
+}

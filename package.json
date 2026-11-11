@@ -36,6 +36,7 @@
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
     "test:api": "vitest run --config vitest.api.config.ts",
+    "eval:context": "node --experimental-strip-types scripts/eval-context.mjs",
     "check:public": "node scripts/check-public-repo.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
