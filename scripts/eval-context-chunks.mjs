@@ -5,12 +5,13 @@
 //   node --experimental-strip-types scripts/eval-context-chunks.mjs dev
 //
 // This is a simulation, not the application. It cuts the corpus into chunks
-// (`eval/context/chunking.ts`), indexes them in an in-memory SQLite FTS5 table
-// with the tokenizer and the query builder the application uses today
-// (`lib/search.ts`), and runs every question through several strategies side
-// by side. It counts by the same rules as the baseline
-// (`eval/context/measure.ts`): an expected file is found when a passage of it
-// is chosen, a quote is delivered when it is in the text chosen from its own
+// (`eval/context/chunking.ts`): slices of each file's text, never rewritten,
+// with what they are about in a label. It indexes them in an in-memory SQLite
+// FTS5 table with the tokenizer and the query builder the application uses
+// today (`lib/search.ts`), and runs every question through several strategies
+// side by side. It counts by the same rules as the baseline
+// (`eval/context/measure.ts`): an expected file is found when text of it is
+// chosen, a quote is delivered when it is in the text chosen from its own
 // file, and the size of the context is the size of the message the chat would
 // write around that text.
 //
@@ -23,7 +24,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
-import { CHUNK_RULE, canonicalText, chunksOf, markdownBlocks, pageBlocks, paragraphBlocks, sheetBlocks } from '../eval/context/chunking.ts';
+import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passagesText, pdfDocument, sheetUnits, withNeighbours } from '../eval/context/chunking.ts';
 import { contextTotal, fileContextMessage, grouped, mimeOf, quoteDelivered, totalOf } from '../eval/context/measure.ts';
 import { questionSet } from '../eval/context/schema.ts';
 import { wydobadzTekstDokumentu } from '../lib/document-text.ts';
@@ -38,14 +39,14 @@ const SET = fileURLToPath(new URL(`../eval/context/sets/${setName}/`, import.met
 const { questions } = questionSet.parse(JSON.parse(readFileSync(join(SET, 'questions.json'), 'utf8')));
 
 // "Files, then passages": files are chosen as today, then each brings either
-// all of its text, when it is short, or its best passages.
+// its whole text, when it is short, or its best passages.
 const FILE_LIMIT = 5;
 const WHOLE_FILE_CHARS = 6_000;
 const PER_FILE_CHARS = 6_000;
 // What the search index keeps of a file today (`lib/server/search-index.ts`).
 const INDEXED_CHARS = 100_000;
 
-// --- From a file to text and blocks -----------------------------------------
+// --- From a file to its text and its chunks --------------------------------
 
 function bytesOf(path) {
   const buffer = readFileSync(path);
@@ -56,40 +57,41 @@ const extensionOf = (file) => file.split('.').pop().toLowerCase();
 // As `lib/server/pdf-text.ts` cleans what pdf.js returns.
 const cleanPdf = (text) => text.replaceAll(' ', ' ').replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
-// The text of a file as the search index holds it today: everything the
-// extractor returns, cut where the index cuts it. Plain text is taken as the
-// file has it, line endings included, because that is what the application
-// indexes.
-async function indexedTextOf(file) {
+// The text of a file as the application extracts it today. This is what the
+// chat sends when it sends a file whole, and what the index holds (cut at
+// 100 000 characters).
+async function extractedTextOf(file) {
   const path = join(SET, 'corpus', file);
   const extension = extensionOf(file);
-  let text;
   if (extension === 'pdf') {
     const merged = await extractText(await getDocumentProxy(bytesOf(path)), { mergePages: true });
-    text = cleanPdf(Array.isArray(merged.text) ? merged.text.join('\n') : merged.text);
-  } else if (extension === 'xlsx' || extension === 'docx') {
-    text = (await wydobadzTekstDokumentu(extension, bytesOf(path))).tekst;
-  } else {
-    text = new TextDecoder().decode(bytesOf(path)).replaceAll('\0', '');
+    return cleanPdf(Array.isArray(merged.text) ? merged.text.join('\n') : merged.text);
   }
-  return text.slice(0, INDEXED_CHARS);
+  if (extension === 'xlsx' || extension === 'docx') return (await wydobadzTekstDokumentu(extension, bytesOf(path))).tekst;
+  return new TextDecoder().decode(bytesOf(path)).replaceAll('\0', '');
 }
 
-async function blocksOf(file) {
+// The file as the proposed extraction would read it: its text with line
+// endings made one, and its units. PDF pages are read one by one, so that a
+// chunk knows its page.
+async function documentOf(file) {
   const path = join(SET, 'corpus', file);
   const extension = extensionOf(file);
   if (extension === 'pdf') {
     const { text } = await extractText(await getDocumentProxy(bytesOf(path)), { mergePages: false });
-    return pageBlocks(text.map(cleanPdf));
+    return pdfDocument(text.map(cleanPdf));
   }
-  if (extension === 'xlsx') return sheetBlocks((await wydobadzTekstDokumentu('xlsx', bytesOf(path))).tekst);
+  if (extension === 'xlsx') {
+    const text = canonicalText((await wydobadzTekstDokumentu('xlsx', bytesOf(path))).tekst);
+    return { text, units: sheetUnits(text) };
+  }
   if (extension === 'docx') {
     // The extractor writes one paragraph per line.
-    const { tekst } = await wydobadzTekstDokumentu('docx', bytesOf(path));
-    return canonicalText(tekst).split('\n').filter((line) => line.trim()).map((text) => ({ text, place: '', heading: '' }));
+    const text = canonicalText((await wydobadzTekstDokumentu('docx', bytesOf(path))).tekst);
+    return { text, units: lineUnits(text) };
   }
-  const text = new TextDecoder().decode(bytesOf(path)).replaceAll('\0', '');
-  return extension === 'md' ? markdownBlocks(text) : paragraphBlocks(text);
+  const text = canonicalText(new TextDecoder().decode(bytesOf(path)).replaceAll('\0', ''));
+  return { text, units: extension === 'md' ? markdownUnits(text) : paragraphUnits(text) };
 }
 
 // --- The indexes ------------------------------------------------------------
@@ -104,21 +106,28 @@ const database = new DatabaseSync(':memory:');
 // The same tokenizer as `file_texts_fts` in `drizzle/0003_search_index.sql`.
 const TOKENIZER = "tokenize='unicode61 remove_diacritics 2'";
 database.exec(`CREATE VIRTUAL TABLE whole USING fts5(path, content, project UNINDEXED, file UNINDEXED, ${TOKENIZER})`);
+// The label (place, headings, a sheet's header row) is searchable beside the
+// text, so a row is found by the names of its columns.
 for (const table of ['small', 'joined']) {
-  database.exec(`CREATE VIRTUAL TABLE ${table} USING fts5(path, heading, content, project UNINDEXED, file UNINDEXED, ordinal UNINDEXED, ${TOKENIZER})`);
+  database.exec(`CREATE VIRTUAL TABLE ${table} USING fts5(path, label, content, project UNINDEXED, file UNINDEXED, ordinal UNINDEXED, ${TOKENIZER})`);
 }
 
 const shape = {};
-const fileChunks = new Map();
+const documents = new Map();
+const wholeTexts = new Map();
+const chunksByTable = { small: new Map(), joined: new Map() };
 for (const file of files) {
   const project = file.split('/')[0];
-  const blocks = await blocksOf(file);
-  database.prepare('INSERT INTO whole (path, content, project, file) VALUES (?, ?, ?, ?)').run(pathIn(file), await indexedTextOf(file), project, file);
+  const extracted = await extractedTextOf(file);
+  wholeTexts.set(file, extracted);
+  database.prepare('INSERT INTO whole (path, content, project, file) VALUES (?, ?, ?, ?)').run(pathIn(file), extracted.slice(0, INDEXED_CHARS), project, file);
+  const document = await documentOf(file);
+  documents.set(file, document);
   for (const [table, joinSections] of [['small', false], ['joined', true]]) {
-    const chunks = chunksOf(blocks, joinSections);
-    if (joinSections) fileChunks.set(file, chunks.map((chunk) => chunk.text));
-    const insert = database.prepare(`INSERT INTO ${table} (path, heading, content, project, file, ordinal) VALUES (?, ?, ?, ?, ?, ?)`);
-    chunks.forEach((chunk, ordinal) => insert.run(pathIn(file), chunk.heading, chunk.text, project, file, ordinal));
+    const chunks = chunksOf(document, joinSections);
+    chunksByTable[table].set(file, chunks);
+    const insert = database.prepare(`INSERT INTO ${table} (path, label, content, project, file, ordinal) VALUES (?, ?, ?, ?, ?, ?)`);
+    for (const chunk of chunks) insert.run(pathIn(file), passageLabel(chunk), chunk.text, project, file, chunk.ordinal);
     const lengths = chunks.map((chunk) => chunk.text.length);
     const entry = shape[table] ?? (shape[table] = { chunks: 0, chars: 0, longest: 0 });
     entry.chunks += chunks.length;
@@ -130,56 +139,66 @@ for (const entry of Object.values(shape)) entry.meanChars = Math.round(entry.cha
 
 // --- The strategies ---------------------------------------------------------
 //
-// Each takes a question and returns the passages that would be sent, in the
-// order they would be sent, as `{ file, content }`.
+// Each takes a question and returns, per chosen file in the order it is sent,
+// the text the file contributes.
 
-// Path and heading count for more than the body, as the path does today
+// Path and label count for more than the text, as the path does today
 // (`bm25(file_texts_fts, 4.0, 1.0)` in the suggest-files route).
 function topChunks(table, limit) {
-  const select = database.prepare(`SELECT file, content FROM ${table} WHERE ${table} MATCH ? AND project = ? ORDER BY bm25(${table}, 4.0, 2.0, 1.0) LIMIT ?`);
-  return (question, match) => select.all(match, question.project, limit);
+  const select = database.prepare(`SELECT file, ordinal FROM ${table} WHERE ${table} MATCH ? AND project = ? ORDER BY bm25(${table}, 4.0, 2.0, 1.0) LIMIT ?`);
+  return (question, match) => {
+    const chosen = new Map();
+    for (const { file, ordinal } of select.all(match, question.project, limit)) chosen.set(file, [...(chosen.get(file) ?? []), Number(ordinal)]);
+    return new Map([...chosen.entries()].map(([file, ordinals]) => {
+      const chunks = chunksByTable[table].get(file);
+      return [file, passagesText(documents.get(file), ordinals.map((ordinal) => chunks[ordinal]))];
+    }));
+  };
 }
 
 const pickFiles = database.prepare('SELECT file FROM whole WHERE whole MATCH ? AND project = ? ORDER BY bm25(whole, 4.0, 1.0) LIMIT ?');
 
-// Files as the application chooses them today, but each file then brings all
-// of its text when it is short, and otherwise only its best passages. No file
-// can take the room of the ones ranked below it.
+// Files as the application chooses them today. A short file is sent whole,
+// as its extracted text, exactly as the chat sends it now. A long file sends
+// its best passages, verbatim under their labels, with the neighbours a cut
+// inside a line makes inseparable. No file can take the room of the ones
+// ranked below it.
 function filesThenPassages(totalChars) {
-  const pickPassages = database.prepare('SELECT ordinal, content FROM joined WHERE joined MATCH ? AND file = ? ORDER BY bm25(joined, 4.0, 2.0, 1.0) LIMIT 40');
+  const pickPassages = database.prepare('SELECT ordinal FROM joined WHERE joined MATCH ? AND file = ? ORDER BY bm25(joined, 4.0, 2.0, 1.0) LIMIT 40');
   return (question, match) => {
-    const sent = [];
+    const sent = new Map();
     let room = totalChars;
     for (const { file } of pickFiles.all(match, question.project, FILE_LIMIT)) {
-      const all = fileChunks.get(file);
-      let passages;
-      if (all.reduce((sum, text) => sum + text.length, 0) <= WHOLE_FILE_CHARS) {
-        passages = all.map((content, ordinal) => ({ ordinal, content }));
-      } else {
-        passages = [];
-        let used = 0;
-        for (const passage of pickPassages.all(match, file)) {
-          if (used + passage.content.length > PER_FILE_CHARS) continue;
-          passages.push(passage);
-          used += passage.content.length;
-        }
-        // Back into the order of the document, so the model reads them as
-        // the file has them.
-        passages.sort((a, b) => a.ordinal - b.ordinal);
+      const whole = wholeTexts.get(file);
+      if (whole.length <= WHOLE_FILE_CHARS) {
+        if (whole.length > room) continue;
+        sent.set(file, whole);
+        room -= whole.length;
+        continue;
       }
-      for (const passage of passages) {
-        if (passage.content.length > room) continue;
-        sent.push({ file, content: passage.content });
-        room -= passage.content.length;
+      const chunks = chunksByTable.joined.get(file);
+      const allowance = Math.min(PER_FILE_CHARS, room);
+      const chosen = [];
+      let used = 0;
+      for (const { ordinal } of pickPassages.all(match, file)) {
+        const length = chunks[Number(ordinal)].text.length;
+        if (used + length > allowance) continue;
+        chosen.push(Number(ordinal));
+        used += length;
       }
+      if (!chosen.length) continue;
+      const ordinals = withNeighbours(chunks, chosen, allowance);
+      used = ordinals.reduce((sum, ordinal) => sum + chunks[ordinal].text.length, 0);
+      sent.set(file, passagesText(documents.get(file), ordinals.map((ordinal) => chunks[ordinal])));
+      room -= used;
     }
     return sent;
   };
 }
 
 const STRATEGIES = {
-  'small-chunks-top6': { describe: 'Best 6 chunks of the project; a chunk never crosses a heading.', pick: topChunks('small', 6) },
-  'small-chunks-top12': { describe: 'Best 12 chunks of the project; a chunk never crosses a heading.', pick: topChunks('small', 12) },
+  'small-chunks-top6': { describe: 'Best 6 chunks of the project; a chunk starts at every heading.', pick: topChunks('small', 6) },
+  'small-chunks-top12': { describe: 'Best 12 chunks of the project; a chunk starts at every heading.', pick: topChunks('small', 12) },
   'joined-chunks-top6': { describe: 'Best 6 chunks of the project; neighbouring sections share a chunk.', pick: topChunks('joined', 6) },
   'joined-chunks-top12': { describe: 'Best 12 chunks of the project; neighbouring sections share a chunk.', pick: topChunks('joined', 12) },
   'files-then-passages-12k': { describe: 'Best 5 files as today; a short file whole, a long file by its best passages; 12 000 characters in all.', pick: filesThenPassages(12_000) },
@@ -193,31 +212,24 @@ const sizeOf = new Map(files.map((file) => [file, statSync(join(SET, 'corpus', f
 
 function ask(question, pick) {
   const match = buildSuggestQuery(question.question.slice(0, 500));
-  const hits = match ? pick(question, match) : [];
-
-  // The text each file would contribute, in the order its first passage is
-  // sent, and the message the chat would write around it.
-  const byFile = new Map();
-  for (const hit of hits) byFile.set(hit.file, [...(byFile.get(hit.file) ?? []), hit.content]);
-  const sections = [...byFile.entries()].map(([file, passages]) => ({ file, text: passages.join('\n\n') }));
-  const message = fileContextMessage(sections.map(({ file, text }) => ({ path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file), text })));
+  const sent = match ? pick(question, match) : new Map();
+  const message = fileContextMessage([...sent.entries()].map(([file, text]) => ({ path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file), text })));
 
   const scored = isScored(question.kind);
   const sources = question.expected.map((source) => ({
     file: source.file,
-    found: byFile.has(source.file),
+    found: sent.has(source.file),
     // Only text chosen from the source's own file can deliver its quote.
-    delivered: quoteDelivered(source.quote, sections.find((section) => section.file === source.file)?.text),
+    delivered: quoteDelivered(source.quote, sent.get(source.file)),
   }));
   return {
     id: question.id,
     kind: question.kind,
     lang: question.lang,
     tags: question.tags,
-    passages: hits.length,
-    files: byFile.size,
+    files: sent.size,
     // Characters of the file-context message, or null when nothing is sent.
-    chars: hits.length ? message.length : null,
+    chars: sent.size ? message.length : null,
     sources,
     // A question with no expected source is not scored.
     complete: scored ? sources.every((source) => source.found) : null,
@@ -247,7 +259,7 @@ for (const [name, { describe, pick }] of Object.entries(STRATEGIES)) {
     byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain']), total),
     context: { scored: contextOf(scored), noAnswer: contextOf(noAnswer) },
     notDelivered: scored.filter((result) => !result.delivered).map((result) => result.id),
-    questions: results.map(({ id, kind, passages, files: fileCount, chars, complete, delivered }) => ({ id, kind, passages, files: fileCount, chars, complete, delivered })),
+    questions: results.map(({ id, kind, files: fileCount, chars, complete, delivered }) => ({ id, kind, files: fileCount, chars, complete, delivered })),
   };
 }
 
@@ -275,7 +287,7 @@ const output = {
   set: setName,
   simulation: true,
   fidelity,
-  rule: { ...CHUNK_RULE, fileLimit: FILE_LIMIT, wholeFileChars: WHOLE_FILE_CHARS, perFileChars: PER_FILE_CHARS, weights: { path: 4, heading: 2, content: 1 } },
+  rule: { ...CHUNK_RULE, fileLimit: FILE_LIMIT, wholeFileChars: WHOLE_FILE_CHARS, perFileChars: PER_FILE_CHARS, weights: { path: 4, label: 2, text: 1 } },
   corpus: { files: files.length, ...shape },
   strategies,
 };
@@ -283,7 +295,7 @@ writeFileSync(join(SET, 'simulation.json'), `${JSON.stringify(output, null, 2)}\
 
 console.log(`${files.length} files. Small chunks: ${shape.small.chunks}, mean ${shape.small.meanChars} characters, longest ${shape.small.longest}. Joined chunks: ${shape.joined.chunks}, mean ${shape.joined.meanChars} characters, longest ${shape.joined.longest}.`);
 const row = (name, scored, context, noAnswer, missed) => console.log(
-  `${name.padEnd(26)} n=${scored.n} found ${String(Math.round(scored.complete * scored.n)).padStart(2)} delivered ${String(Math.round(scored.delivered * scored.n)).padStart(2)}  mean ${String(context.meanChars).padStart(6)} max ${String(context.maxChars).padStart(6)}  no-answer n=${noAnswer.n}: ${noAnswer.withContext} with context, mean ${String(noAnswer.meanChars).padStart(6)}${missed ? `  missed: ${missed}` : ''}`,
+  `${name.padEnd(26)} n=${scored.n} found ${String(Math.round(scored.complete * scored.n)).padStart(2)} delivered ${String(Math.round(scored.delivered * scored.n)).padStart(2)}  mean ${String(context.meanChars).padStart(6)} max ${String(context.maxChars).padStart(6)}  no-answer n=${noAnswer.n}: ${noAnswer.withContext} with context, mean ${String(noAnswer.meanChars).padStart(6)} (${String(noAnswer.meanCharsWhenSent).padStart(6)} when sent)${missed ? `  missed: ${missed}` : ''}`,
 );
 if (measured) {
   console.log(`Fidelity (files only): the simulated choice of files matches the application's suggestions, file for file and in order, for ${fidelity.sameFilesInSameOrder} of ${fidelity.questions} questions${fidelity.differing.length ? ` (differs: ${fidelity.differing.join(', ')})` : ''}.`);

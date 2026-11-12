@@ -11,38 +11,39 @@
   "rule": {
     "targetChars": 1500,
     "maxChars": 2400,
+    "headerChars": 1000,
     "fileLimit": 5,
     "wholeFileChars": 6000,
     "perFileChars": 6000,
     "weights": {
       "path": 4,
-      "heading": 2,
-      "content": 1
+      "label": 2,
+      "text": 1
     }
   },
   "corpus": {
     "files": 38,
     "small": {
-      "chunks": 443,
-      "chars": 137992,
+      "chunks": 449,
+      "chars": 148058,
       "longest": 1099,
-      "meanChars": 311
+      "meanChars": 330
     },
     "joined": {
-      "chunks": 139,
-      "chars": 162119,
-      "longest": 1497,
-      "meanChars": 1166
+      "chunks": 135,
+      "chars": 148686,
+      "longest": 1498,
+      "meanChars": 1101
     }
   },
   "strategies": {
     "small-chunks-top6": {
-      "describe": "Best 6 chunks of the project; a chunk never crosses a heading.",
+      "describe": "Best 6 chunks of the project; a chunk starts at every heading.",
       "scored": {
         "n": 40,
-        "complete": 0.875,
-        "found": 0.8875,
-        "delivered": 0.8
+        "complete": 0.9,
+        "found": 0.9,
+        "delivered": 0.825
       },
       "byKind": {
         "answerable": {
@@ -53,17 +54,17 @@
         },
         "multi-file": {
           "n": 8,
-          "complete": 0.875,
-          "found": 0.9375,
-          "delivered": 0.75
+          "complete": 1,
+          "found": 1,
+          "delivered": 0.875
         }
       },
       "byLang": {
         "en": {
           "n": 17,
-          "complete": 0.8235,
-          "found": 0.8529,
-          "delivered": 0.6471
+          "complete": 0.8824,
+          "found": 0.8824,
+          "delivered": 0.7059
         },
         "pl": {
           "n": 23,
@@ -81,9 +82,9 @@
         },
         "deep": {
           "n": 3,
-          "complete": 0.6667,
-          "found": 0.8333,
-          "delivered": 0.6667
+          "complete": 1,
+          "found": 1,
+          "delivered": 1
         },
         "diacritics": {
           "n": 3,
@@ -126,16 +127,16 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 2373,
-          "meanCharsWhenSent": 2373,
-          "maxChars": 4606
+          "meanChars": 2591,
+          "meanCharsWhenSent": 2591,
+          "maxChars": 4796
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 1806,
-          "meanCharsWhenSent": 2528,
-          "maxChars": 3174
+          "meanChars": 2111,
+          "meanCharsWhenSent": 2955,
+          "maxChars": 3574
         }
       },
       "notDelivered": [
@@ -145,401 +146,356 @@
         "en-006",
         "en-010",
         "en-012",
-        "en-m02",
-        "en-m03"
+        "en-m02"
       ],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 4301,
+          "chars": 4299,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 4606,
+          "chars": 4796,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 2845,
+          "chars": 3038,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 6,
-          "files": 4,
-          "chars": 3088,
+          "files": 3,
+          "chars": 2232,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 3049,
+          "chars": 3318,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 4536,
+          "chars": 4556,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 2962,
+          "chars": 3174,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2208,
+          "chars": 2360,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 6,
-          "files": 5,
-          "chars": 4100,
+          "files": 4,
+          "chars": 4113,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 2134,
+          "chars": 2404,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 1525,
+          "chars": 1731,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 785,
+          "chars": 921,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1268,
+          "chars": 1325,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 1755,
+          "chars": 2012,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 3278,
+          "chars": 3556,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 3030,
+          "chars": 3271,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 2010,
+          "chars": 2315,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 3034,
+          "chars": 2693,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 1920,
+          "chars": 2232,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 1981,
+          "chars": 2437,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 1368,
+          "chars": 2084,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 1363,
+          "chars": 1688,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 940,
+          "chars": 1710,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 1240,
+          "chars": 1571,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 6,
           "files": 1,
-          "chars": 2933,
+          "chars": 3371,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 6,
           "files": 1,
-          "chars": 1690,
+          "chars": 2038,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 1806,
+          "chars": 2097,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 1506,
+          "chars": 2374,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1565,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1640,
+          "chars": 1649,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 978,
+          "chars": 1027,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 5,
           "files": 4,
-          "chars": 1357,
+          "chars": 1634,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 3814,
+          "chars": 3900,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 3,
           "files": 2,
-          "chars": 2638,
+          "chars": 2647,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 4206,
+          "chars": 4373,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 6,
           "files": 3,
-          "chars": 2416,
+          "chars": 2568,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 6,
           "files": 4,
-          "chars": 3235,
+          "chars": 3420,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 6,
           "files": 3,
-          "chars": 1235,
+          "chars": 1636,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 3,
-          "chars": 1777,
+          "chars": 2018,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 6,
-          "files": 1,
-          "chars": 2813,
-          "complete": false,
-          "delivered": false
+          "files": 2,
+          "chars": 3467,
+          "complete": true,
+          "delivered": true
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 6,
-          "files": 4,
-          "chars": 2063,
+          "files": 3,
+          "chars": 2884,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 6,
           "files": 4,
-          "chars": 3174,
+          "chars": 3383,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 6,
           "files": 4,
-          "chars": 2337,
+          "chars": 2682,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -548,25 +504,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 6,
           "files": 3,
-          "chars": 3158,
+          "chars": 3574,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 6,
           "files": 5,
-          "chars": 1909,
+          "chars": 2254,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -575,7 +528,7 @@
       ]
     },
     "small-chunks-top12": {
-      "describe": "Best 12 chunks of the project; a chunk never crosses a heading.",
+      "describe": "Best 12 chunks of the project; a chunk starts at every heading.",
       "scored": {
         "n": 40,
         "complete": 0.925,
@@ -664,16 +617,16 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 3910,
-          "meanCharsWhenSent": 3910,
-          "maxChars": 7989
+          "meanChars": 4221,
+          "meanCharsWhenSent": 4221,
+          "maxChars": 8201
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 3916,
-          "meanCharsWhenSent": 5482,
-          "maxChars": 6851
+          "meanChars": 4199,
+          "meanCharsWhenSent": 5879,
+          "maxChars": 7251
         }
       },
       "notDelivered": [
@@ -689,394 +642,350 @@
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 7225,
+          "chars": 7220,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 12,
           "files": 8,
-          "chars": 7196,
+          "chars": 7088,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 2845,
+          "chars": 3038,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 12,
-          "files": 8,
-          "chars": 7989,
+          "files": 7,
+          "chars": 7435,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 7,
           "files": 6,
-          "chars": 3919,
+          "chars": 4305,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 4536,
+          "chars": 4556,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 2962,
+          "chars": 3174,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2208,
+          "chars": 2360,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 12,
           "files": 8,
-          "chars": 7421,
+          "chars": 7914,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 2134,
+          "chars": 2404,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 12,
           "files": 7,
-          "chars": 3309,
+          "chars": 3853,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 785,
+          "chars": 921,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1268,
+          "chars": 1325,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 8,
           "files": 3,
-          "chars": 2342,
+          "chars": 2650,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 12,
           "files": 6,
-          "chars": 5512,
+          "chars": 5944,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 3030,
+          "chars": 3271,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 2010,
+          "chars": 2315,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 12,
           "files": 6,
-          "chars": 5512,
+          "chars": 5944,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 12,
           "files": 5,
-          "chars": 4028,
+          "chars": 4863,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 12,
           "files": 2,
-          "chars": 4239,
+          "chars": 4326,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 12,
-          "files": 5,
-          "chars": 3658,
+          "files": 4,
+          "chars": 4153,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 12,
           "files": 4,
-          "chars": 4748,
+          "chars": 5617,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 12,
           "files": 2,
-          "chars": 3582,
+          "chars": 3834,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 12,
           "files": 5,
-          "chars": 3036,
+          "chars": 3596,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 12,
           "files": 2,
-          "chars": 5411,
+          "chars": 6262,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 12,
           "files": 1,
-          "chars": 4699,
+          "chars": 5078,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 12,
           "files": 3,
-          "chars": 5727,
+          "chars": 6565,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 11,
           "files": 7,
-          "chars": 5681,
+          "chars": 6133,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1565,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1640,
+          "chars": 1649,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 978,
+          "chars": 1027,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 5,
           "files": 4,
-          "chars": 1357,
+          "chars": 1634,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 9,
           "files": 7,
-          "chars": 5192,
+          "chars": 5444,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 3,
           "files": 2,
-          "chars": 2638,
+          "chars": 2647,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 12,
           "files": 8,
-          "chars": 7700,
+          "chars": 8201,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 8,
           "files": 4,
-          "chars": 2658,
+          "chars": 2872,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 12,
           "files": 6,
-          "chars": 5512,
+          "chars": 5944,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 12,
           "files": 4,
-          "chars": 2164,
+          "chars": 2597,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 12,
           "files": 6,
-          "chars": 3447,
+          "chars": 3877,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 12,
           "files": 2,
-          "chars": 4555,
+          "chars": 5219,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 12,
-          "files": 7,
-          "chars": 6376,
+          "files": 6,
+          "chars": 5844,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 12,
           "files": 7,
-          "chars": 6851,
+          "chars": 7251,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 12,
           "files": 6,
-          "chars": 5512,
+          "chars": 5944,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -1085,25 +994,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 12,
           "files": 3,
-          "chars": 4705,
+          "chars": 5515,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 12,
           "files": 5,
-          "chars": 3965,
+          "chars": 4841,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -1201,16 +1107,16 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 5108,
-          "meanCharsWhenSent": 5108,
-          "maxChars": 8562
+          "meanChars": 5113,
+          "meanCharsWhenSent": 5113,
+          "maxChars": 8385
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4388,
-          "meanCharsWhenSent": 6144,
-          "maxChars": 8049
+          "meanChars": 4411,
+          "meanCharsWhenSent": 6176,
+          "maxChars": 8535
         }
       },
       "notDelivered": [
@@ -1225,394 +1131,350 @@
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 4301,
+          "chars": 4299,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 4662,
+          "chars": 4796,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 2901,
+          "chars": 3038,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 6260,
+          "chars": 6163,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 4653,
+          "chars": 4780,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 4536,
+          "chars": 4556,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 3600,
+          "chars": 3645,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2886,
+          "chars": 2910,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 4970,
+          "chars": 5030,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 4004,
+          "chars": 4059,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 6810,
+          "chars": 6561,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1699,
+          "chars": 1688,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 2140,
+          "chars": 2060,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3339,
+          "chars": 3198,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 5364,
+          "chars": 5247,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 4003,
+          "chars": 4039,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 3461,
+          "chars": 3359,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 5026,
+          "chars": 4924,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 6033,
+          "chars": 7413,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 8322,
+          "chars": 7944,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 7988,
+          "chars": 7700,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 7397,
+          "chars": 7743,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 2,
-          "chars": 7327,
+          "chars": 7287,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 5,
-          "chars": 7180,
+          "chars": 6708,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 6,
           "files": 1,
-          "chars": 8246,
+          "chars": 8360,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 6,
-          "files": 2,
-          "chars": 8131,
+          "files": 1,
+          "chars": 8385,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 7952,
+          "chars": 8210,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 6,
           "files": 6,
-          "chars": 6153,
+          "chars": 6036,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1565,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1640,
+          "chars": 1649,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 1,
           "files": 1,
-          "chars": 1478,
+          "chars": 1475,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 5,
           "files": 4,
-          "chars": 5835,
+          "chars": 5725,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 4465,
+          "chars": 4553,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 3,
           "files": 2,
-          "chars": 2638,
+          "chars": 2647,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 4953,
+          "chars": 4987,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 4,
           "files": 4,
-          "chars": 4080,
+          "chars": 4198,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 6,
           "files": 4,
-          "chars": 4704,
+          "chars": 4651,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 6,
           "files": 4,
-          "chars": 7603,
+          "chars": 7432,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 6,
-          "chars": 7446,
+          "chars": 7623,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 6,
           "files": 2,
-          "chars": 8562,
+          "chars": 7866,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 6,
           "files": 5,
-          "chars": 5838,
+          "chars": 5809,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 6,
           "files": 5,
-          "chars": 4806,
+          "chars": 4787,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 6,
           "files": 6,
-          "chars": 5475,
+          "chars": 5358,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -1621,25 +1483,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 6,
           "files": 3,
-          "chars": 8049,
+          "chars": 8535,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 6,
-          "files": 3,
-          "chars": 6551,
+          "files": 4,
+          "chars": 6389,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -1651,9 +1510,9 @@
       "describe": "Best 12 chunks of the project; neighbouring sections share a chunk.",
       "scored": {
         "n": 40,
-        "complete": 0.95,
-        "found": 0.95,
-        "delivered": 0.9
+        "complete": 0.925,
+        "found": 0.9375,
+        "delivered": 0.875
       },
       "byKind": {
         "answerable": {
@@ -1664,17 +1523,17 @@
         },
         "multi-file": {
           "n": 8,
-          "complete": 1,
-          "found": 1,
-          "delivered": 1
+          "complete": 0.875,
+          "found": 0.9375,
+          "delivered": 0.875
         }
       },
       "byLang": {
         "en": {
           "n": 17,
-          "complete": 1,
-          "found": 1,
-          "delivered": 0.8824
+          "complete": 0.9412,
+          "found": 0.9706,
+          "delivered": 0.8235
         },
         "pl": {
           "n": 23,
@@ -1692,9 +1551,9 @@
         },
         "deep": {
           "n": 3,
-          "complete": 1,
-          "found": 1,
-          "delivered": 1
+          "complete": 0.6667,
+          "found": 0.8333,
+          "delivered": 0.6667
         },
         "diacritics": {
           "n": 3,
@@ -1737,416 +1596,373 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 8249,
-          "meanCharsWhenSent": 8249,
-          "maxChars": 16385
+          "meanChars": 8142,
+          "meanCharsWhenSent": 8142,
+          "maxChars": 16438
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 7784,
-          "meanCharsWhenSent": 10898,
-          "maxChars": 15891
+          "meanChars": 7930,
+          "meanCharsWhenSent": 11102,
+          "maxChars": 17132
         }
       },
       "notDelivered": [
         "pl-012",
         "pl-013",
         "en-010",
-        "en-012"
+        "en-012",
+        "en-m03"
       ],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 7225,
+          "chars": 7220,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 12,
           "files": 8,
-          "chars": 8975,
+          "chars": 9097,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 2901,
+          "chars": 3038,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 10,
           "files": 8,
-          "chars": 9541,
+          "chars": 9455,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 7,
           "files": 6,
-          "chars": 5654,
+          "chars": 5716,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 4536,
+          "chars": 4556,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 3600,
+          "chars": 3645,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2886,
+          "chars": 2910,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 11,
           "files": 8,
-          "chars": 9580,
+          "chars": 9573,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 4004,
+          "chars": 4059,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 11,
           "files": 10,
-          "chars": 12019,
+          "chars": 11480,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1699,
+          "chars": 1688,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 2140,
+          "chars": 2060,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3339,
+          "chars": 3198,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 8,
           "files": 6,
-          "chars": 6519,
+          "chars": 6402,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 4003,
+          "chars": 4039,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 4,
           "files": 4,
-          "chars": 3461,
+          "chars": 3359,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 8,
           "files": 6,
-          "chars": 6519,
+          "chars": 6402,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 12,
           "files": 5,
-          "chars": 13214,
+          "chars": 14265,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 12,
-          "files": 5,
-          "chars": 15584,
+          "files": 4,
+          "chars": 15517,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 12,
           "files": 7,
-          "chars": 15604,
+          "chars": 14828,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 12,
-          "files": 4,
-          "chars": 15677,
+          "files": 5,
+          "chars": 14791,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 11,
           "files": 3,
-          "chars": 14209,
+          "chars": 13965,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 12,
           "files": 5,
-          "chars": 15737,
+          "chars": 14578,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 12,
           "files": 3,
-          "chars": 15552,
+          "chars": 15583,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 12,
           "files": 3,
-          "chars": 16385,
+          "chars": 15347,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 12,
           "files": 3,
-          "chars": 16251,
+          "chars": 16438,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 7,
           "files": 7,
-          "chars": 7154,
+          "chars": 7034,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1565,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1640,
+          "chars": 1649,
           "complete": true,
           "delivered": false
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 1,
           "files": 1,
-          "chars": 1478,
+          "chars": 1475,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 5,
           "files": 4,
-          "chars": 5835,
+          "chars": 5725,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 9,
           "files": 7,
-          "chars": 6707,
+          "chars": 6689,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 3,
           "files": 2,
-          "chars": 2638,
+          "chars": 2647,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 12,
           "files": 9,
-          "chars": 10188,
+          "chars": 10229,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 4,
           "files": 4,
-          "chars": 4080,
+          "chars": 4198,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 8,
           "files": 6,
-          "chars": 6519,
+          "chars": 6402,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 12,
           "files": 5,
-          "chars": 15792,
+          "chars": 14665,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 12,
           "files": 10,
-          "chars": 13383,
+          "chars": 14132,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 12,
-          "files": 5,
-          "chars": 16176,
-          "complete": true,
-          "delivered": true
+          "files": 3,
+          "chars": 16061,
+          "complete": false,
+          "delivered": false
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 8,
           "files": 7,
-          "chars": 7849,
+          "chars": 7743,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 12,
           "files": 9,
-          "chars": 10080,
+          "chars": 10571,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 9,
           "files": 7,
-          "chars": 6847,
+          "chars": 6821,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -2155,25 +1971,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 12,
-          "files": 4,
-          "chars": 15891,
+          "files": 3,
+          "chars": 17132,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 12,
           "files": 4,
-          "chars": 13822,
+          "chars": 13241,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -2271,16 +2084,16 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 6257,
-          "meanCharsWhenSent": 6257,
-          "maxChars": 10756
+          "meanChars": 6111,
+          "meanCharsWhenSent": 6111,
+          "maxChars": 10736
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4933,
-          "meanCharsWhenSent": 6907,
-          "maxChars": 9800
+          "meanChars": 4849,
+          "meanCharsWhenSent": 6788,
+          "maxChars": 9988
         }
       },
       "notDelivered": [
@@ -2292,394 +2105,350 @@
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 10,
           "files": 5,
-          "chars": 7912,
+          "chars": 7885,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 11,
           "files": 5,
-          "chars": 7047,
+          "chars": 7061,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 9,
           "files": 4,
-          "chars": 5609,
+          "chars": 5624,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 7725,
+          "chars": 7521,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 9,
-          "files": 4,
-          "chars": 6118,
+          "files": 5,
+          "chars": 6203,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 8,
           "files": 3,
-          "chars": 5840,
+          "chars": 5823,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 7,
           "files": 3,
-          "chars": 5377,
+          "chars": 5287,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2886,
+          "chars": 2799,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 8,
-          "files": 4,
-          "chars": 6523,
+          "files": 5,
+          "chars": 6492,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 4174,
+          "chars": 4010,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 5829,
+          "chars": 5470,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1699,
+          "chars": 1600,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 2140,
+          "chars": 2029,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3339,
+          "chars": 3147,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 7,
           "files": 5,
-          "chars": 5821,
+          "chars": 5601,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 4003,
+          "chars": 3868,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 4604,
+          "chars": 4368,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 7,
           "files": 5,
-          "chars": 5542,
+          "chars": 5307,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 10,
           "files": 5,
-          "chars": 10756,
+          "chars": 10736,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 10296,
+          "chars": 9951,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 10440,
+          "chars": 10057,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 10041,
+          "chars": 10116,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 7392,
+          "chars": 7366,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 9902,
+          "chars": 10411,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 9997,
+          "chars": 9623,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 7,
           "files": 4,
-          "chars": 9168,
+          "chars": 8322,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 10145,
+          "chars": 9998,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 5256,
+          "chars": 4954,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1555,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 4,
           "files": 2,
-          "chars": 2783,
+          "chars": 2782,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 1,
           "files": 1,
-          "chars": 1478,
+          "chars": 1466,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3216,
+          "chars": 3160,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 11,
           "files": 5,
-          "chars": 7131,
+          "chars": 7129,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 2,
-          "chars": 4555,
+          "chars": 4552,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 9,
           "files": 5,
-          "chars": 6732,
+          "chars": 6628,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 5,
           "files": 4,
-          "chars": 4250,
+          "chars": 4096,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 7,
           "files": 5,
-          "chars": 5821,
+          "chars": 5601,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 8,
           "files": 5,
-          "chars": 10368,
+          "chars": 9698,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 6295,
+          "chars": 5960,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 8,
           "files": 5,
-          "chars": 10528,
+          "chars": 10179,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 9,
           "files": 5,
-          "chars": 7621,
+          "chars": 7326,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 8,
-          "files": 4,
-          "chars": 5722,
+          "files": 5,
+          "chars": 5703,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 7,
           "files": 5,
-          "chars": 5402,
+          "chars": 5252,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -2688,25 +2457,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 9,
           "files": 5,
-          "chars": 9800,
+          "chars": 9988,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 6,
           "files": 5,
-          "chars": 5989,
+          "chars": 5671,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -2804,16 +2570,16 @@
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 6257,
-          "meanCharsWhenSent": 6257,
-          "maxChars": 10756
+          "meanChars": 6111,
+          "meanCharsWhenSent": 6111,
+          "maxChars": 10736
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4933,
-          "meanCharsWhenSent": 6907,
-          "maxChars": 9800
+          "meanChars": 4849,
+          "meanCharsWhenSent": 6788,
+          "maxChars": 9988
         }
       },
       "notDelivered": [
@@ -2825,394 +2591,350 @@
         {
           "id": "pl-001",
           "kind": "answerable",
-          "passages": 10,
           "files": 5,
-          "chars": 7912,
+          "chars": 7885,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-002",
           "kind": "answerable",
-          "passages": 11,
           "files": 5,
-          "chars": 7047,
+          "chars": 7061,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-003",
           "kind": "answerable",
-          "passages": 9,
           "files": 4,
-          "chars": 5609,
+          "chars": 5624,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-004",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 7725,
+          "chars": 7521,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "passages": 9,
-          "files": 4,
-          "chars": 6118,
+          "files": 5,
+          "chars": 6203,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-006",
           "kind": "answerable",
-          "passages": 8,
           "files": 3,
-          "chars": 5840,
+          "chars": 5823,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-007",
           "kind": "answerable",
-          "passages": 7,
           "files": 3,
-          "chars": 5377,
+          "chars": 5287,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-008",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 2886,
+          "chars": 2799,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "passages": 8,
-          "files": 4,
-          "chars": 6523,
+          "files": 5,
+          "chars": 6492,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-010",
           "kind": "answerable",
-          "passages": 4,
           "files": 3,
-          "chars": 4174,
+          "chars": 4010,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-011",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 5829,
+          "chars": 5470,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-012",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 1699,
+          "chars": 1600,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-013",
           "kind": "answerable",
-          "passages": 2,
           "files": 2,
-          "chars": 2140,
+          "chars": 2029,
           "complete": false,
           "delivered": false
         },
         {
           "id": "pl-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3339,
+          "chars": 3147,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-015",
           "kind": "answerable",
-          "passages": 7,
           "files": 5,
-          "chars": 5821,
+          "chars": 5601,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-016",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 4003,
+          "chars": 3868,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-017",
           "kind": "answerable",
-          "passages": 6,
           "files": 4,
-          "chars": 4604,
+          "chars": 4368,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-018",
           "kind": "answerable",
-          "passages": 7,
           "files": 5,
-          "chars": 5542,
+          "chars": 5307,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-001",
           "kind": "answerable",
-          "passages": 10,
           "files": 5,
-          "chars": 10756,
+          "chars": 10736,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-002",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 10296,
+          "chars": 9951,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-003",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 10440,
+          "chars": 10057,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-004",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 10041,
+          "chars": 10116,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-005",
           "kind": "answerable",
-          "passages": 6,
           "files": 3,
-          "chars": 7392,
+          "chars": 7366,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-006",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 9902,
+          "chars": 10411,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-007",
           "kind": "answerable",
-          "passages": 8,
           "files": 5,
-          "chars": 9997,
+          "chars": 9623,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-008",
           "kind": "answerable",
-          "passages": 7,
           "files": 4,
-          "chars": 9168,
+          "chars": 8322,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-009",
           "kind": "answerable",
-          "passages": 9,
           "files": 5,
-          "chars": 10145,
+          "chars": 9998,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-010",
           "kind": "answerable",
-          "passages": 5,
           "files": 5,
-          "chars": 5256,
+          "chars": 4954,
           "complete": false,
           "delivered": false
         },
         {
           "id": "en-011",
           "kind": "answerable",
-          "passages": 2,
           "files": 1,
-          "chars": 1556,
+          "chars": 1555,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-012",
           "kind": "answerable",
-          "passages": 4,
           "files": 2,
-          "chars": 2783,
+          "chars": 2782,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-013",
           "kind": "answerable",
-          "passages": 1,
           "files": 1,
-          "chars": 1478,
+          "chars": 1466,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-014",
           "kind": "answerable",
-          "passages": 3,
           "files": 3,
-          "chars": 3216,
+          "chars": 3160,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
-          "passages": 11,
           "files": 5,
-          "chars": 7131,
+          "chars": 7129,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 2,
-          "chars": 4555,
+          "chars": 4552,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
-          "passages": 9,
           "files": 5,
-          "chars": 6732,
+          "chars": 6628,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
-          "passages": 5,
           "files": 4,
-          "chars": 4250,
+          "chars": 4096,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
-          "passages": 7,
           "files": 5,
-          "chars": 5821,
+          "chars": 5601,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
-          "passages": 8,
           "files": 5,
-          "chars": 10368,
+          "chars": 9698,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
-          "passages": 6,
           "files": 5,
-          "chars": 6295,
+          "chars": 5960,
           "complete": true,
           "delivered": true
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
-          "passages": 8,
           "files": 5,
-          "chars": 10528,
+          "chars": 10179,
           "complete": true,
           "delivered": true
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
-          "passages": 9,
           "files": 5,
-          "chars": 7621,
+          "chars": 7326,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "passages": 8,
-          "files": 4,
-          "chars": 5722,
+          "files": 5,
+          "chars": 5703,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
-          "passages": 7,
           "files": 5,
-          "chars": 5402,
+          "chars": 5252,
           "complete": null,
           "delivered": null
         },
         {
           "id": "pl-n04",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,
@@ -3221,25 +2943,22 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "passages": 9,
           "files": 5,
-          "chars": 9800,
+          "chars": 9988,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n02",
           "kind": "no-answer",
-          "passages": 6,
           "files": 5,
-          "chars": 5989,
+          "chars": 5671,
           "complete": null,
           "delivered": null
         },
         {
           "id": "en-n03",
           "kind": "no-answer",
-          "passages": 0,
           "files": 0,
           "chars": null,
           "complete": null,

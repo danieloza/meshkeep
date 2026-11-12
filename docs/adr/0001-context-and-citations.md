@@ -27,7 +27,7 @@ The decisions below keep what works and change what does not:
 | 7 | Each answer records which passages went to which connection. |
 | 8 | No vector search now. It gets considered when a named threshold on the evaluation sets is missed. |
 
-A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 6 257
+A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 6 111
 characters of context on average instead of 25 588. The three it still misses are the three
 where the question and the file are in different languages.
 
@@ -216,18 +216,18 @@ ranked. The check says nothing about passages: the application has none to compa
 | Strategy | Found | Delivered | Mean characters | Most |
 |---|---|---|---|---|
 | Baseline (measured) | 37 | 32 | 25 588 | 80 626 |
-| Best 12 chunks, small chunks (mean 311 characters) | 37 | 33 | 3 910 | 7 989 |
-| Best 12 chunks, joined chunks (mean 1 166 characters) | 38 | 36 | 8 249 | 16 385 |
-| Files, then passages | 37 | 37 | 6 257 | 10 756 |
+| Best 12 chunks, small chunks (mean 330 characters) | 37 | 33 | 4 221 | 8 201 |
+| Best 12 chunks, joined chunks (mean 1 101 characters) | 37 | 35 | 8 142 | 16 438 |
+| Files, then passages | 37 | 37 | 6 111 | 10 736 |
 
-Each row: n = 40 scored questions, all of which sent context.
+Each row: n = 40 scored questions, all of which sent context. The simulation's figures are from its second revision, after review 2 made chunks verbatim slices of the file under a label; the first revision rewrote headings into the text and gave 33, 36 and 37 delivered. The baseline did not change.
 
 `no-answer` questions (n = 7; in every row 5 of them sent context, 2 sent nothing):
 
 | Strategy | Mean over all 7 | Mean over the 5 that sent |
 |---|---|---|
 | Baseline (measured) | 14 945 | 20 924 |
-| Files, then passages | 4 933 | 6 907 |
+| Files, then passages | 4 849 | 6 788 |
 
 Three things follow.
 
@@ -236,7 +236,7 @@ Three things follow.
    words of the question are spread over several sections of one document, a whole file
    gathers them, and a small chunk does not.
 2. **Larger chunks help, at a price.** Letting neighbouring sections share a chunk delivered
-   36 of 40, with about a third more text than the two-step strategy.
+   35 of 40, with about a third more text than the two-step strategy.
 3. **Keeping the file ranking and choosing passages inside each file is best here.** It
    delivers everything the baseline finds, including all five questions lost to the long file,
    and sends about a quarter of the text.
@@ -251,18 +251,19 @@ Three things follow.
 
 1. *Files:* as today. In Auto mode, the files `suggest-files` ranks for the question; in
    Manual mode, the files the member picked.
-2. *Passages:* each of those files, in order, brings all of its text when it is at most 6 000
-   characters long, and otherwise its best passages for the question, up to 6 000 characters,
-   in the order they have in the file. No file can use the room of another. The total is
-   capped by the budget of decision 4.
+2. *Passages:* each of those files, in order, brings its whole extracted text when that is at
+   most 6 000 characters long, exactly as the chat sends a file today, and otherwise its best
+   passages for the question, up to 6 000 characters, in the order they have in the file. A
+   passage is sent as the file has it, under a label (decision 1). No file can use the room of
+   another. The total is capped by the budget of decision 4.
 
 **Why.** F2 and F3 are both the result of filling one budget with whole files in order
 (`app/api/chat/route.ts:25`). The simulation delivers 37 of 40 this way against 32, with
-6 257 characters on average against 25 588.
+6 111 characters on average against 25 588.
 
 **Rejected.**
 - *Rank chunks across the project and drop the file step.* Measured: 33 of 40 with small
-  chunks, 36 with joined ones, and three questions that work today stop working.
+  chunks, 35 with joined ones, and three questions that work today stop working.
 - *Keep whole files and raise the budget.* The answer to `en-007` sits at character 108 988;
   the budget would have to exceed the whole file, and every message would cost more than the
   25 588 characters it already averages.
@@ -278,21 +279,29 @@ the holdout set decides whether they stay.
 ### Decision 1: the chunk, its size and its ID
 
 **Decision.**
-- *Unit.* A chunk follows the file's structure: a PDF page; rows of one sheet, each chunk
-  led by the sheet's header row; paragraphs of a Markdown file with the headings above them;
-  paragraphs of anything else.
-- *Size.* Neighbouring pieces are joined in order until a chunk has about 1 500 characters.
-  A chunk never crosses a page or a sheet. It may cross a heading, and then keeps the heading
-  line in its text. No chunk is longer than 2 400 characters.
-- *Long lines.* A piece longer than the maximum is cut at line ends. A single line longer
-  than the maximum (a row of a CSV file, minified JSON, a paragraph with no line break) is
-  cut into pieces of at most 1 500 characters, at a space where one is in reach and inside
-  the text where none is. Nothing is dropped. Because a chunk is never longer than 2 400
-  characters, it always fits in a file's allowance of 6 000.
-- *No overlap,* with one exception in how passages are chosen: pieces cut from one line are
-  neighbours, and when one is chosen the pieces next to it come along while the file's
-  allowance has room. A sentence may run across such a cut, and its two halves are only
-  readable together.
+- *A chunk is a slice of the file's text,* given by its start and end. Its text is never
+  rewritten: headings, table rows and line breaks stay where the file has them, and chunks
+  that follow each other, put together, give the file's text back exactly.
+- *Unit.* A chunk is made of whole units, cut along the file's structure: paragraphs; each
+  Markdown heading line as a unit of its own; each row of a sheet; each PDF page's paragraphs,
+  with the page as their place.
+- *Size.* Units are joined in order until a chunk has about 1 500 characters. A chunk never
+  crosses a page or a sheet. It may cross a heading, whose line is then simply part of its
+  text. No chunk is longer than 2 400 characters.
+- *Label.* What a chunk is about travels beside its text and is sent as a label line above
+  it: the page or sheet, the headings above it (`Runbook › Deploying`), and for a sheet its
+  header row, so that a row is never sent without the names of its columns. The label is
+  searched too. A header row longer than 1 000 characters is cut in the label, and the chunk
+  is marked: the last columns of its rows then have no name, and the manifest says so.
+- *Long lines.* A unit longer than the maximum is cut into pieces of at most 1 500
+  characters: at the last line end in reach, else the last space or tab, else inside the
+  text, never between the two halves of a character outside the BMP. Nothing is dropped and
+  nothing is added. Because a chunk is never longer than 2 400 characters, it always fits in
+  a file's allowance of 6 000.
+- *No overlap,* with one exception in how passages are chosen: pieces cut from one unit are
+  linked, and when one is chosen the pieces it is linked to come along while the file's
+  allowance has room. Sent together, they are one slice of the file, so a word or a sentence
+  cut in two reads whole again.
 - *Line endings.* Text is cut after CRLF is turned into LF, so a file gives the same chunks
   on every system.
 - *Address and stamp.* A chunk is addressed by its file and its ordinal in that file. It also
@@ -304,13 +313,20 @@ the holdout set decides whether they stay.
 - *Version of a file* means the SHA-256 of its bytes, which `files` already has
   (`db/schema.ts:134`).
 
-**Why.** Joined chunks (139 for the corpus, mean 1 166 characters) delivered 36 of 40 as a
-ranking of their own, small ones (443, mean 311) delivered 33. A row of a spreadsheet says
-nothing without its header: `pl-002` expects "Tester 120", which is only an answer next to
-the column name. `tests/eval-context-rules.test.ts` pins the rule down: the same chunks with
-LF and CRLF, no chunk past the maximum for a 7 000-character line with and without spaces,
-nothing lost, and a quote across a forced cut found when both pieces are sent and not when
-one is.
+**Why.** Joined chunks delivered more than small ones as a ranking of their own (section
+2.5). A row of a spreadsheet says nothing without its header: `pl-002` expects "Tester 120",
+which is only an answer next to the column name. An earlier draft repeated headings and the
+header row inside the chunk's text; a review showed that this rewrote what the file says (a
+Markdown heading became a trail, a heading with no text under it vanished) and that pieces
+of a cut line were rejoined with a blank line inside a word. Slices plus a label keep both:
+the text as it is, and what it is about.
+
+`tests/eval-context-rules.test.ts` pins the rule down: every chunk is a slice and
+consecutive chunks give the text back; the same chunks with LF and CRLF; heading lines kept,
+also with no text under them; no chunk past the maximum; no lone half of a character; a
+quote across a cut inside a word delivered when both pieces are sent and not when one is;
+linked pieces brought along; every chunk of a sheet labelled with its header, cut and marked
+when it is too long.
 
 The stamp has to survive two things the code does today: re-uploading a file gives it a new
 row ID (`files/route.ts:117`–`129`), and re-indexing rewrites its text. A stamp made from the
@@ -329,12 +345,14 @@ in one project, and would share every stamp. Decision 5 says how a citation find
 - *The stamp as the address.* The first version of this decision did that. A review showed
   that two identical files in one project then answer to the same key.
 - *Overlap between all chunks.* Repeated text would have to be removed again before it is
-  sent or cited. The neighbour rule covers the one case where a cut can fall inside a
-  sentence.
+  sent or cited. Linking the pieces of a cut unit covers the one case where a cut can fall
+  inside a sentence or a word.
+- *Headings and header rows written into the chunk's text.* The previous draft. It changes
+  the text that is sent and cited, see above.
 
-**Not measured.** The dev corpus has no line longer than the maximum, so the long-line rule
-and the neighbour rule are tested as rules and have never chosen a passage in the simulation.
-The holdout set is to contain such files.
+**Not measured.** The simulation applies the long-line rule and the linking of pieces, but
+the dev corpus has no unit longer than the maximum and no header row longer than 1 000
+characters, so neither has changed a result. The holdout set is to contain such files.
 
 ### Decision 2: storage and migration
 
@@ -362,9 +380,9 @@ after the hosted data has been checked for duplicates in a backup.
 
 **Why.** Nothing measured needs `file_texts` to change, and a migration that only creates
 cannot lose data. D1 allows 100 bound parameters per statement, so chunks are inserted one
-statement each in a batch, as files already are (`files/route.ts:124`–`131`). For the dev corpus
-the chunks are 162 119 characters next to 148 900 in the files, so text storage roughly
-doubles.
+statement each in a batch, as files already are (`files/route.ts:124`–`131`). Chunks are slices,
+so they hold the file's text once more and no more: for the dev corpus 148 686 characters
+of chunks for 38 files. Text storage roughly doubles, because `file_texts` keeps its copy.
 
 **Rejected.**
 - *Chunks as JSON inside `file_texts`.* No full-text index per chunk, and one row would
@@ -431,9 +449,9 @@ assembled it.
 ### Decision 5: citations
 
 **Decision.**
-- *What the model sees.* Each passage is sent under a short number, its path and its place:
-  `[3] umowa-ramowa.pdf · page 4`, then the text. The model is asked to put the number after
-  the sentence it supports and to use only the numbers shown.
+- *What the model sees.* Each passage is sent under a short number, its path and its label:
+  `[3] umowa-ramowa.pdf · page 4`, then the text as the file has it. The model is asked to put
+  the number after the sentence it supports and to use only the numbers shown.
 - *What the server keeps.* When the answer is complete, the server reads the numbers in it.
   A number that was not sent is removed from the stored answer. Each remaining one is stored
   as a citation: number, path of the file, ordinal of the chunk, `chunk_key`, file SHA-256
@@ -444,10 +462,22 @@ assembled it.
   Different: the file has changed since, and the interface says so. No file at that path:
   the source is no longer available, and the interface says that. Two files with the same
   bytes are two sources, because they have two paths. A renamed file reads as no longer
-  available.
-- *After a file is deleted or replaced,* nothing of it is kept for the sake of a citation.
-  The answer itself may quote the file, as any answer may, and what a provider or a backup
-  keeps follows their own rules; the product says so where it describes deleting.
+  available. A file replaced by one with the same bytes at the same path resolves the old
+  citation again: it is the same text, so the citation is still true, and this is intended.
+- *What a citation keeps, and what deleting a file does to it.* No text of the passage is
+  kept. A citation does keep metadata: the file's path, the ordinal, the label (page, sheet,
+  headings, which can say a good deal), the file's SHA-256 and the stamp. Anyone who can
+  read the conversation sees it, for as long as the answer exists. Deleting a file removes
+  that metadata from every citation and passage list that points at it: what remains is
+  "a deleted file", the number and nothing else, so a deleted file's citation can never
+  resolve again. Replacing a file without deleting it keeps its citations, which then read
+  as changed.
+- *What this does not cover.* The answer's own text may quote the file, as any answer may.
+  What a provider or a backup keeps follows their own rules. And today, before any of this,
+  each answer already keeps the paths of the files it was sent, after they are deleted, on
+  purpose (`db/schema.ts:196`–`199`). Whether deleting a file should also remove its path
+  there is the owner's call (section 8); the product describes whichever is chosen where it
+  describes deleting.
 - *The manifest.* `contextFile` keeps its four states, so stored answers still read. A file
   sent whole stays `included`. A file sent by passages is `truncated`, with a note such as
   "3 of 78 passages", and gains an optional list `passages` (number, ordinal, `chunk_key`,
@@ -615,7 +645,7 @@ Each step is its own pull request and is accepted on numbers from `npm run eval:
 |---|---|---|
 | A | Block extraction, `file_chunks`, indexing rounds fill it, one file per path enforced. No change in behaviour. | The baseline is unchanged; every readable file has chunks; a 7 000-character line is cut and nothing of it is lost; the Sites migration test passes. |
 | B | Passages inside files, the per-file allowance, the neighbour rule, `passages` in the manifest. | On the dev set: delivered at least 37 of 40, mean context at most 8 000 characters, found still 37 of 40, all 8 forbidden files refused. On the holdout set: delivered no lower than found by more than one question in twenty. |
-| C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); with two identical files in one project each citation opens its own file; a citation to a changed or deleted file says so and shows no text; answers without citations still save. |
+| C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); with two identical files in one project each citation opens its own file; a citation to a changed file says so and shows no text; after a file is deleted its citations keep only their numbers, with no path, label, hash or stamp; answers without citations still save. |
 | D | History on the server, the budget per model. | A request over the budget is trimmed, not refused; the stored record equals what the provider received. |
 | E | Connection and host on the message. | An answer shows which connection received which passages, after the file is deleted. |
 
@@ -628,9 +658,14 @@ The holdout set is built before step B merges.
    changed or is no longer available. The earlier draft kept 300 characters; the reviewer
    advised against it, because it holds on to text of a deleted file. Is "nothing kept" the
    rule, or should a project be able to switch a kept excerpt on knowingly?
-2. **Languages.** Is asking in Polish about English files, and the reverse, an everyday case
+2. **Paths after a file is deleted.** Decision 5 removes a deleted file's path, label, hash
+   and stamp from its citations. Today, each answer already keeps the paths of the files it
+   was sent after they are deleted (`db/schema.ts:196`–`199`), so "delete means gone" does
+   not hold for file names now. Should deleting a file also remove its path from those
+   records, or should the product say plainly that answers remember which files they used?
+3. **Languages.** Is asking in Polish about English files, and the reverse, an everyday case
    for the people MeshKeep is for? If so, measuring query expansion is the next evaluation
    task; if not, F4 can wait for the holdout set.
-3. **Unmarked models.** 16 000 tokens is a cautious default. A lower one protects small
+4. **Unmarked models.** 16 000 tokens is a cautious default. A lower one protects small
    models, a higher one wastes less of large ones.
-4. **Who builds the holdout set.**
+5. **Who builds the holdout set.**

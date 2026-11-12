@@ -53,6 +53,12 @@ export function fileContextMessage(files: SentFile[]): string {
 // lists them). They are needed because a file's own text may contain the rule
 // that separates sections: a section starts only where the next expected
 // `FILE:` line stands.
+//
+// The chat does not escape file text, so a file can also contain something
+// that looks exactly like the next file's `FILE:` line. Then no reader can
+// tell where one file ends, and attributing text to either would be a guess.
+// Such a message is refused: the marker of each next file has to occur once,
+// and only once, in what is left of the message.
 export function splitFileContext(message: string, paths: string[]): Map<string, string> {
   const sections = new Map<string, string>();
   if (!paths.length) {
@@ -65,8 +71,12 @@ export function splitFileContext(message: string, paths: string[]): Map<string, 
     const start = `FILE: ${path} (`;
     if (!rest.startsWith(start)) throw new Error(`The file context has no section for ${path} where one is expected.`);
     const next = paths[index + 1];
-    const end = next === undefined ? -1 : rest.indexOf(`${SECTION_RULE}FILE: ${next} (`);
+    const marker = next === undefined ? '' : `${SECTION_RULE}FILE: ${next} (`;
+    const end = next === undefined ? -1 : rest.indexOf(marker);
     if (next !== undefined && end < 0) throw new Error(`The file context has no section for ${next}.`);
+    if (next !== undefined && rest.indexOf(marker, end + 1) >= 0) {
+      throw new Error(`The file context is ambiguous: the section line for ${next} occurs more than once, so a file's text imitates it.`);
+    }
     const section = end < 0 ? rest : rest.slice(0, end);
     const lineEnd = section.indexOf('\n');
     if (!/ \([^()]*, \d+ B\)$/.test(lineEnd < 0 ? section : section.slice(0, lineEnd))) throw new Error(`The FILE line for ${path} is not in the chat's format.`);
