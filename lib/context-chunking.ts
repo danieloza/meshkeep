@@ -1,7 +1,6 @@
-// How a file's text is cut into chunks, for the simulation in
-// `scripts/eval-context-chunks.mjs` and for the tests that pin the rule down.
-// This is the rule `docs/adr/0001-context-and-citations.md` proposes, not code
-// the application runs.
+// Shared passage rules for context indexing and the evaluation simulation.
+// The application still sends files as before until a later change enables
+// passage selection in chat.
 //
 // A chunk is a slice of the file's text, by offsets, never a rewritten copy:
 // chunks that follow each other put back together give the text exactly, and

@@ -1,4 +1,4 @@
-import { canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, pdfDocument, sheetUnits, type Document } from './context-chunking';
+import { canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passageSearchLabel, pdfDocument, sheetUnits, type Document } from './context-chunking';
 
 // This version is part of every stamp. Change it when extraction or chunk
 // boundaries change, so a saved citation cannot resolve to different text.
@@ -85,7 +85,7 @@ export async function buildContextChunks(file: ChunkFile, document: Document): P
     endChar: chunk.end,
     content: chunk.text,
     label: passageLabel(chunk),
-    searchLabel: [chunk.place, chunk.heading, chunk.header].filter(Boolean).join(' '),
+    searchLabel: passageSearchLabel(chunk),
     place: chunk.place,
     heading: chunk.heading,
     headerCut: chunk.headerCut ? 1 : 0,
