@@ -14,11 +14,11 @@ const TEXT_CONTEXT_EXTENSIONS = new Set([
   'go', 'rs', 'java', 'kt', 'swift', 'css', 'scss', 'html', 'xml', 'yaml',
   'yml', 'toml', 'sql', 'sh', 'ps1', 'bat',
 ]);
-const MAX_CONTEXT_FILE_BYTES = 300_000;
+export const MAX_CONTEXT_FILE_BYTES = 300_000;
 // Dokumenty sa skompresowane, wiec limit bajtow moze byc znacznie wyzszy niz
 // przy zwyklym tekscie: kilkumegabajtowy DOCX rozpakowuje sie do kilkudziesieciu
 // tysiecy znakow. O rozmiarze kontekstu i tak decyduje wywolujacy.
-const MAX_DOCUMENT_BYTES = 8_000_000;
+export const MAX_DOCUMENT_BYTES = 8_000_000;
 
 export function rozszerzeniePliku(nazwa: string): string {
   return nazwa.split('.').pop()?.toLocaleLowerCase('en-US') ?? '';
