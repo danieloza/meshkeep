@@ -65,7 +65,7 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
       INSERT INTO projects (id,owner_id,name) VALUES ('p','m','P'),('q','m','Q');`);
     mocks.client = new LocalD1(db);
     mocks.read.mockReset().mockResolvedValue({ document: { text: 'body' }, reason: null, failed: false });
-    mocks.build.mockReset().mockImplementation((file: File) => ({ rows: [row(file)], truncated: false }));
+    mocks.build.mockReset().mockImplementation(async (file: File) => ({ rows: [row(file)], truncated: false }));
   });
   afterEach(() => { db.close(); vi.useRealTimers(); });
 
@@ -96,10 +96,10 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
 
   it('retains full searchable labels, records truncation, and fails closed on size limits', async () => {
     addFile('a'); addFile('b');
-    mocks.build.mockImplementation((file: File) => file.id === 'a'
+    mocks.build.mockImplementation(async (file: File) => file.id === 'a'
       ? { rows: [row(file, 'header hiddenuniquetail')], truncated: true }
       : { rows: [row(file, 'x'.repeat(65_537))], truncated: false });
-    expect(await indexPendingContextChunks('p')).toEqual({ processed: 2, failed: 1, remaining: 1 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 2, failed: 1, remaining: 0 });
     expect(find('hiddenuniquetail')).toEqual([{ file_id: 'a' }]);
     expect(state('a')).toMatchObject({ status: 'indexed', reason: expect.stringContaining('part') });
     expect(state('b')).toMatchObject({ status: 'failed', reason: expect.stringContaining('label exceeds') });
@@ -109,8 +109,8 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
   it('delays retries, limits attempts and reindexes a changed version', async () => {
     addFile('a');
     mocks.read.mockResolvedValue({ document: null, reason: 'unreadable', failed: true });
-    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 1, remaining: 1 });
-    expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 1 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 1, remaining: 0 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 0 });
     vi.advanceTimersByTime(5 * 60_000);
     await indexPendingContextChunks('p');
     vi.advanceTimersByTime(10 * 60_000);
@@ -120,6 +120,28 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     mocks.read.mockResolvedValue({ document: { text: 'body' }, reason: null, failed: false });
     expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
     expect(state('a')).toMatchObject({ status: 'indexed', attempts: 1, file_sha: 'new-sha' });
+  });
+
+  it('counts a retry that becomes due while the round is running', async () => {
+    addFile('a');
+    for (let i = 0; i < 5; i += 1) addFile(`b${i}`);
+    db.prepare(`INSERT INTO file_chunk_states VALUES ('a','p','sha','v1','failed',1,NULL,0,0,'retry',?)`)
+      .run(Date.now() - 5 * 60_000 + 1);
+    mocks.build.mockImplementationOnce(async (file: File) => {
+      vi.advanceTimersByTime(1);
+      return { rows: [row(file)], truncated: false };
+    });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 5, failed: 0, remaining: 1 });
+    expect(state('a')).toMatchObject({ status: 'failed', attempts: 1 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
+  });
+
+  it('records an asynchronous chunk builder rejection as a delayed failure', async () => {
+    addFile('a');
+    mocks.build.mockRejectedValueOnce(new Error('chunk builder failed'));
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 1, remaining: 0 });
+    expect(state('a')).toMatchObject({ status: 'failed', reason: 'chunk builder failed', lease_id: null });
+    expect(chunks('a')).toEqual([]);
   });
 
   it('settles unsupported documents and expired final leases without retrying forever', async () => {
@@ -141,7 +163,7 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     const old = indexPendingContextChunks('p');
     await reading;
     vi.advanceTimersByTime(2 * 60_000 + 1);
-    mocks.build.mockImplementationOnce((file: File) => ({ rows: [row(file, 'newerword')], truncated: false }));
+    mocks.build.mockImplementationOnce(async (file: File) => ({ rows: [row(file, 'newerword')], truncated: false }));
     expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
     resume({ document: { text: 'old' }, reason: null, failed: false });
     await old;
@@ -158,7 +180,7 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     mocks.read.mockImplementationOnce(() => { started(); return new Promise((resolve) => { resume = resolve; }); });
     const first = indexPendingContextChunks('p');
     await reading;
-    expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 1 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 0 });
     resume({ document: { text: 'body' }, reason: null, failed: false });
     expect(await first).toEqual({ processed: 1, failed: 0, remaining: 0 });
     expect(mocks.read).toHaveBeenCalledTimes(1);
@@ -171,10 +193,10 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     db.exec(`UPDATE files SET sha256='new' WHERE id IN ('a','b');
       CREATE TRIGGER fail_chunk BEFORE INSERT ON file_chunks WHEN new.file_id='a' AND new.ordinal=6
       BEGIN SELECT RAISE(ABORT, 'simulated insert failure'); END;`);
-    mocks.build.mockImplementation((file: File) => file.id === 'a'
+    mocks.build.mockImplementation(async (file: File) => file.id === 'a'
       ? { rows: Array.from({ length: 7 }, (_, ordinal) => ({ ...row(file, 'replacement'), ordinal })), truncated: false }
       : { rows: Array.from({ length: 601 }, (_, ordinal) => ({ ...row(file), ordinal })), truncated: false });
-    expect(await indexPendingContextChunks('p')).toEqual({ processed: 2, failed: 2, remaining: 2 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 2, failed: 2, remaining: 0 });
     expect(state('a')).toMatchObject({ status: 'failed', reason: expect.stringContaining('simulated insert failure') });
     expect(state('b')).toMatchObject({ status: 'failed', reason: expect.stringContaining('Chunk limit') });
     expect(find('tail')).toEqual([]);

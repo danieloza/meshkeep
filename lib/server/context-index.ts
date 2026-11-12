@@ -124,8 +124,8 @@ async function settle(db: Client, file: ContextFile, lease: string, status: 'ind
   return results[results.length - 1].meta.changes === 1;
 }
 
-// Returns claims processed, failures settled by this round, and all retryable
-// work still outstanding (including delayed retries and currently held leases).
+// Remaining counts only work eligible for a claim now. Delayed retries and
+// current leases must not make the caller spin while waiting for a deadline.
 export async function indexPendingContextChunks(projectId: string): Promise<{ processed: number; failed: number; remaining: number }> {
   const db = getDb().$client;
   const now = Date.now();
@@ -155,7 +155,7 @@ export async function indexPendingContextChunks(projectId: string): Promise<{ pr
       } else if (!result.document) {
         await settle(db, file, lease, 'unsupported', result.reason, []);
       } else {
-        const built = buildContextChunks(file, result.document);
+        const built = await buildContextChunks(file, result.document);
         validateRows(file, built.rows);
         const reason = [result.reason, built.truncated ? 'Only part of the document was indexed.' : null].filter(Boolean).join(' ') || null;
         await settle(db, file, lease, 'indexed', reason, built.rows);
@@ -168,8 +168,7 @@ export async function indexPendingContextChunks(projectId: string): Promise<{ pr
   const pending = await db.prepare(`SELECT COUNT(*) AS n FROM files f
     JOIN file_texts t ON t.file_id=f.id AND t.project_id=f.project_id
     LEFT JOIN file_chunk_states s ON s.file_id=f.id
-    WHERE f.project_id=? AND t.status='indexed' AND (s.file_id IS NULL OR s.project_id<>f.project_id OR s.file_sha<>f.sha256 OR s.extractor_version<>?
-      OR (s.status='failed' AND s.attempts<?) OR s.status='indexing')`)
-    .bind(projectId, CHUNK_EXTRACTOR_VERSION, MAX_ATTEMPTS).first<{ n: number }>();
+    WHERE f.project_id=? AND t.status='indexed' AND ${due}`)
+    .bind(projectId, ...dueArgs(Date.now())).first<{ n: number }>();
   return { processed, failed, remaining: pending?.n ?? 0 };
 }
