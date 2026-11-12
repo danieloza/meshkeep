@@ -1,7 +1,7 @@
-// The format of an evaluation set for context retrieval, and the few rules
-// both the test and the runner need. A set is a directory under
-// `eval/context/sets/` with `team.json`, `projects.json`, `corpus/` and
-// `questions.json`; the runner adds `baseline.json`.
+// The format of an evaluation set for context retrieval. A set is a directory
+// under `eval/context/sets/` with `team.json`, `projects.json`, `corpus/` and
+// `questions.json`; the runner adds `baseline.json`. How results are counted
+// is in `measure.ts`.
 //
 // Only erasable TypeScript here: `scripts/eval-context.mjs` imports this file
 // straight from Node.
@@ -46,7 +46,9 @@ export function canRead(target: Project, memberId: string): boolean {
 // Asking means sending a chat message, and the chat needs edit access to the
 // project (`requireProjectAccess(…, 'edit')` in `app/api/chat/route.ts`): its
 // owner, or someone it is shared with as an editor. A reader, and a member who
-// sees a team project without being named in it, can search but not ask.
+// sees a team project without being named in it, can search but not ask. So a
+// set measures what people who can ask get; what a reader finds through
+// search alone is not measured here.
 export function canAsk(target: Project, memberId: string): boolean {
   return target.owner === memberId || target.members.some((member) => member.id === memberId && member.role === 'editor');
 }
@@ -83,13 +85,23 @@ export type Locator = z.infer<typeof locator>;
 export const expectedSource = z.object({
   file: corpusFile,
   // Found in the file's text as MeshKeep's own extractors produce it, once
-  // every run of whitespace on both sides is collapsed to one space (see
-  // `normalizeText`). A PDF breaks lines where the page layout does, so a
-  // sentence copied from the document would otherwise never match.
+  // every run of whitespace on both sides is collapsed to one space
+  // (`normalizeText` in `measure.ts`). Containment after normalizing, not a
+  // byte-for-byte quotation.
   quote: z.string().min(3),
   locator: locator.optional(),
 });
 export type ExpectedSource = z.infer<typeof expectedSource>;
+
+// A file that holds the answer but sits in a project the asker cannot open,
+// with a search phrase that finds this file for the owner of its project. The
+// runner sends the phrase as both people: the asker's empty result counts as
+// a refusal only when the same phrase does find the file for its owner.
+export const forbiddenSource = z.object({
+  file: corpusFile,
+  probe: z.string().min(3),
+});
+export type ForbiddenSource = z.infer<typeof forbiddenSource>;
 
 export const question = z.object({
   id: z.string().regex(/^(pl|en)-[a-z]?\d{2,3}$/),
@@ -105,13 +117,8 @@ export const question = z.object({
   // `no-answer`: files on the topic that do not hold the answer. Retrieving
   // them is not an error.
   related: z.array(corpusFile).default([]),
-  // `access`: files that hold the answer but sit in a project the asker
-  // cannot open.
-  forbidden: z.array(corpusFile).default([]),
-  // `access`: a search phrase that finds a forbidden file for someone who may
-  // read it. The runner sends it as both people: a refusal only counts when
-  // the same phrase finds the file for its owner.
-  probe: z.string().min(3).optional(),
+  // `access`: every file that holds the answer and is closed to the asker.
+  forbidden: z.array(forbiddenSource).default([]),
   tags: z.array(z.enum(TAGS)).default([]),
 }).superRefine((value, context) => {
   const fail = (message: string) => context.addIssue({ code: 'custom', message: `${value.id}: ${message}` });
@@ -120,15 +127,16 @@ export const question = z.object({
   if (value.kind === 'answerable' && files.size !== 1) fail('an answerable question names exactly one file.');
   if (value.kind === 'multi-file' && files.size < 2) fail('a multi-file question names at least two files.');
   if ((value.kind === 'no-answer' || value.kind === 'access') && value.expected.length) fail('this kind has no expected sources.');
-  if (value.kind === 'access' && (!value.forbidden.length || !value.probe)) fail('an access question names forbidden files and a probe.');
-  if (value.kind !== 'access' && (value.forbidden.length || value.probe)) fail('only access questions have forbidden files and a probe.');
+  if (value.kind === 'access' && !value.forbidden.length) fail('an access question names its forbidden files.');
+  if (value.kind !== 'access' && value.forbidden.length) fail('only access questions have forbidden files.');
   if (value.kind !== 'no-answer' && value.related.length) fail('only no-answer questions have related files.');
   for (const file of [...files, ...value.related]) {
     if (!file.startsWith(`${value.project}/`)) fail(`${file} is not in the project the question is asked in.`);
   }
-  for (const file of value.forbidden) {
+  for (const { file } of value.forbidden) {
     if (file.startsWith(`${value.project}/`)) fail(`${file} is in the asker's own project, so it cannot be forbidden.`);
   }
+  if (new Set(value.forbidden.map((source) => source.file)).size !== value.forbidden.length) fail('a forbidden file is listed once.');
 });
 export type Question = z.infer<typeof question>;
 
@@ -138,12 +146,6 @@ export const questionSet = z.object({
   questions: z.array(question).min(1),
 }).refine((value) => new Set(value.questions.map((item) => item.id)).size === value.questions.length, 'Question ids are unique.');
 export type QuestionSet = z.infer<typeof questionSet>;
-
-// Collapses every run of whitespace to one space. Applied to the file text
-// and to the quote before looking for one in the other.
-export function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
 
 // --- baseline.json -----------------------------------------------------------
 
@@ -157,21 +159,22 @@ const sourceOutcome = z.object({
   // How the chat reported the file in its answer's manifest, or null when the
   // file was not sent at all.
   manifest: z.enum(['included', 'truncated', 'unreadable', 'skipped']).nullable(),
-  // Whether the quote was in the text the model provider received.
+  // Whether the quote was in the text that this file itself contributed to
+  // what the model provider received.
   delivered: z.boolean(),
 });
 
-const accessOutcome = z.object({
-  // HTTP status of `suggest-files` asked on each forbidden project.
-  forbiddenProjects: z.array(z.object({ project: slug, status: z.number().int() })),
-  // The probe, searched across all projects as the asker and as the owner of
-  // the forbidden project.
+// What one forbidden file shows; see `accessOutcome` in `measure.ts`.
+const forbiddenOutcome = z.object({
+  file: corpusFile,
+  // HTTP status of `suggest-files` asked by the asker on the file's project.
+  routeStatus: z.number().int(),
   probe: z.string(),
-  ownerFound: z.array(corpusFile),
-  askerFound: z.array(corpusFile),
-  // True when the owner finds a forbidden file, the asker finds none, and no
-  // forbidden project answers the asker with anything but 404.
-  refused: z.boolean(),
+  // The probe, searched across all projects, finds this file for the owner of
+  // its project, and for the asker.
+  ownerFound: z.boolean(),
+  askerFound: z.boolean(),
+  outcome: z.enum(['refused', 'leaked', 'inconclusive']),
 });
 
 export const questionResult = z.object({
@@ -179,13 +182,11 @@ export const questionResult = z.object({
   lang: z.enum(['pl', 'en']),
   kind: z.enum(KINDS),
   tags: z.array(z.enum(TAGS)),
-  // HTTP status of `suggest-files` in the asker's project.
-  status: z.number().int(),
   suggestions: z.array(suggestion),
   // What the chat message carrying the suggested files sent to the provider:
-  // the size of the file context in characters, and how many files the chat
-  // reported in each state. Null when no message was sent: nothing was
-  // suggested, or the question is an access question.
+  // the size of the whole file-context message in characters, and how many
+  // files the chat reported in each state. Null when no message was sent:
+  // nothing was suggested, or the question is an access question.
   context: z.object({
     chars: z.number().int(),
     included: z.number().int(),
@@ -194,13 +195,15 @@ export const questionResult = z.object({
     skipped: z.number().int(),
   }).nullable(),
   sources: z.array(sourceOutcome),
-  // Every expected file was suggested.
-  complete: z.boolean(),
-  // Every expected quote reached the model provider.
-  delivered: z.boolean(),
+  // Scored questions only (`answerable`, `multi-file`): every expected file
+  // was suggested, and every expected quote reached the provider from its own
+  // file. Null for the kinds that are not scored.
+  complete: z.boolean().nullable(),
+  delivered: z.boolean().nullable(),
   // `no-answer`: which suggestions were listed as related.
   related: z.array(corpusFile).optional(),
-  access: accessOutcome.optional(),
+  // `access`: one entry per forbidden file.
+  access: z.array(forbiddenOutcome).optional(),
 });
 export type QuestionResult = z.infer<typeof questionResult>;
 
@@ -219,12 +222,15 @@ const total = z.object({
 });
 export type Total = z.infer<typeof total>;
 
-// What the questions cost in context, over the messages that were sent.
+// What a group of questions cost in context; see `contextTotal` in
+// `measure.ts` for the two means and their denominators.
 const contextTotal = z.object({
   n: z.number().int(),
+  withContext: z.number().int(),
   meanChars: z.number().int(),
+  meanCharsWhenSent: z.number().int(),
   maxChars: z.number().int(),
-  // Mean number of files sent with a message.
+  // Mean number of files sent with a message, over the messages sent.
   meanFiles: z.number(),
   // Files over all messages, by what the chat reported for them.
   included: z.number().int(),
@@ -236,8 +242,7 @@ const contextTotal = z.object({
 export const baseline = z.object({
   version: z.literal(1),
   set: slug,
-  // The limits of the application as the run met them, so a later reader can
-  // tell which code the numbers describe.
+  // What the run met, so a later reader can tell what the numbers describe.
   observed: z.object({
     // The most files any one question was offered.
     mostSuggestions: z.number().int(),
@@ -254,7 +259,16 @@ export const baseline = z.object({
     context: z.object({ scored: contextTotal, noAnswer: contextTotal }),
     // Not scored for retrieval: reported for what they are.
     noAnswer: z.object({ n: z.number().int(), withSuggestions: z.number().int(), onlyRelated: z.number().int() }),
-    access: z.object({ n: z.number().int(), refused: z.number().int() }),
+    // Questions, then the forbidden files behind them. A question counts as
+    // refused only when every one of its files is.
+    access: z.object({
+      n: z.number().int(),
+      refused: z.number().int(),
+      files: z.number().int(),
+      filesRefused: z.number().int(),
+      filesInconclusive: z.number().int(),
+      filesLeaked: z.number().int(),
+    }),
   }),
   questions: z.array(questionResult),
 });

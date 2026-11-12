@@ -8,6 +8,9 @@ so a change to context is judged on numbers. The design they were built for is
 
 ```
 schema.ts            the format of a set and of its results (zod)
+measure.ts           how results are counted, shared by the runner and the simulation
+chunking.ts          the chunking rule the simulation uses
+.gitattributes       keeps the bytes of a corpus the same on every machine
 sets/
   dev/               the development set
     team.json        the people
@@ -25,21 +28,22 @@ Everything in a corpus is made up. No set may hold real documents, names or addr
 ## Commands
 
 ```bash
-npx vitest run tests/eval-context.test.ts
+npx vitest run tests/eval-context.test.ts tests/eval-context-rules.test.ts
 ```
 
-Checks every set: each quote is in the text MeshKeep's extractors produce from its file, each
-page, sheet or heading given for a quote holds it, each "forbidden" file is closed to the
-person asking.
+The first file checks every set: each quote is in the text MeshKeep's extractors produce from
+its file, each page, sheet or heading given for a quote holds it, each "forbidden" file is
+closed to the person asking, and the text files of the corpus have LF line endings. The second
+tests the counting and chunking rules themselves.
 
 ```bash
 npm run eval:context -- dev
 ```
 
 Measures the set through the HTTP API of a local build and writes `baseline.json`. It builds
-the application when needed and takes a few minutes: the chat allows ten messages a minute per
-person, and the run keeps under that. Windows only, like the API tests it shares its harness
-with.
+the application when needed and takes several minutes: the chat allows ten messages a minute
+per person, and the run keeps under that. Any request that fails stops the run. Windows only,
+like the API tests it shares its harness with.
 
 ```bash
 node --experimental-strip-types scripts/eval-context-chunks.mjs dev
@@ -48,20 +52,39 @@ node --experimental-strip-types scripts/eval-context-chunks.mjs dev
 Simulates other ways of choosing context on the same questions and writes `simulation.json`.
 Needs Node 24.
 
+Both commands give the same file on every run and on every checkout of the same commit.
+
 ## Reading a result
 
 For each expected source of a question:
 
 - **found**: its file was among the files suggested for the question;
-- **delivered**: its quote was in the text the model provider received.
+- **delivered**: its quote was in the text that this file itself contributed to what the
+  model provider received. The same words arriving from another file do not count. The
+  comparison collapses whitespace first, so it is containment, not a byte-for-byte quotation.
 
 A share always stands next to its count. With five questions of a kind, one question is twenty
 percentage points.
 
-`no-answer` questions are not scored: what was suggested for them is reported, and whether a
-model then says "the documents do not say" is not something these sets measure. `access`
-questions count as refused only when the same search phrase finds the forbidden file for its
-owner and not for the person asking.
+**Context size** is the length, in characters, of the message that carries the files to the
+provider, as the chat writes it. Two means are given: over every question of a group, where a
+question that sent nothing counts as zero, and over the questions that sent something. Compare
+like with like.
+
+**`no-answer` questions are not scored.** What was suggested and sent for them is reported;
+whether a model then says "the documents do not say" is not something these sets measure.
+
+**`access` questions are counted per forbidden file.** Each file has its own search phrase.
+A file is *refused* when the phrase finds it for the owner of its project, does not find it
+for the person asking, and its project answers 404 to them. It is *inconclusive* when the
+owner's search does not find it either, because then the asker's empty result proves nothing.
+
+## What a set does not measure
+
+- Answers. No model is called.
+- What a reader finds. Every asker can send a chat message in the project they ask in, which
+  takes edit access. Search by someone who can only read is covered by the API tests, not here.
+- Other teams' documents. The development set was written by the same agent as the design.
 
 ## Adding a set
 
@@ -69,6 +92,3 @@ A set is a directory under `sets/` with the same files. The holdout set is to be
 different agent than the development set, with its own corpus, and without tuning anything on
 it: the development set is where a design is worked out, the holdout set is where it is
 checked.
-
-An asker has to be able to send a chat message in the project they ask in: its owner, or
-someone it is shared with as an editor.

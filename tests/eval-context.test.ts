@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
-import { baseline, canAsk, canRead, normalizeText, projects, questionSet, team, type ExpectedSource, type Projects, type QuestionSet, type Team } from '@/eval/context/schema';
+import { normalizeText } from '@/eval/context/measure';
+import { baseline, canAsk, canRead, projects, questionSet, team, type ExpectedSource, type Projects, type QuestionSet, type Team } from '@/eval/context/schema';
 import { ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu } from '@/lib/document-text';
 import { wydobadzTekstPdf } from '@/lib/server/pdf-text';
 
@@ -142,9 +143,20 @@ describe('evaluation sets for context', () => {
         const project = set.projects.projects.find((candidate) => candidate.id === question.project);
         expect(project, `${question.id}: project`).toBeDefined();
         expect(canAsk(project!, question.asker), `${question.id}: the asker can send a chat message in the project`).toBe(true);
-        const named = [...question.expected.map((source) => source.file), ...question.related, ...question.forbidden];
+        const named = [...question.expected.map((source) => source.file), ...question.related, ...question.forbidden.map((source) => source.file)];
         for (const file of named) expect(set.files, `${question.id}: ${file}`).toContain(file);
       }
+    });
+
+    it('holds its text files with LF line endings, whatever the checkout', () => {
+      // The corpus is uploaded byte for byte, so its bytes are part of the
+      // result. `eval/context/.gitattributes` keeps Git from turning LF into
+      // CRLF on Windows; a checkout made before that file existed, or an
+      // editor that saved CRLF, is caught here.
+      const withCarriageReturn = set.files
+        .filter((file) => ['md', 'txt'].includes(extensionOf(file)))
+        .filter((file) => readFileSync(join(SETS, name, 'corpus', file)).includes(0x0d));
+      expect(withCarriageReturn).toEqual([]);
     });
 
     it('every expected quote is in the text of its file', async () => {
@@ -171,12 +183,30 @@ describe('evaluation sets for context', () => {
 
     it('forbidden files are out of the asker\'s reach and within their owner\'s', () => {
       for (const question of set.questions.questions.filter((item) => item.kind === 'access')) {
-        for (const file of question.forbidden) {
+        for (const { file } of question.forbidden) {
           const project = projectOf(file)!;
           expect(canRead(project, question.asker), `${question.id}: ${file} must be closed to ${question.asker}`).toBe(false);
           expect(canRead(project, project.owner)).toBe(true);
         }
       }
+    });
+
+    it('every probe names words that are in its forbidden file', async () => {
+      // Search asks for every word of the phrase, so a probe with a word the
+      // file does not have could never find it, for anyone. Whether the
+      // application then finds it for the owner is the runner's control.
+      const fold = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').replaceAll('ł', 'l').toLowerCase();
+      const problems: string[] = [];
+      for (const question of set.questions.questions) {
+        for (const { file, probe } of question.forbidden) {
+          const text = fold(`${file} ${await textOf(name, file)}`);
+          for (const word of fold(probe).split(/\s+/)) {
+            // The first letters are enough: search matches words by their stem.
+            if (!text.includes(word.slice(0, Math.max(4, word.length - 2)))) problems.push(`${question.id}: "${word}" of the probe is not in ${file}`);
+          }
+        }
+      }
+      expect(problems).toEqual([]);
     });
 
     it('a file tagged as a scan has no text, and an answer tagged as deep lies past the chat budget', async () => {
@@ -201,6 +231,22 @@ describe('evaluation sets for context', () => {
       const scored = set.questions.questions.filter((question) => question.kind === 'answerable' || question.kind === 'multi-file');
       expect(measured.totals.scored.n).toBe(scored.length);
       expect(measured.observed.files).toBe(set.files.length);
+
+      // Scored questions carry a verdict, the others carry none.
+      for (const result of measured.questions) {
+        const isScored = result.kind === 'answerable' || result.kind === 'multi-file';
+        expect(result.complete === null, `${result.id}: complete`).toBe(!isScored);
+        expect(result.delivered === null, `${result.id}: delivered`).toBe(!isScored);
+      }
+      // Every forbidden file has its own control, and the totals count files.
+      const forbidden = set.questions.questions.flatMap((question) => question.forbidden.map((source) => source.file));
+      expect(measured.questions.flatMap((result) => (result.access ?? []).map((entry) => entry.file))).toEqual(forbidden);
+      const { access, context } = measured.totals;
+      expect(access.files).toBe(forbidden.length);
+      expect(access.filesRefused + access.filesInconclusive + access.filesLeaked).toBe(access.files);
+      // Context sizes count every question of the group, with or without context.
+      expect(context.scored.n).toBe(scored.length);
+      expect(context.noAnswer.n).toBe(set.questions.questions.filter((question) => question.kind === 'no-answer').length);
     });
   });
 

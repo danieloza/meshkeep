@@ -4,24 +4,28 @@
 //
 //   node --experimental-strip-types scripts/eval-context-chunks.mjs dev
 //
-// This is a simulation, not the application. It cuts the corpus into chunks,
-// indexes them in an in-memory SQLite FTS5 table with the tokenizer and the
-// query builder the application uses today (`lib/search.ts`), and runs every
-// question through several strategies side by side. For each it reports, like
-// the baseline, whether every expected file was found and whether every
-// expected quote is inside the text that would be sent, and how much text
-// that is.
+// This is a simulation, not the application. It cuts the corpus into chunks
+// (`eval/context/chunking.ts`), indexes them in an in-memory SQLite FTS5 table
+// with the tokenizer and the query builder the application uses today
+// (`lib/search.ts`), and runs every question through several strategies side
+// by side. It counts by the same rules as the baseline
+// (`eval/context/measure.ts`): an expected file is found when a passage of it
+// is chosen, a quote is delivered when it is in the text chosen from its own
+// file, and the size of the context is the size of the message the chat would
+// write around that text.
 //
 // What it cannot say: how D1 ranks (same engine, another build), how a real
 // model uses the text, or what an implementation costs. Needs Node 24: the
 // SQLite in Node 22 has no FTS5.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
-import { normalizeText, questionSet } from '../eval/context/schema.ts';
+import { CHUNK_RULE, canonicalText, chunksOf, markdownBlocks, pageBlocks, paragraphBlocks, sheetBlocks } from '../eval/context/chunking.ts';
+import { contextTotal, fileContextMessage, grouped, mimeOf, quoteDelivered, totalOf } from '../eval/context/measure.ts';
+import { questionSet } from '../eval/context/schema.ts';
 import { wydobadzTekstDokumentu } from '../lib/document-text.ts';
 import { buildSuggestQuery } from '../lib/search.ts';
 
@@ -33,54 +37,32 @@ if (!setName) {
 const SET = fileURLToPath(new URL(`../eval/context/sets/${setName}/`, import.meta.url));
 const { questions } = questionSet.parse(JSON.parse(readFileSync(join(SET, 'questions.json'), 'utf8')));
 
-// A chunk aims at this many characters and never grows past the maximum. A
-// block that is longer on its own is cut at line ends.
-const TARGET_CHARS = 1_500;
-const MAX_CHARS = 2_400;
 // "Files, then passages": files are chosen as today, then each brings either
 // all of its text, when it is short, or its best passages.
 const FILE_LIMIT = 5;
 const WHOLE_FILE_CHARS = 6_000;
 const PER_FILE_CHARS = 6_000;
+// What the search index keeps of a file today (`lib/server/search-index.ts`).
+const INDEXED_CHARS = 100_000;
 
-// --- From a file to blocks --------------------------------------------------
-//
-// A block is text that belongs together, with where it sits in the file:
-// a page of a PDF, the rows of a sheet under their header, a paragraph under
-// its Markdown heading, a paragraph of anything else.
+// --- From a file to text and blocks -----------------------------------------
 
 function bytesOf(path) {
   const buffer = readFileSync(path);
   return new Uint8Array(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
 }
 
-// Lines that fit together under `limit` characters, each group led by
-// `header` when one is given (a table's header row, for one).
-function pack(lines, limit, header = '') {
-  const groups = [];
-  let current = [];
-  let size = header.length;
-  for (const line of lines) {
-    if (current.length && size + line.length + 1 > limit) {
-      groups.push(current);
-      current = [];
-      size = header.length;
-    }
-    current.push(line);
-    size += line.length + 1;
-  }
-  if (current.length) groups.push(current);
-  return groups.map((group) => (header ? [header, ...group] : group).join('\n'));
-}
-
+const extensionOf = (file) => file.split('.').pop().toLowerCase();
+// As `lib/server/pdf-text.ts` cleans what pdf.js returns.
 const cleanPdf = (text) => text.replaceAll(' ', ' ').replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
 // The text of a file as the search index holds it today: everything the
-// extractor returns, cut at the 100 000 characters `lib/server/search-index.ts`
-// keeps.
+// extractor returns, cut where the index cuts it. Plain text is taken as the
+// file has it, line endings included, because that is what the application
+// indexes.
 async function indexedTextOf(file) {
   const path = join(SET, 'corpus', file);
-  const extension = file.split('.').pop().toLowerCase();
+  const extension = extensionOf(file);
   let text;
   if (extension === 'pdf') {
     const merged = await extractText(await getDocumentProxy(bytesOf(path)), { mergePages: true });
@@ -90,97 +72,24 @@ async function indexedTextOf(file) {
   } else {
     text = new TextDecoder().decode(bytesOf(path)).replaceAll('\0', '');
   }
-  return text.slice(0, 100_000);
+  return text.slice(0, INDEXED_CHARS);
 }
 
 async function blocksOf(file) {
   const path = join(SET, 'corpus', file);
-  const extension = file.split('.').pop().toLowerCase();
-
+  const extension = extensionOf(file);
   if (extension === 'pdf') {
     const { text } = await extractText(await getDocumentProxy(bytesOf(path)), { mergePages: false });
-    return text.map((page, index) => ({ text: cleanPdf(page), place: `page ${index + 1}`, heading: '' })).filter((block) => block.text);
+    return pageBlocks(text.map(cleanPdf));
   }
-
-  if (extension === 'xlsx') {
-    const { tekst } = await wydobadzTekstDokumentu('xlsx', bytesOf(path));
-    const parts = tekst.split(/^# sheet(\d+)\.xml$/m);
-    const blocks = [];
-    for (let i = 1; i < parts.length; i += 2) {
-      const [header = '', ...rows] = parts[i + 1].trim().split('\n');
-      // Every chunk of a sheet repeats its header row: a row of numbers says
-      // nothing without the names of its columns.
-      for (const text of pack(rows, TARGET_CHARS, header)) blocks.push({ text, place: `sheet ${parts[i]}`, heading: '' });
-    }
-    return blocks;
-  }
-
+  if (extension === 'xlsx') return sheetBlocks((await wydobadzTekstDokumentu('xlsx', bytesOf(path))).tekst);
   if (extension === 'docx') {
+    // The extractor writes one paragraph per line.
     const { tekst } = await wydobadzTekstDokumentu('docx', bytesOf(path));
-    return tekst.split('\n').filter((line) => line.trim()).map((text) => ({ text, place: '', heading: '' }));
+    return canonicalText(tekst).split('\n').filter((line) => line.trim()).map((text) => ({ text, place: '', heading: '' }));
   }
-
   const text = new TextDecoder().decode(bytesOf(path)).replaceAll('\0', '');
-  if (extension === 'md') {
-    // A block carries the headings above it, so a chunk from the middle of a
-    // long file still says what it is about.
-    const blocks = [];
-    const trail = [];
-    let lines = [];
-    const flush = () => {
-      const body = lines.join('\n').trim();
-      if (body) {
-        const heading = trail.filter(Boolean).join(' › ');
-        for (const paragraph of body.split(/\n{2,}/)) blocks.push({ text: paragraph, place: '', heading });
-      }
-      lines = [];
-    };
-    let fenced = false;
-    for (const line of text.split('\n')) {
-      if (line.startsWith('```')) fenced = !fenced;
-      const match = fenced ? null : line.match(/^(#{1,6}) (.*)$/);
-      if (match) {
-        flush();
-        trail.length = match[1].length - 1;
-        trail[match[1].length - 1] = match[2].trim();
-      } else {
-        lines.push(line);
-      }
-    }
-    flush();
-    return blocks;
-  }
-  return text.split(/\n{2,}/).filter((paragraph) => paragraph.trim()).map((paragraph) => ({ text: paragraph.trim(), place: '', heading: '' }));
-}
-
-// Blocks in order, joined while they fit.
-//   `joinSections` false: a chunk never crosses a heading, so chunks are small
-//   and each is about one thing.
-//   `joinSections` true: neighbouring sections share a chunk while it has
-//   room, each led by its heading, so a chunk holds more of what the file says
-//   around a fact. A chunk still never crosses a page or a sheet.
-function chunksOf(blocks, joinSections) {
-  const chunks = [];
-  let current = null;
-  const close = () => { if (current) chunks.push(current); current = null; };
-  for (const block of blocks) {
-    const pieces = block.text.length > MAX_CHARS ? pack(block.text.split('\n'), TARGET_CHARS) : [block.text];
-    for (const piece of pieces) {
-      const sameSection = current && current.lastHeading === block.heading;
-      const samePlace = current && current.place === block.place;
-      const text = joinSections && block.heading && !sameSection ? `${block.heading}\n${piece}` : piece;
-      const mayJoin = samePlace && (joinSections || sameSection);
-      if (current && mayJoin && current.text.length + text.length + 2 <= TARGET_CHARS) {
-        current.text += `\n\n${text}`;
-        current.lastHeading = block.heading;
-      } else {
-        close();
-        current = { text, place: block.place, heading: block.heading, lastHeading: block.heading };
-      }
-    }
-  }
-  close();
-  return chunks;
+  return extension === 'md' ? markdownBlocks(text) : paragraphBlocks(text);
 }
 
 // --- The indexes ------------------------------------------------------------
@@ -189,6 +98,7 @@ const files = readdirSync(join(SET, 'corpus'), { recursive: true, withFileTypes:
   .filter((entry) => entry.isFile())
   .map((entry) => join(entry.parentPath, entry.name).slice(join(SET, 'corpus').length + 1).replaceAll('\\', '/'))
   .sort();
+const pathIn = (file) => file.slice(file.indexOf('/') + 1);
 
 const database = new DatabaseSync(':memory:');
 // The same tokenizer as `file_texts_fts` in `drizzle/0003_search_index.sql`.
@@ -201,15 +111,14 @@ for (const table of ['small', 'joined']) {
 const shape = {};
 const fileChunks = new Map();
 for (const file of files) {
-  const [project, ...rest] = file.split('/');
-  const path = rest.join('/');
+  const project = file.split('/')[0];
   const blocks = await blocksOf(file);
-  database.prepare('INSERT INTO whole (path, content, project, file) VALUES (?, ?, ?, ?)').run(path, await indexedTextOf(file), project, file);
+  database.prepare('INSERT INTO whole (path, content, project, file) VALUES (?, ?, ?, ?)').run(pathIn(file), await indexedTextOf(file), project, file);
   for (const [table, joinSections] of [['small', false], ['joined', true]]) {
     const chunks = chunksOf(blocks, joinSections);
     if (joinSections) fileChunks.set(file, chunks.map((chunk) => chunk.text));
     const insert = database.prepare(`INSERT INTO ${table} (path, heading, content, project, file, ordinal) VALUES (?, ?, ?, ?, ?, ?)`);
-    chunks.forEach((chunk, ordinal) => insert.run(path, chunk.heading, chunk.text, project, file, ordinal));
+    chunks.forEach((chunk, ordinal) => insert.run(pathIn(file), chunk.heading, chunk.text, project, file, ordinal));
     const lengths = chunks.map((chunk) => chunk.text.length);
     const entry = shape[table] ?? (shape[table] = { chunks: 0, chars: 0, longest: 0 });
     entry.chunks += chunks.length;
@@ -231,11 +140,12 @@ function topChunks(table, limit) {
   return (question, match) => select.all(match, question.project, limit);
 }
 
+const pickFiles = database.prepare('SELECT file FROM whole WHERE whole MATCH ? AND project = ? ORDER BY bm25(whole, 4.0, 1.0) LIMIT ?');
+
 // Files as the application chooses them today, but each file then brings all
 // of its text when it is short, and otherwise only its best passages. No file
 // can take the room of the ones ranked below it.
 function filesThenPassages(totalChars) {
-  const pickFiles = database.prepare('SELECT file FROM whole WHERE whole MATCH ? AND project = ? ORDER BY bm25(whole, 4.0, 1.0) LIMIT ?');
   const pickPassages = database.prepare('SELECT ordinal, content FROM joined WHERE joined MATCH ? AND file = ? ORDER BY bm25(joined, 4.0, 2.0, 1.0) LIMIT 40');
   return (question, match) => {
     const sent = [];
@@ -278,17 +188,26 @@ const STRATEGIES = {
 
 // --- The questions ----------------------------------------------------------
 
-const round = (value) => Math.round(value * 10_000) / 10_000;
-const mean = (values) => (values.length ? round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0);
+const isScored = (kind) => kind === 'answerable' || kind === 'multi-file';
+const sizeOf = new Map(files.map((file) => [file, statSync(join(SET, 'corpus', file)).size]));
 
 function ask(question, pick) {
   const match = buildSuggestQuery(question.question.slice(0, 500));
   const hits = match ? pick(question, match) : [];
-  const sent = normalizeText(hits.map((hit) => hit.content).join('\n\n'));
+
+  // The text each file would contribute, in the order its first passage is
+  // sent, and the message the chat would write around it.
+  const byFile = new Map();
+  for (const hit of hits) byFile.set(hit.file, [...(byFile.get(hit.file) ?? []), hit.content]);
+  const sections = [...byFile.entries()].map(([file, passages]) => ({ file, text: passages.join('\n\n') }));
+  const message = fileContextMessage(sections.map(({ file, text }) => ({ path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file), text })));
+
+  const scored = isScored(question.kind);
   const sources = question.expected.map((source) => ({
     file: source.file,
-    found: hits.some((hit) => hit.file === source.file),
-    delivered: sent.includes(normalizeText(source.quote)),
+    found: byFile.has(source.file),
+    // Only text chosen from the source's own file can deliver its quote.
+    delivered: quoteDelivered(source.quote, sections.find((section) => section.file === source.file)?.text),
   }));
   return {
     id: question.id,
@@ -296,54 +215,51 @@ function ask(question, pick) {
     lang: question.lang,
     tags: question.tags,
     passages: hits.length,
-    files: new Set(hits.map((hit) => hit.file)).size,
-    chars: hits.reduce((sum, hit) => sum + hit.content.length, 0),
-    complete: sources.every((source) => source.found),
-    delivered: sources.every((source) => source.delivered),
+    files: byFile.size,
+    // Characters of the file-context message, or null when nothing is sent.
+    chars: hits.length ? message.length : null,
+    sources,
+    // A question with no expected source is not scored.
+    complete: scored ? sources.every((source) => source.found) : null,
+    delivered: scored ? sources.every((source) => source.delivered) : null,
   };
 }
 
-function totalOf(results) {
-  return {
-    n: results.length,
-    complete: mean(results.map((result) => (result.complete ? 1 : 0))),
-    delivered: mean(results.map((result) => (result.delivered ? 1 : 0))),
-    meanChars: Math.round(mean(results.map((result) => result.chars))),
-    maxChars: Math.max(0, ...results.map((result) => result.chars)),
-  };
+// The simulation knows whether a file was chosen, not its place in a list, so
+// a chosen file counts as rank 1 for the shared totals and `firstRank` is
+// left out.
+function total(results) {
+  const { n, complete, found, delivered } = totalOf(results.map((result) => ({ ranks: result.sources.map((source) => (source.found ? 1 : null)), delivered: result.sources.map((source) => source.delivered) })));
+  return { n, complete, found, delivered };
 }
-
-function grouped(results, keysOf) {
-  const groups = new Map();
-  for (const result of results) for (const key of keysOf(result)) groups.set(key, [...(groups.get(key) ?? []), result]);
-  return Object.fromEntries([...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => [key, totalOf(items)]));
-}
+const contextOf = (results) => contextTotal(results.map((result) => result.chars));
 
 const strategies = {};
 for (const [name, { describe, pick }] of Object.entries(STRATEGIES)) {
   const results = questions.filter((question) => question.kind !== 'access').map((question) => ask(question, pick));
-  const scored = results.filter((result) => result.kind === 'answerable' || result.kind === 'multi-file');
+  const scored = results.filter((result) => isScored(result.kind));
+  const noAnswer = results.filter((result) => result.kind === 'no-answer');
   strategies[name] = {
     describe,
-    scored: totalOf(scored),
-    byKind: grouped(scored, (result) => [result.kind]),
-    byLang: grouped(scored, (result) => [result.lang]),
-    byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain'])),
-    noAnswer: totalOf(results.filter((result) => result.kind === 'no-answer')),
+    scored: total(scored),
+    byKind: grouped(scored, (result) => [result.kind], total),
+    byLang: grouped(scored, (result) => [result.lang], total),
+    byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain']), total),
+    context: { scored: contextOf(scored), noAnswer: contextOf(noAnswer) },
     notDelivered: scored.filter((result) => !result.delivered).map((result) => result.id),
-    questions: results.map(({ id, passages, files: fileCount, chars, complete, delivered }) => ({ id, passages, files: fileCount, chars, complete, delivered })),
+    questions: results.map(({ id, kind, passages, files: fileCount, chars, complete, delivered }) => ({ id, kind, passages, files: fileCount, chars, complete, delivered })),
   };
 }
 
 // How faithful the simulation is: its choice of files, made the way the
 // application makes it, set against what the application suggested when the
 // baseline was measured. Where they agree, a difference between a strategy and
-// the baseline comes from the strategy, not from the simulation.
+// the baseline does not come from how files are ranked. It says nothing about
+// passages: the application has none to compare with.
 const baselinePath = join(SET, 'baseline.json');
 const measured = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : null;
 let fidelity = null;
 if (measured) {
-  const pickFiles = database.prepare('SELECT file FROM whole WHERE whole MATCH ? AND project = ? ORDER BY bm25(whole, 4.0, 1.0) LIMIT ?');
   const differing = [];
   for (const question of questions) {
     const match = buildSuggestQuery(question.question.slice(0, 500));
@@ -351,7 +267,7 @@ if (measured) {
     const suggested = measured.questions.find((result) => result.id === question.id)?.suggestions.map((suggestion) => suggestion.file) ?? [];
     if (JSON.stringify(simulated) !== JSON.stringify(suggested)) differing.push(question.id);
   }
-  fidelity = { questions: questions.length, sameFilesInSameOrder: questions.length - differing.length, differing };
+  fidelity = { covers: 'the choice and order of files only', questions: questions.length, sameFilesInSameOrder: questions.length - differing.length, differing };
 }
 
 const output = {
@@ -359,19 +275,21 @@ const output = {
   set: setName,
   simulation: true,
   fidelity,
-  rule: { targetChars: TARGET_CHARS, maxChars: MAX_CHARS, fileLimit: FILE_LIMIT, wholeFileChars: WHOLE_FILE_CHARS, perFileChars: PER_FILE_CHARS, weights: { path: 4, heading: 2, content: 1 } },
+  rule: { ...CHUNK_RULE, fileLimit: FILE_LIMIT, wholeFileChars: WHOLE_FILE_CHARS, perFileChars: PER_FILE_CHARS, weights: { path: 4, heading: 2, content: 1 } },
   corpus: { files: files.length, ...shape },
   strategies,
 };
 writeFileSync(join(SET, 'simulation.json'), `${JSON.stringify(output, null, 2)}\n`, 'utf8');
 
-console.log(`${files.length} files. Small chunks: ${shape.small.chunks}, mean ${shape.small.meanChars} characters. Joined chunks: ${shape.joined.chunks}, mean ${shape.joined.meanChars} characters.`);
-const row = (name, total, missed) => console.log(`${name.padEnd(26)} found ${String(Math.round(total.complete * 100)).padStart(3)}%  delivered ${String(Math.round(total.delivered * 100)).padStart(3)}%  mean ${String(total.meanChars).padStart(6)} chars  max ${String(total.maxChars).padStart(6)}${missed ? `  missed: ${missed}` : ''}`);
+console.log(`${files.length} files. Small chunks: ${shape.small.chunks}, mean ${shape.small.meanChars} characters, longest ${shape.small.longest}. Joined chunks: ${shape.joined.chunks}, mean ${shape.joined.meanChars} characters, longest ${shape.joined.longest}.`);
+const row = (name, scored, context, noAnswer, missed) => console.log(
+  `${name.padEnd(26)} n=${scored.n} found ${String(Math.round(scored.complete * scored.n)).padStart(2)} delivered ${String(Math.round(scored.delivered * scored.n)).padStart(2)}  mean ${String(context.meanChars).padStart(6)} max ${String(context.maxChars).padStart(6)}  no-answer n=${noAnswer.n}: ${noAnswer.withContext} with context, mean ${String(noAnswer.meanChars).padStart(6)}${missed ? `  missed: ${missed}` : ''}`,
+);
 if (measured) {
-  console.log(`Fidelity: the simulated choice of files matches the application's suggestions, file for file and in order, for ${fidelity.sameFilesInSameOrder} of ${fidelity.questions} questions${fidelity.differing.length ? ` (differs: ${fidelity.differing.join(', ')})` : ''}.`);
+  console.log(`Fidelity (files only): the simulated choice of files matches the application's suggestions, file for file and in order, for ${fidelity.sameFilesInSameOrder} of ${fidelity.questions} questions${fidelity.differing.length ? ` (differs: ${fidelity.differing.join(', ')})` : ''}.`);
   const { scored, context } = measured.totals;
-  const missed = measured.questions.filter((result) => (result.kind === 'answerable' || result.kind === 'multi-file') && !result.delivered).map((result) => result.id).join(', ');
-  row('baseline (measured)', { complete: scored.complete, delivered: scored.delivered, meanChars: context.scored.meanChars, maxChars: context.scored.maxChars }, missed);
+  const missed = measured.questions.filter((result) => isScored(result.kind) && !result.delivered).map((result) => result.id).join(', ');
+  row('baseline (measured)', scored, context.scored, context.noAnswer, missed);
 }
-for (const [name, strategy] of Object.entries(strategies)) row(name, strategy.scored, strategy.notDelivered.join(', '));
+for (const [name, strategy] of Object.entries(strategies)) row(name, strategy.scored, strategy.context.scored, strategy.context.noAnswer, strategy.notDelivered.join(', '));
 console.log(`Written to eval/context/sets/${setName}/simulation.json`);

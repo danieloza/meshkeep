@@ -18,16 +18,16 @@ The decisions below keep what works and change what does not:
 | # | Decision |
 |---|---|
 | 0 | Choose context in two steps: files as today, then from each file either all of it, when it is short, or its best passages. |
-| 1 | Chunks follow the structure of the file (page, sheet, section), are joined up to about 1 500 characters, and get an ID derived from the file's content hash. |
+| 1 | Chunks follow the structure of the file (page, sheet, section) and are joined up to about 1 500 characters. A chunk is addressed by its file and position, and stamped with a key derived from the file's content hash. |
 | 2 | Chunks live in a new D1 table with its own FTS5 index, added by a migration that only creates. `file_texts` stays. |
 | 3 | One extraction feeds both the search index and the chat, and keeps page and section boundaries. |
 | 4 | The budget is counted per model in tokens, on the server, which also reads the conversation history itself. |
-| 5 | The model cites passages by short numbers. The server keeps only citations to passages it sent. |
+| 5 | The model cites passages by short numbers. The server keeps only citations to passages it sent, and no text of a passage with the answer. |
 | 6 | Passages are chosen inside the query, in the project of the message, as files are today. |
 | 7 | Each answer records which passages went to which connection. |
 | 8 | No vector search now. It gets considered when a named threshold on the evaluation sets is missed. |
 
-A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 5 884
+A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 6 257
 characters of context on average instead of 25 588. The three it still misses are the three
 where the question and the file are in different languages.
 
@@ -46,7 +46,10 @@ deletes the old row and inserts a new one with a new ID
 (`app/api/projects/[id]/files/route.ts:117`–`129`).
 
 **Extraction.** PDF pages are merged into one text, so page boundaries are lost
-(`lib/server/pdf-text.ts:28`); at most 40 pages and 120 000 characters are read (`:21`–`22`).
+(`lib/server/pdf-text.ts:28`). The whole document is extracted, however long, and the text is
+then cut at 120 000 characters (`:22`, `:48`). The limit of 40 pages (`:21`) does not stop
+the reading: a document with more pages only gets a note saying that text from the beginning
+was added (`:49`–`50`).
 A spreadsheet comes out as `# sheetN.xml` sections of tab-separated rows; the sheet's name is
 not kept (`lib/document-text.ts`).
 
@@ -106,13 +109,28 @@ what it receives.
 Two results per expected source:
 
 - **found:** its file was among the suggestions;
-- **delivered:** its quote was in the text the provider received.
+- **delivered:** the chat reported the file as sent, and its quote was in the part of the
+  message that came from that file. The same words arriving from another file do not count.
+  The comparison collapses whitespace first, so it is containment and not a byte-for-byte
+  quotation.
 
-For `access` questions the script also asks `suggest-files` on the forbidden project and
-searches all projects for a phrase from the forbidden file, once as the asker and once as the
-file's owner. A refusal counts only when the same phrase finds the file for its owner.
+Context size is the length in characters of the message that carries the files to the
+provider. Where a mean is given, it says over which questions.
 
-Two runs produced the same file, byte for byte.
+For `access` questions every forbidden file has its own control. The script asks
+`suggest-files` on the file's project as the asker, and searches all projects for a phrase
+from that file, once as the asker and once as the owner of the file's project. A file counts
+as refused only when the phrase finds it for its owner, does not find it for the asker, and
+the project answers 404. When the owner's search does not find it either, the result is
+inconclusive.
+
+A request that fails stops the run, so a failure is never counted as a miss. The counting
+rules are in `eval/context/measure.ts` and have their own tests
+(`tests/eval-context-rules.test.ts`).
+
+Two runs produced the same file, byte for byte. The corpus is pinned to the bytes that are
+committed (`eval/context/.gitattributes`), so a checkout with CRLF conversion measures the
+same files.
 
 ### 2.3 The baseline
 
@@ -138,12 +156,16 @@ question is twenty percentage points.
 | `cross-language` | 5 | 40% (2) | 40% (2) |
 | `deep` | 3 | 100% (3) | 0% (0) |
 
-Context sent with the 40 scored messages: 25 588 characters on average, 80 626 at most. Of
-the 162 files those messages carried, 127 were sent whole, 11 were cut, 22 were not sent for
-lack of room, and 2 had no text.
+Context: all 40 scored questions sent a message, 25 588 characters on average and 80 626 at
+most. Of the 162 files those messages carried, 127 were sent whole, 11 were cut, 22 were not
+sent for lack of room, and 2 had no text.
 
-`no-answer`: 5 of 7 questions were still given five files each, 20 924 characters on average.
-`access`: 7 of 7 refused.
+`no-answer` (n = 7, not scored): 5 questions were still given five files each. Their messages
+averaged 20 924 characters; counting the two questions that sent nothing as zero, the mean
+over all seven is 14 945.
+
+`access` (n = 7 questions, 8 forbidden files): 8 of 8 files refused, none inconclusive, none
+leaked.
 
 ### 2.4 What the baseline shows
 
@@ -167,11 +189,14 @@ keeps, so no search could match that passage either.
 file) and `en-010` (English question, Polish file) did not find their file. `en-011` and
 `en-012` did, through words the two languages share ("SLA", a name).
 
-**F5. A question with no answer costs as much as one with an answer.** The OR query nearly
-always matches something, so five files go to the model whether or not any of them helps.
+**F5. A question with no answer costs about as much as one with an answer.** The OR query
+nearly always matches something, so five files went to the model for 5 of the 7 questions,
+whether or not any of them helps.
 
-**F6. Access holds.** No forbidden file was suggested or found by search, and every forbidden
-project answered 404.
+**F6. Access holds on what was tested.** Each of the 8 forbidden files was found by its
+owner's search and not by the asker's, and each of their projects answered 404 to the asker.
+This covers the suggestion route and search for people who can ask. It is not an audit of
+every route.
 
 ### 2.5 A simulation of other ways to choose context
 
@@ -179,18 +204,30 @@ project answered 404.
 FTS5 with the application's tokenizer and query builder, and runs the same questions through
 several strategies. It is not the application: see section 4.
 
-Its fidelity was checked first. Choosing files the way the application does, it returns the
-same files in the same order as the application suggested, for 54 of 54 questions. A
-difference from the baseline therefore comes from the strategy.
+It counts by the same rules as the baseline: a quote is delivered only from text chosen from
+its own file, and context size is the length of the message the chat would write around the
+chosen text, with the same opening sentence and `FILE:` lines.
+
+Its choice of files was checked against the application. Choosing files the way the
+application does, it returns the same files in the same order as the application suggested,
+for 54 of 54 questions. So a difference from the baseline does not come from how files are
+ranked. The check says nothing about passages: the application has none to compare with.
 
 | Strategy | Found | Delivered | Mean characters | Most |
 |---|---|---|---|---|
-| Baseline (measured) | 93% (37) | 80% (32) | 25 588 | 80 626 |
-| Best 12 chunks, small chunks (mean 311 characters) | 93% (37) | 83% (33) | 3 512 | 7 340 |
-| Best 12 chunks, joined chunks (mean 1 166 characters) | 95% (38) | 90% (36) | 7 824 | 16 084 |
-| Files, then passages | 93% (37) | 93% (37) | 5 884 | 10 374 |
+| Baseline (measured) | 37 | 32 | 25 588 | 80 626 |
+| Best 12 chunks, small chunks (mean 311 characters) | 37 | 33 | 3 910 | 7 989 |
+| Best 12 chunks, joined chunks (mean 1 166 characters) | 38 | 36 | 8 249 | 16 385 |
+| Files, then passages | 37 | 37 | 6 257 | 10 756 |
 
-All with n = 40.
+Each row: n = 40 scored questions, all of which sent context.
+
+`no-answer` questions (n = 7; in every row 5 of them sent context, 2 sent nothing):
+
+| Strategy | Mean over all 7 | Mean over the 5 that sent |
+|---|---|---|
+| Baseline (measured) | 14 945 | 20 924 |
+| Files, then passages | 4 933 | 6 907 |
 
 Three things follow.
 
@@ -199,11 +236,10 @@ Three things follow.
    words of the question are spread over several sections of one document, a whole file
    gathers them, and a small chunk does not.
 2. **Larger chunks help, at a price.** Letting neighbouring sections share a chunk delivered
-   36 of 40, with a third more text than the two-step strategy.
+   36 of 40, with about a third more text than the two-step strategy.
 3. **Keeping the file ranking and choosing passages inside each file is best here.** It
    delivers everything the baseline finds, including all five questions lost to the long file,
-   and sends less than a quarter of the text. For `no-answer` questions it sends 4 624
-   characters on average instead of 20 924.
+   and sends about a quarter of the text.
 
 ---
 
@@ -222,7 +258,7 @@ Three things follow.
 
 **Why.** F2 and F3 are both the result of filling one budget with whole files in order
 (`app/api/chat/route.ts:25`). The simulation delivers 37 of 40 this way against 32, with
-5 884 characters on average against 25 588.
+6 257 characters on average against 25 588.
 
 **Rejected.**
 - *Rank chunks across the project and drop the file step.* Measured: 33 of 40 with small
@@ -234,8 +270,10 @@ Three things follow.
   and would still never reach an answer deep in a long file (F3).
 
 **Consequence.** The limit of five files and the ranking stay as they are, so what was
-measured for F1 keeps holding. The two numbers of 6 000 characters were chosen before the
-simulation ran and were not tuned on it; the holdout set decides whether they stay.
+measured for F1 keeps holding. The two numbers of 6 000 characters are constants in the
+simulation, set when the strategy was written and not changed after its first run. The
+history of this branch cannot prove that, so take them as untuned on the builder's word only;
+the holdout set decides whether they stay.
 
 ### Decision 1: the chunk, its size and its ID
 
@@ -245,22 +283,40 @@ simulation ran and were not tuned on it; the holdout set decides whether they st
   paragraphs of anything else.
 - *Size.* Neighbouring pieces are joined in order until a chunk has about 1 500 characters.
   A chunk never crosses a page or a sheet. It may cross a heading, and then keeps the heading
-  line in its text. A single piece longer than 2 400 characters is cut at line ends.
-- *No overlap.* A chunk does not repeat the end of the one before.
-- *ID.* `chunk_key` is the first 20 hexadecimal characters of
-  `sha256(file SHA-256 + ":" + extractor version + ":" + ordinal)`. Stored with it: the
-  ordinal, the start and end of the chunk in the file's text, and a locator (`page`, `sheet`
-  with its rows, or `heading`).
+  line in its text. No chunk is longer than 2 400 characters.
+- *Long lines.* A piece longer than the maximum is cut at line ends. A single line longer
+  than the maximum (a row of a CSV file, minified JSON, a paragraph with no line break) is
+  cut into pieces of at most 1 500 characters, at a space where one is in reach and inside
+  the text where none is. Nothing is dropped. Because a chunk is never longer than 2 400
+  characters, it always fits in a file's allowance of 6 000.
+- *No overlap,* with one exception in how passages are chosen: pieces cut from one line are
+  neighbours, and when one is chosen the pieces next to it come along while the file's
+  allowance has room. A sentence may run across such a cut, and its two halves are only
+  readable together.
+- *Line endings.* Text is cut after CRLF is turned into LF, so a file gives the same chunks
+  on every system.
+- *Address and stamp.* A chunk is addressed by its file and its ordinal in that file. It also
+  carries a stamp, `chunk_key`: the first 20 hexadecimal characters of
+  `sha256(file SHA-256 + ":" + extractor version + ":" + ordinal)`. The stamp says which
+  content the chunk had; it is not an address, because two files with the same bytes have
+  the same stamps. Stored with the chunk: the start and end in the file's text, and a locator
+  (`page`, `sheet` with its rows, or `heading`).
 - *Version of a file* means the SHA-256 of its bytes, which `files` already has
   (`db/schema.ts:134`).
 
 **Why.** Joined chunks (139 for the corpus, mean 1 166 characters) delivered 36 of 40 as a
 ranking of their own, small ones (443, mean 311) delivered 33. A row of a spreadsheet says
 nothing without its header: `pl-002` expects "Tester 120", which is only an answer next to
-the column name. The ID has to survive two things the code does today: re-uploading a file
-gives it a new row ID (`files/route.ts:117`–`129`), and re-indexing rewrites its text. A key
-made from the content hash stays the same for the same bytes and changes when the bytes or
-the extractor change.
+the column name. `tests/eval-context-rules.test.ts` pins the rule down: the same chunks with
+LF and CRLF, no chunk past the maximum for a 7 000-character line with and without spaces,
+nothing lost, and a quote across a forced cut found when both pieces are sent and not when
+one is.
+
+The stamp has to survive two things the code does today: re-uploading a file gives it a new
+row ID (`files/route.ts:117`–`129`), and re-indexing rewrites its text. A stamp made from the
+content hash stays the same for the same bytes and changes when the bytes or the extractor
+change. It cannot also be the address: two uploads with identical bytes can sit at two paths
+in one project, and would share every stamp. Decision 5 says how a citation finds its chunk.
 
 **Rejected.**
 - *Fixed windows with overlap.* They cut sentences and table rows, and repeated text has to
@@ -270,6 +326,15 @@ the extractor change.
 - *A random ID per chunk.* It would not survive a re-upload or a re-index, and every stored
   citation would point at nothing.
 - *The hash of the chunk's own text.* Identical paragraphs in two places would share an ID.
+- *The stamp as the address.* The first version of this decision did that. A review showed
+  that two identical files in one project then answer to the same key.
+- *Overlap between all chunks.* Repeated text would have to be removed again before it is
+  sent or cited. The neighbour rule covers the one case where a cut can fall inside a
+  sentence.
+
+**Not measured.** The dev corpus has no line longer than the maximum, so the long-line rule
+and the neighbour rule are tested as rules and have never chosen a passage in the simulation.
+The holdout set is to contain such files.
 
 ### Decision 2: storage and migration
 
@@ -287,6 +352,13 @@ table five files at a time.
 
 The chunk table holds the whole text of a file, up to 600 chunks (about 900 000 characters);
 beyond that the file is marked as partly read, as a long PDF is today.
+
+`chunk_key` is indexed but not unique: identical files share their stamps (decision 1). A
+citation finds its chunk through the file's path (decision 5), so a project must hold one
+file per path. The upload route keeps it that way by replacing rows with the same path
+(`files/route.ts:117`–`129`), but the database does not enforce it: `files` has no unique
+index on project and path (`db/schema.ts:137`–`140`). Adding that index is part of this step,
+after the hosted data has been checked for duplicates in a backup.
 
 **Why.** Nothing measured needs `file_texts` to change, and a migration that only creates
 cannot lose data. D1 allows 100 bound parameters per statement, so chunks are inserted one
@@ -364,12 +436,22 @@ assembled it.
   the sentence it supports and to use only the numbers shown.
 - *What the server keeps.* When the answer is complete, the server reads the numbers in it.
   A number that was not sent is removed from the stored answer. Each remaining one is stored
-  as a citation: number, `chunk_key`, file ID, path, file SHA-256, locator, and the first 300
-  characters of the passage.
+  as a citation: number, path of the file, ordinal of the chunk, `chunk_key`, file SHA-256
+  and locator. No text of the passage is stored with the answer.
+- *How a citation finds its passage.* By project, path and ordinal. The file at that path
+  is looked up in the project, the chunk with that ordinal is taken, and its `chunk_key` is
+  compared with the one in the citation. Equal: this is the passage that was cited.
+  Different: the file has changed since, and the interface says so. No file at that path:
+  the source is no longer available, and the interface says that. Two files with the same
+  bytes are two sources, because they have two paths. A renamed file reads as no longer
+  available.
+- *After a file is deleted or replaced,* nothing of it is kept for the sake of a citation.
+  The answer itself may quote the file, as any answer may, and what a provider or a backup
+  keeps follows their own rules; the product says so where it describes deleting.
 - *The manifest.* `contextFile` keeps its four states, so stored answers still read. A file
   sent whole stays `included`. A file sent by passages is `truncated`, with a note such as
-  "3 of 78 passages", and gains an optional list `passages` (number, `chunk_key`, locator,
-  length). The answer gains an optional list of the numbers it cited.
+  "3 of 78 passages", and gains an optional list `passages` (number, ordinal, `chunk_key`,
+  locator, length). The answer gains an optional list of the numbers it cited.
 - An answer without citations is still an answer. The interface shows what was sent and what
   was cited as two different things.
 
@@ -385,18 +467,25 @@ message valid.
   answer could no longer stream as Markdown.
 - *Attribute sentences to passages afterwards by similarity.* It would be a guess shown as a
   fact.
+- *Keep the first 300 characters of a cited passage with the answer.* The first version of
+  this decision did, so that a citation would still show something after its file is gone.
+  A review pointed out that it keeps text of a deleted file, against what deleting promises.
+  It could come back only as a choice a project makes knowingly, with its access, how long
+  it is kept and how it is deleted written down.
+- *Find a passage by `chunk_key` alone.* Two identical files in one project share their
+  keys, so the lookup would return two passages or the wrong one.
 
 ### Decision 6: access
 
 **Decision.** Passages are chosen in SQL, restricted to the project of the message, after the
 same access check the route already makes (`chat/route.ts:93`, `suggest-files/route.ts:18`).
-The route that opens a cited passage takes the project and the `chunk_key`, checks read
-access to the project and answers 404 for anything else, like `access.ts:45`. A key alone
-never opens a passage. If context ever spans projects, the read rule goes inside the query,
-as in `app/api/search/route.ts:34`.
+The route that opens a cited passage takes the project, the path of the file and the ordinal
+of the chunk, checks read access to the project and answers 404 for anything else, like
+`access.ts:45`. A key alone never opens a passage. If context ever spans projects, the read
+rule goes inside the query, as in `app/api/search/route.ts:34`.
 
-**Why.** It is how files work today, and it held for 7 of 7 `access` questions. The seven
-stay in the set as a regression check for every later change.
+**Why.** It is how files work today, and it held for each of the 8 forbidden files of the
+`access` questions. They stay in the set as a regression check for every later change.
 
 **Rejected.**
 - *Retrieve first, filter in code.* Content from a closed project would leave the database,
@@ -451,18 +540,29 @@ is set before the work.
 
 **Measured through the application** (`baseline.json`, two identical runs):
 - which files are suggested for each question, and in what order;
-- what text reaches the provider, and what the chat reports for each file;
-- the size of the context sent;
-- refusals for the seven `access` questions, with the owner's control search.
+- what text reaches the provider from each file, and what the chat reports for each file;
+- the size of the message that carries the files;
+- refusals for each of the 8 forbidden files, each with its owner's control search.
 
-**Measured outside the application** (`simulation.json`):
+**Measured outside the application** (`simulation.json`, two identical runs):
 - the strategies of section 2.5, on SQLite in Node, with the application's tokenizer and
-  query builder. Its file ranking agreed with the application on 54 of 54 questions. Passage
-  ranking has no counterpart in the application to compare with.
+  query builder, counted by the same rules as the baseline. Its file ranking agreed with the
+  application on 54 of 54 questions. Passage ranking has no counterpart in the application
+  to compare with.
 
-**Checked by a test** (`tests/eval-context.test.ts`):
-- every quote is in its file's extracted text; every PDF page number, sheet number and
-  Markdown heading given as a locator holds its quote.
+**Checked by tests:**
+- `tests/eval-context.test.ts`: every quote is in its file's extracted text; every PDF page
+  number, sheet number and Markdown heading given as a locator holds its quote; the corpus
+  text has LF line endings.
+- `tests/eval-context-rules.test.ts`: the counting rules (a quote counts only from its own
+  file, a question without sources is not scored, both denominators of context size, the
+  three outcomes of an access control, a failed request stops the run) and the chunking rule
+  (the same chunks with LF and CRLF, no chunk past the maximum, nothing lost from a long
+  line).
+
+**Not established:**
+- that results are the same on another machine. The corpus bytes are pinned and the rules
+  are tested with both line endings, but the measurement was run on one Windows machine.
 
 **Assumed, not measured:**
 - that a model answers better from 6 000 well-chosen characters than from 25 000. No model
@@ -495,11 +595,17 @@ must not promise more than the first two.
   generated document. 37 of 38 files are short enough to be sent whole.
 - **Full sentences.** Every question is a sentence. Two-word queries lean harder on stemming
   than these do.
+- **Only people who can ask.** Every asker can send a chat message in the project, which
+  takes edit access. What a reader finds through search alone is not measured here.
+- **No duplicates and no long lines.** No two files share their bytes or a quote, and no
+  line is longer than a chunk. The rules for both are tested, not exercised by the corpus.
 - **No answers judged.** The measurement stops where the model begins.
 
 Decisions 0, 1 and 8 are to be confirmed on a holdout set: built by a different agent, with
-its own corpus, without reading the numbers above, with several long files, at least one
-project of a hundred files, and at least 20 `cross-language` or `synonym` questions.
+its own corpus, without reading the numbers above. It should hold several long files, at
+least one project of a hundred files, files with identical bytes, files with very long
+lines, questions a real team would ask, and at least 20 `cross-language` or `synonym`
+questions. Nothing is to be tuned on it.
 
 ## 7. Order of work
 
@@ -507,9 +613,9 @@ Each step is its own pull request and is accepted on numbers from `npm run eval:
 
 | Step | What | Accepted when |
 |---|---|---|
-| A | Block extraction, `file_chunks`, indexing rounds fill it. No change in behaviour. | The baseline is unchanged; every readable file has chunks; the Sites migration test passes. |
-| B | Passages inside files, the per-file allowance, `passages` in the manifest. | On the dev set: delivered at least 37 of 40, mean context at most 8 000 characters, found still 37 of 40, access 7 of 7. On the holdout set: delivered no lower than found by more than one question in twenty. |
-| C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); answers without citations still save. |
+| A | Block extraction, `file_chunks`, indexing rounds fill it, one file per path enforced. No change in behaviour. | The baseline is unchanged; every readable file has chunks; a 7 000-character line is cut and nothing of it is lost; the Sites migration test passes. |
+| B | Passages inside files, the per-file allowance, the neighbour rule, `passages` in the manifest. | On the dev set: delivered at least 37 of 40, mean context at most 8 000 characters, found still 37 of 40, all 8 forbidden files refused. On the holdout set: delivered no lower than found by more than one question in twenty. |
+| C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); with two identical files in one project each citation opens its own file; a citation to a changed or deleted file says so and shows no text; answers without citations still save. |
 | D | History on the server, the budget per model. | A request over the budget is trimmed, not refused; the stored record equals what the provider received. |
 | E | Connection and host on the message. | An answer shows which connection received which passages, after the file is deleted. |
 
@@ -517,10 +623,11 @@ The holdout set is built before step B merges.
 
 ## 8. Questions for the owner
 
-1. **A citation after its file is gone.** Decision 5 keeps the first 300 characters of a cited
-   passage with the answer, so a citation still shows something after the file is replaced or
-   deleted. The alternative is to keep nothing and show "this file has changed". Which should
-   it be?
+1. **A citation after its file is gone.** Decision 5 now keeps no text of a passage with the
+   answer: after the file is replaced or deleted, the citation says that the source has
+   changed or is no longer available. The earlier draft kept 300 characters; the reviewer
+   advised against it, because it holds on to text of a deleted file. Is "nothing kept" the
+   rule, or should a project be able to switch a kept excerpt on knowingly?
 2. **Languages.** Is asking in Polish about English files, and the reverse, an everyday case
    for the people MeshKeep is for? If so, measuring query expansion is the next evaluation
    task; if not, F4 can wait for the holdout set.

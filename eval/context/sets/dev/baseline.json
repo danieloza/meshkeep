@@ -110,7 +110,9 @@
     "context": {
       "scored": {
         "n": 40,
+        "withContext": 40,
         "meanChars": 25588,
+        "meanCharsWhenSent": 25588,
         "maxChars": 80626,
         "meanFiles": 4.05,
         "included": 127,
@@ -119,8 +121,10 @@
         "skipped": 22
       },
       "noAnswer": {
-        "n": 5,
-        "meanChars": 20924,
+        "n": 7,
+        "withContext": 5,
+        "meanChars": 14945,
+        "meanCharsWhenSent": 20924,
         "maxChars": 80564,
         "meanFiles": 5,
         "included": 21,
@@ -136,7 +140,11 @@
     },
     "access": {
       "n": 7,
-      "refused": 7
+      "refused": 7,
+      "files": 8,
+      "filesRefused": 8,
+      "filesInconclusive": 0,
+      "filesLeaked": 0
     }
   },
   "questions": [
@@ -145,7 +153,6 @@
       "lang": "pl",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -194,7 +201,6 @@
         "diacritics",
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -242,7 +248,6 @@
       "tags": [
         "diacritics"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -286,7 +291,6 @@
       "tags": [
         "inflection"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -334,7 +338,6 @@
       "tags": [
         "inflection"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -383,7 +386,6 @@
         "diacritics",
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -423,7 +425,6 @@
       "tags": [
         "inflection"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -464,7 +465,6 @@
         "inflection",
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -504,7 +504,6 @@
       "tags": [
         "synonym"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -552,7 +551,6 @@
       "tags": [
         "exact"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -590,7 +588,6 @@
       "lang": "pl",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -638,7 +635,6 @@
       "tags": [
         "cross-language"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -674,7 +670,6 @@
       "tags": [
         "cross-language"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -710,7 +705,6 @@
       "tags": [
         "inflection"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -748,7 +742,6 @@
       "lang": "pl",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -796,7 +789,6 @@
       "tags": [
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -842,7 +834,6 @@
       "lang": "pl",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -886,7 +877,6 @@
       "tags": [
         "inflection"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -934,7 +924,6 @@
       "tags": [
         "synonym"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -980,7 +969,6 @@
       "lang": "en",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1026,7 +1014,6 @@
       "lang": "en",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1074,7 +1061,6 @@
       "tags": [
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1122,7 +1108,6 @@
       "tags": [
         "exact"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1160,7 +1145,6 @@
       "lang": "en",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1208,7 +1192,6 @@
       "tags": [
         "deep"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1256,7 +1239,6 @@
       "tags": [
         "deep"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1300,7 +1282,6 @@
       "tags": [
         "exact"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1348,7 +1329,6 @@
       "tags": [
         "cross-language"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1396,7 +1376,6 @@
       "tags": [
         "cross-language"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1428,7 +1407,6 @@
       "tags": [
         "cross-language"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1464,7 +1442,6 @@
       "tags": [
         "synonym"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1494,7 +1471,6 @@
       "lang": "en",
       "kind": "answerable",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1534,7 +1510,6 @@
       "tags": [
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1586,7 +1561,6 @@
       "lang": "pl",
       "kind": "multi-file",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1626,7 +1600,6 @@
       "lang": "pl",
       "kind": "multi-file",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1680,7 +1653,6 @@
       "tags": [
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1728,7 +1700,6 @@
       "lang": "pl",
       "kind": "multi-file",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1782,7 +1753,6 @@
       "tags": [
         "table"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1834,7 +1804,6 @@
       "lang": "en",
       "kind": "multi-file",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1888,7 +1857,6 @@
       "tags": [
         "deep"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1940,7 +1908,6 @@
       "lang": "pl",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -1971,8 +1938,8 @@
         "skipped": 0
       },
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": [
         "umowy-kormoran/umowa-ramowa.pdf"
       ]
@@ -1984,7 +1951,6 @@
       "tags": [
         "scan"
       ],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2015,8 +1981,8 @@
         "skipped": 0
       },
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": [
         "umowy-kormoran/umowa-ramowa.pdf",
         "umowy-kormoran/protokol-odbioru-etap-1-skan.pdf"
@@ -2027,7 +1993,6 @@
       "lang": "pl",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2058,8 +2023,8 @@
         "skipped": 0
       },
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": [
         "oferta-zielony-dach/pytania-do-klienta.txt",
         "oferta-zielony-dach/oferta.docx"
@@ -2070,12 +2035,11 @@
       "lang": "pl",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": []
     },
     {
@@ -2083,7 +2047,6 @@
       "lang": "en",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2114,8 +2077,8 @@
         "skipped": 2
       },
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": [
         "sklep-wdrozenie/architecture.md"
       ]
@@ -2125,7 +2088,6 @@
       "lang": "en",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2156,8 +2118,8 @@
         "skipped": 0
       },
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": [
         "sklep-wdrozenie/runbook.md"
       ]
@@ -2167,12 +2129,11 @@
       "lang": "en",
       "kind": "no-answer",
       "tags": [],
-      "status": 200,
       "suggestions": [],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
+      "complete": null,
+      "delivered": null,
       "related": []
     },
     {
@@ -2180,7 +2141,6 @@
       "lang": "pl",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2205,55 +2165,45 @@
       ],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "kadry",
-            "status": 404
-          }
-        ],
-        "probe": "wynagrodzenie brutto",
-        "ownerFound": [
-          "kadry/wynagrodzenia-2026.xlsx"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "kadry/wynagrodzenia-2026.xlsx",
+          "routeStatus": 404,
+          "probe": "wynagrodzenie brutto",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "pl-a02",
       "lang": "pl",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "kadry",
-            "status": 404
-          }
-        ],
-        "probe": "premia kwartalna",
-        "ownerFound": [
-          "kadry/premie-kwartalne.md"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "kadry/premie-kwartalne.md",
+          "routeStatus": 404,
+          "probe": "premia kwartalna",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "pl-a03",
       "lang": "pl",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2274,29 +2224,24 @@
       ],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "umowy-kormoran",
-            "status": 404
-          }
-        ],
-        "probe": "kara umowna",
-        "ownerFound": [
-          "umowy-kormoran/umowa-ramowa.pdf"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "umowy-kormoran/umowa-ramowa.pdf",
+          "routeStatus": 404,
+          "probe": "kara umowna",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "pl-a04",
       "lang": "pl",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2321,55 +2266,53 @@
       ],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "kadry",
-            "status": 404
-          }
-        ],
-        "probe": "urlopy lipca",
-        "ownerFound": [
-          "kadry/urlopy-2026.md"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "kadry/urlopy-2026.md",
+          "routeStatus": 404,
+          "probe": "urlopy lipca",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "en-a01",
       "lang": "en",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "oferta-zielony-dach",
-            "status": 404
-          }
-        ],
-        "probe": "oferta ważna",
-        "ownerFound": [
-          "oferta-zielony-dach/oferta.docx"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "oferta-zielony-dach/oferta.docx",
+          "routeStatus": 404,
+          "probe": "oferta ważna",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        },
+        {
+          "file": "oferta-zielony-dach/kosztorys.xlsx",
+          "routeStatus": 404,
+          "probe": "programowanie stawka netto",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "en-a02",
       "lang": "en",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [
         {
           "rank": 1,
@@ -2394,48 +2337,39 @@
       ],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "notatki-tomka",
-            "status": 404
-          }
-        ],
-        "probe": "podwyżkę styczniu",
-        "ownerFound": [
-          "notatki-tomka/pomysly.md"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "notatki-tomka/pomysly.md",
+          "routeStatus": 404,
+          "probe": "podwyżkę styczniu",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     },
     {
       "id": "en-a03",
       "lang": "en",
       "kind": "access",
       "tags": [],
-      "status": 200,
       "suggestions": [],
       "context": null,
       "sources": [],
-      "complete": false,
-      "delivered": false,
-      "access": {
-        "forbiddenProjects": [
-          {
-            "project": "kadry",
-            "status": 404
-          }
-        ],
-        "probe": "praca zdalna",
-        "ownerFound": [
-          "kadry/regulamin-pracy.docx"
-        ],
-        "askerFound": [],
-        "refused": true
-      }
+      "complete": null,
+      "delivered": null,
+      "access": [
+        {
+          "file": "kadry/regulamin-pracy.docx",
+          "routeStatus": 404,
+          "probe": "praca zdalna",
+          "ownerFound": true,
+          "askerFound": false,
+          "outcome": "refused"
+        }
+      ]
     }
   ]
 }

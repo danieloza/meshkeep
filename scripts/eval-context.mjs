@@ -8,18 +8,21 @@
 // asks it. The files `suggest-files` offers are then sent with a chat message
 // to a model provider that runs inside this script and only records what it
 // receives. So the result says two things per expected source: was its file
-// suggested, and did the quoted text actually reach the provider.
+// suggested, and did the quoted text reach the provider in the part of the
+// message that came from that file.
 //
-// No real model is called and nothing leaves this machine. The result is
-// written to `eval/context/sets/<set>/baseline.json`; two runs give the same
-// file.
+// No real model is called and nothing leaves this machine. Any request that
+// fails stops the run: a failure is a fault of the measurement, never a
+// result. The result is written to `eval/context/sets/<set>/baseline.json`;
+// two runs give the same file.
 
 import { createHash, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { baseline, canAsk, normalizeText, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
+import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
+import { baseline, canAsk, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
 import { ORIGIN, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from '../tests/api/harness.ts';
 
 const setName = process.argv[2];
@@ -37,6 +40,8 @@ const readJson = (file) => JSON.parse(readFileSync(join(SET, file), 'utf8'));
 const team = teamSchema.parse(readJson('team.json'));
 const { projects } = projectsSchema.parse(readJson('projects.json'));
 const { questions } = questionSet.parse(readJson('questions.json'));
+const projectOf = (file) => file.split('/')[0];
+const pathIn = (file) => file.slice(file.indexOf('/') + 1);
 
 // --- The set as rows --------------------------------------------------------
 
@@ -98,32 +103,25 @@ function startProvider() {
 
 // --- Requests ---------------------------------------------------------------
 
-const MIME = { md: 'text/markdown', txt: 'text/plain', pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
-
-function expectStatus(response, status, what) {
-  if (response.status !== status) throw new Error(`${what}: expected ${status}, got ${response.status} ${response.tekst.slice(0, 300)}`);
-}
+const ok = (response, status, what) => assertStatus(response.status, status, what, response.tekst);
 
 async function upload(project) {
   const directory = join(SET, 'corpus', project.id);
   const names = readdirSync(directory).sort();
-  // A fresh form for each attempt: the harness may send the request again,
-  // and re-uploading replaces the same paths.
   const form = new FormData();
-  for (const name of names) {
-    const extension = name.split('.').pop();
-    form.append('files', new File([readFileSync(join(directory, name))], name, { type: MIME[extension] ?? 'application/octet-stream' }));
-  }
+  // The bytes go up exactly as they are on disk.
+  for (const name of names) form.append('files', new File([readFileSync(join(directory, name))], name, { type: mimeOf(name) }));
   form.append('paths', JSON.stringify(names));
+  // If the harness sends the request again, it replaces the same paths.
   const response = await zapytaj(`/api/projects/${projectUuid.get(project.id)}/files`, { method: 'POST', headers: { ...ORIGIN, ...as(project.owner) }, body: form });
-  expectStatus(response, 201, `Upload to ${project.id}`);
+  ok(response, 201, `Upload to ${project.id}`);
   return names.length;
 }
 
 async function index(project) {
   for (let round = 0; round < 40; round += 1) {
     const response = await zapytaj(`/api/projects/${projectUuid.get(project.id)}/search-index`, { method: 'POST', headers: { ...ORIGIN, ...as(project.owner) } });
-    expectStatus(response, 200, `Indexing ${project.id}`);
+    ok(response, 200, `Indexing ${project.id}`);
     if (response.dane.remaining === 0) return;
   }
   throw new Error(`Indexing ${project.id} did not finish in 40 rounds.`);
@@ -150,9 +148,8 @@ async function waitForTurn(memberId) {
 }
 
 // A chat message with the given files, as the Auto context sends it. Returns
-// the file context the provider received and the manifest the chat reported.
-// Any answer but 200 stops the run: it would be a fault of the measurement,
-// not a result.
+// the file-context message the provider received and the manifest the chat
+// reported for it.
 async function chat(memberId, projectId, text, attachmentIds) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await waitForTurn(memberId);
@@ -165,48 +162,26 @@ async function chat(memberId, projectId, text, attachmentIds) {
       body: JSON.stringify({ projectId: projectUuid.get(projectId), model: MODEL, messages: [{ role: 'user', content: text }], attachmentIds, clientRequestId: randomUUID() }),
     });
     if (response.status === 409) continue;
-    expectStatus(response, 200, `Chat for "${text.slice(0, 60)}"`);
+    ok(response, 200, `Chat for "${text.slice(0, 60)}"`);
     const events = response.tekst.split('\n').filter((line) => line.trim()).map((line) => { try { return JSON.parse(line); } catch { return {}; } });
     const done = events.find((event) => event.type === 'done');
     if (!done || received.length === before) throw new Error(`Chat for "${text.slice(0, 60)}" did not reach the provider: ${response.tekst.slice(0, 300)}`);
-    // File contents travel as a system message; the question is the user's.
-    const sent = received.at(-1).messages.filter((message) => message.role === 'system').map((message) => message.content).join('\n');
-    return { manifest: done.context ?? [], sent };
+    // File contents travel as one system message; the question is the user's.
+    const message = received.at(-1).messages.find((entry) => entry.role === 'system' && entry.content.startsWith(FILE_CONTEXT_PREAMBLE))?.content ?? '';
+    return { manifest: done.context ?? [], message };
   }
   throw new Error(`Chat for "${text.slice(0, 60)}" was refused three times as a duplicate.`);
 }
 
 async function search(memberId, text) {
   const response = await zapytaj(`/api/search?${new URLSearchParams({ q: text })}`, { headers: as(memberId) });
-  expectStatus(response, 200, `Search as ${memberId}`);
+  ok(response, 200, `Search as ${memberId}`);
   return response.dane.files;
 }
 
-// --- Totals -----------------------------------------------------------------
-
-const round = (value) => Math.round(value * 10_000) / 10_000;
-const mean = (values) => (values.length ? round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0);
-
-function totalOf(results) {
-  const firstRanks = results.map((result) => Math.min(...result.sources.map((source) => source.rank ?? Infinity))).filter(Number.isFinite);
-  return {
-    n: results.length,
-    complete: mean(results.map((result) => (result.complete ? 1 : 0))),
-    found: mean(results.map((result) => result.sources.filter((source) => source.rank !== null).length / result.sources.length)),
-    firstRank: firstRanks.length ? mean(firstRanks) : null,
-    delivered: mean(results.map((result) => (result.delivered ? 1 : 0))),
-  };
-}
-
-function grouped(results, keysOf) {
-  const groups = new Map();
-  for (const result of results) {
-    for (const key of keysOf(result)) groups.set(key, [...(groups.get(key) ?? []), result]);
-  }
-  return Object.fromEntries([...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => [key, totalOf(items)]));
-}
-
 // --- The run ----------------------------------------------------------------
+
+const isScored = (kind) => kind === 'answerable' || kind === 'multi-file';
 
 async function run() {
   for (const question of questions) {
@@ -225,7 +200,7 @@ async function run() {
       headers: { ...ORIGIN, ...as(owner), 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: 'Recorder', baseUrl: provider.address, apiKey: 'e'.repeat(24), scope: 'team' }),
     });
-    expectStatus(connection, 201, 'Connecting the recording provider');
+    ok(connection, 201, 'Connecting the recording provider');
 
     // Path and id of every file, per project, as the application stored them.
     const idOf = new Map();
@@ -236,7 +211,7 @@ async function run() {
       fileCount += await upload(project);
       await index(project);
       const listed = await zapytaj(`/api/projects/${projectUuid.get(project.id)}/files`, { headers: as(project.owner) });
-      expectStatus(listed, 200, `Listing ${project.id}`);
+      ok(listed, 200, `Listing ${project.id}`);
       for (const file of listed.dane.files) {
         const path = `${project.id}/${file.relativePath}`;
         idOf.set(path, file.id);
@@ -249,45 +224,47 @@ async function run() {
 
     const results = [];
     for (const question of questions) {
+      // In the asker's own project a suggestion request has to succeed.
       const offered = await suggest(question.asker, question.project, question.question);
-      const suggestions = offered.status === 200 ? offered.dane.files.map((file, position) => ({ rank: position + 1, file: corpusPath(file.fileId) })) : [];
+      ok(offered, 200, `Suggestions for ${question.id}`);
+      const suggestions = offered.dane.files.map((file, position) => ({ rank: position + 1, file: corpusPath(file.fileId) }));
       const rankOf = (file) => suggestions.find((suggestion) => suggestion.file === file)?.rank ?? null;
-      const scored = question.kind === 'answerable' || question.kind === 'multi-file';
+      const scored = isScored(question.kind);
 
       // The message goes out whenever files were suggested, also for a
       // question with no answer: those files are sent to the model all the
       // same, and their size is what the question costs.
-      let sent = null;
+      let context = null;
       let manifest = [];
+      let sections = new Map();
       if (question.kind !== 'access' && suggestions.length) {
-        ({ sent, manifest } = await chat(question.asker, question.project, question.question, suggestions.map((suggestion) => idOf.get(suggestion.file))));
+        const answer = await chat(question.asker, question.project, question.question, suggestions.map((suggestion) => idOf.get(suggestion.file)));
+        manifest = answer.manifest;
+        // What each file contributed, read back from the message itself. The
+        // manifest says which files the message carries and in which order.
+        sections = splitFileContext(answer.message, manifest.map((entry) => entry.path));
+        const count = (status) => manifest.filter((entry) => entry.status === status).length;
+        context = { chars: answer.message.length, included: count('included'), truncated: count('truncated'), unreadable: count('unreadable'), skipped: count('skipped') };
       }
-      const sentText = normalizeText(sent ?? '');
-      const manifestCount = (status) => manifest.filter((entry) => entry.status === status).length;
-      const sources = question.expected.map((source) => ({
-        file: source.file,
-        rank: rankOf(source.file),
-        manifest: manifest.find((entry) => entry.id === idOf.get(source.file))?.status ?? null,
-        delivered: sentText.includes(normalizeText(source.quote)),
-      }));
+
+      const sources = question.expected.map((source) => {
+        const state = manifest.find((entry) => entry.id === idOf.get(source.file))?.status ?? null;
+        // Delivered means: the chat says it sent text of this file, and the
+        // quote is in the part of the message that came from this file.
+        const sent = state === 'included' || state === 'truncated';
+        return { file: source.file, rank: rankOf(source.file), manifest: state, delivered: sent && quoteDelivered(source.quote, sections.get(pathIn(source.file))) };
+      });
 
       const result = {
         id: question.id,
         lang: question.lang,
         kind: question.kind,
         tags: question.tags,
-        status: offered.status,
         suggestions,
-        context: sent === null ? null : {
-          chars: sent.length,
-          included: manifestCount('included'),
-          truncated: manifestCount('truncated'),
-          unreadable: manifestCount('unreadable'),
-          skipped: manifestCount('skipped'),
-        },
+        context,
         sources,
-        complete: scored && sources.every((source) => source.rank !== null),
-        delivered: scored && sources.every((source) => source.delivered),
+        complete: scored ? sources.every((source) => source.rank !== null) : null,
+        delivered: scored ? sources.every((source) => source.delivered) : null,
       };
 
       if (question.kind === 'no-answer') {
@@ -295,41 +272,37 @@ async function run() {
       }
 
       if (question.kind === 'access') {
-        const closed = [...new Set(question.forbidden.map((file) => file.split('/')[0]))];
-        const forbiddenProjects = [];
-        for (const projectId of closed) {
-          forbiddenProjects.push({ project: projectId, status: (await suggest(question.asker, projectId, question.question)).status });
+        // One control per forbidden file: the route of its project as the
+        // asker, and its own probe as its project's owner and as the asker.
+        result.access = [];
+        for (const { file, probe } of question.forbidden) {
+          const closed = projects.find((project) => project.id === projectOf(file));
+          const finds = async (memberId) => (await search(memberId, probe)).some((hit) => corpusPath(hit.fileId) === file);
+          const control = {
+            routeStatus: (await suggest(question.asker, closed.id, question.question)).status,
+            ownerFound: await finds(closed.owner),
+            askerFound: await finds(question.asker),
+          };
+          result.access.push({ file, routeStatus: control.routeStatus, probe, ownerFound: control.ownerFound, askerFound: control.askerFound, outcome: accessOutcome(control) });
         }
-        // The same phrase as both people. A refusal means something only when
-        // the phrase does find the file for its owner.
-        const ownerOfClosed = projects.find((project) => project.id === closed[0]).owner;
-        const found = async (memberId) => (await search(memberId, question.probe)).map((hit) => corpusPath(hit.fileId)).filter((file) => question.forbidden.includes(file)).sort();
-        const ownerFound = await found(ownerOfClosed);
-        const askerFound = await found(question.asker);
-        result.access = {
-          forbiddenProjects,
-          probe: question.probe,
-          ownerFound,
-          askerFound,
-          refused: ownerFound.length > 0 && askerFound.length === 0 && forbiddenProjects.every((entry) => entry.status === 404),
-        };
       }
 
       results.push(result);
-      const mark = scored ? `${result.complete ? 'found' : 'MISSED'}, ${result.delivered ? 'delivered' : 'NOT DELIVERED'}` : question.kind === 'access' ? (result.access.refused ? 'refused' : 'NOT REFUSED') : `${suggestions.length} suggested`;
+      const mark = scored
+        ? `${result.complete ? 'found' : 'MISSED'}, ${result.delivered ? 'delivered' : 'NOT DELIVERED'}`
+        : question.kind === 'access' ? result.access.map((entry) => entry.outcome.toUpperCase()).join(', ') : `${suggestions.length} suggested`;
       console.log(`${question.id.padEnd(7)} ${question.kind.padEnd(10)} ${mark}`);
     }
 
-    const scored = results.filter((result) => result.kind === 'answerable' || result.kind === 'multi-file');
+    const scored = results.filter((result) => isScored(result.kind));
     const noAnswer = results.filter((result) => result.kind === 'no-answer');
     const access = results.filter((result) => result.kind === 'access');
+    const total = (items) => totalOf(items.map((result) => ({ ranks: result.sources.map((source) => source.rank), delivered: result.sources.map((source) => source.delivered) })));
     const contextOf = (items) => {
       const sent = items.filter((result) => result.context);
-      const sum = (key) => sent.reduce((total, result) => total + result.context[key], 0);
+      const sum = (key) => sent.reduce((count, result) => count + result.context[key], 0);
       return {
-        n: sent.length,
-        meanChars: Math.round(mean(sent.map((result) => result.context.chars))),
-        maxChars: Math.max(0, ...sent.map((result) => result.context.chars)),
+        ...contextTotal(items.map((result) => result.context?.chars ?? null)),
         meanFiles: mean(sent.map((result) => result.suggestions.length)),
         included: sum('included'),
         truncated: sum('truncated'),
@@ -337,6 +310,8 @@ async function run() {
         skipped: sum('skipped'),
       };
     };
+    const controls = access.flatMap((result) => result.access);
+
     const output = baseline.parse({
       version: 1,
       set: setName,
@@ -346,26 +321,33 @@ async function run() {
         fileText: Object.fromEntries(Object.entries(fileText).sort(([a], [b]) => a.localeCompare(b))),
       },
       totals: {
-        scored: totalOf(scored),
-        byKind: grouped(scored, (result) => [result.kind]),
-        byLang: grouped(scored, (result) => [result.lang]),
+        scored: total(scored),
+        byKind: grouped(scored, (result) => [result.kind], total),
+        byLang: grouped(scored, (result) => [result.lang], total),
         // A question with no tag has nothing that makes retrieval hard.
-        byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain'])),
+        byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain']), total),
         context: { scored: contextOf(scored), noAnswer: contextOf(noAnswer) },
         noAnswer: {
           n: noAnswer.length,
           withSuggestions: noAnswer.filter((result) => result.suggestions.length > 0).length,
           onlyRelated: noAnswer.filter((result) => result.suggestions.length > 0 && result.related.length === result.suggestions.length).length,
         },
-        access: { n: access.length, refused: access.filter((result) => result.access.refused).length },
+        access: {
+          n: access.length,
+          refused: access.filter((result) => result.access.every((entry) => entry.outcome === 'refused')).length,
+          files: controls.length,
+          filesRefused: controls.filter((entry) => entry.outcome === 'refused').length,
+          filesInconclusive: controls.filter((entry) => entry.outcome === 'inconclusive').length,
+          filesLeaked: controls.filter((entry) => entry.outcome === 'leaked').length,
+        },
       },
       questions: results,
     });
 
     writeFileSync(join(SET, 'baseline.json'), `${JSON.stringify(output, null, 2)}\n`, 'utf8');
-    const { scored: all } = output.totals;
-    console.log(`\nScored questions: ${all.n}. Every expected file suggested: ${Math.round(all.complete * 100)}%. Every quote delivered to the provider: ${Math.round(all.delivered * 100)}%.`);
-    console.log(`Access: ${output.totals.access.refused} of ${output.totals.access.n} refused. Written to eval/context/sets/${setName}/baseline.json`);
+    const { scored: all, access: closed } = output.totals;
+    console.log(`\nScored questions: ${all.n}. Every expected file suggested: ${Math.round(all.complete * all.n)}. Every quote delivered to the provider from its own file: ${Math.round(all.delivered * all.n)}.`);
+    console.log(`Access: ${closed.filesRefused} of ${closed.files} forbidden files refused (${closed.filesInconclusive} inconclusive, ${closed.filesLeaked} leaked); ${closed.refused} of ${closed.n} questions. Written to eval/context/sets/${setName}/baseline.json`);
   } finally {
     stopWorkera();
     provider.server.close();
