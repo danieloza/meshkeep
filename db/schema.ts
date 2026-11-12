@@ -205,6 +205,7 @@ export const fileChunks = sqliteTable(
     endChar: integer('end_char').notNull(),
     content: text('content').notNull(),
     label: text('label').notNull(),
+    searchLabel: text('search_label').notNull(),
     place: text('place').notNull(),
     heading: text('heading').notNull(),
     headerCut: integer('header_cut').notNull(),

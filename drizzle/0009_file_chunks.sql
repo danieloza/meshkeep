@@ -29,6 +29,7 @@ CREATE TABLE `file_chunks` (
   `end_char` integer NOT NULL,
   `content` text NOT NULL,
   `label` text NOT NULL,
+  `search_label` text NOT NULL,
   `place` text NOT NULL,
   `heading` text NOT NULL,
   `header_cut` integer NOT NULL,
@@ -40,17 +41,17 @@ CREATE INDEX `file_chunks_project_file_idx` ON `file_chunks` (`project_id`, `fil
 CREATE INDEX `file_chunks_chunk_key_idx` ON `file_chunks` (`chunk_key`);
 --> statement-breakpoint
 -- This is a rowid table: FTS5 uses its implicit SQLite rowid.
-CREATE VIRTUAL TABLE `file_chunks_fts` USING fts5(path, label, content, content='file_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2');
+CREATE VIRTUAL TABLE `file_chunks_fts` USING fts5(path, label, search_label, content, content='file_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2');
 --> statement-breakpoint
 CREATE TRIGGER `file_chunks_fts_ai` AFTER INSERT ON `file_chunks` BEGIN
-  INSERT INTO `file_chunks_fts` (rowid, path, label, content) VALUES (new.rowid, new.path, new.label, new.content);
+  INSERT INTO `file_chunks_fts` (rowid, path, label, search_label, content) VALUES (new.rowid, new.path, new.label, new.search_label, new.content);
 END;
 --> statement-breakpoint
 CREATE TRIGGER `file_chunks_fts_ad` AFTER DELETE ON `file_chunks` BEGIN
-  INSERT INTO `file_chunks_fts` (`file_chunks_fts`, rowid, path, label, content) VALUES ('delete', old.rowid, old.path, old.label, old.content);
+  INSERT INTO `file_chunks_fts` (`file_chunks_fts`, rowid, path, label, search_label, content) VALUES ('delete', old.rowid, old.path, old.label, old.search_label, old.content);
 END;
 --> statement-breakpoint
 CREATE TRIGGER `file_chunks_fts_au` AFTER UPDATE ON `file_chunks` BEGIN
-  INSERT INTO `file_chunks_fts` (`file_chunks_fts`, rowid, path, label, content) VALUES ('delete', old.rowid, old.path, old.label, old.content);
-  INSERT INTO `file_chunks_fts` (rowid, path, label, content) VALUES (new.rowid, new.path, new.label, new.content);
+  INSERT INTO `file_chunks_fts` (`file_chunks_fts`, rowid, path, label, search_label, content) VALUES ('delete', old.rowid, old.path, old.label, old.search_label, old.content);
+  INSERT INTO `file_chunks_fts` (rowid, path, label, search_label, content) VALUES (new.rowid, new.path, new.label, new.search_label, new.content);
 END;

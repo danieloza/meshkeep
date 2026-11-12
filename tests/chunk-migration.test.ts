@@ -63,11 +63,12 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('chunk mi
       db.exec(`
         INSERT INTO file_chunk_states VALUES ('f1', 'p', 'same-sha', 'v1', 'indexed', 1, NULL, 10, 1, NULL, 20);
         INSERT INTO file_chunk_states VALUES ('f2', 'p', 'same-sha', 'v1', 'indexed', 1, NULL, 10, 1, NULL, 20);
-        INSERT INTO file_chunks VALUES ('f1', 'p', 'first.txt', 0, 'same-key', 0, 8, 'café tea', 'intro', 'page 1', 'Heading', 0);
-        INSERT INTO file_chunks VALUES ('f2', 'p', 'second.txt', 0, 'same-key', 0, 8, 'café tea', 'intro', 'page 1', 'Heading', 0);
+        INSERT INTO file_chunks VALUES ('f1', 'p', 'first.txt', 0, 'same-key', 0, 8, 'café tea', 'intro', 'intro longtail', 'page 1', 'Heading', 0);
+        INSERT INTO file_chunks VALUES ('f2', 'p', 'second.txt', 0, 'same-key', 0, 8, 'café tea', 'intro', 'intro longtail', 'page 1', 'Heading', 0);
       `);
       expect(match(db, 'cafe')).toEqual([{ file_id: 'f1', ordinal: 0 }, { file_id: 'f2', ordinal: 0 }]);
-      expect(() => db.exec("INSERT INTO file_chunks VALUES ('missing', 'p', 'x', 0, 'k', 0, 1, 'x', '', '', '', 0)")).toThrow(/FOREIGN KEY/);
+      expect(match(db, 'longtail')).toEqual([{ file_id: 'f1', ordinal: 0 }, { file_id: 'f2', ordinal: 0 }]);
+      expect(() => db.exec("INSERT INTO file_chunks VALUES ('missing', 'p', 'x', 0, 'k', 0, 1, 'x', '', '', '', '', 0)")).toThrow(/FOREIGN KEY/);
       expect(() => db.exec("UPDATE file_chunk_states SET status = 'bad' WHERE file_id = 'f1'")).toThrow(/CHECK/);
       expect(() => db.exec("UPDATE files SET relative_path = 'first.txt' WHERE id = 'f2'")).toThrow(/UNIQUE/);
     } finally { db.close(); }
@@ -79,15 +80,15 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('chunk mi
       apply(db);
       db.exec(`
         INSERT INTO file_chunk_states VALUES ('f1', 'p', 'sha', 'v1', 'indexing', 1, 'lease', 10, 2, NULL, 0);
-        INSERT INTO file_chunks VALUES ('f1', 'p', 'oldpath', 0, 'k', 0, 3, 'oldbody', 'oldlabel', '', '', 0);
-        INSERT INTO file_chunks VALUES ('f1', 'p', 'otherpath', 1, 'k2', 3, 6, 'otherbody', 'otherlabel', '', '', 0);
+        INSERT INTO file_chunks VALUES ('f1', 'p', 'oldpath', 0, 'k', 0, 3, 'oldbody', 'oldlabel', 'oldtail', '', '', 0);
+        INSERT INTO file_chunks VALUES ('f1', 'p', 'otherpath', 1, 'k2', 3, 6, 'otherbody', 'otherlabel', 'othertail', '', '', 0);
       `);
-      for (const term of ['oldpath', 'oldlabel', 'oldbody']) expect(match(db, term)).toEqual([{ file_id: 'f1', ordinal: 0 }]);
-      db.exec("UPDATE file_chunks SET path='newpath', label='newlabel', content='newbody' WHERE file_id='f1' AND ordinal=0");
-      for (const term of ['oldpath', 'oldlabel', 'oldbody']) expect(match(db, term)).toEqual([]);
-      for (const term of ['newpath', 'newlabel', 'newbody']) expect(match(db, term)).toEqual([{ file_id: 'f1', ordinal: 0 }]);
+      for (const term of ['oldpath', 'oldlabel', 'oldtail', 'oldbody']) expect(match(db, term)).toEqual([{ file_id: 'f1', ordinal: 0 }]);
+      db.exec("UPDATE file_chunks SET path='newpath', label='newlabel', search_label='newtail', content='newbody' WHERE file_id='f1' AND ordinal=0");
+      for (const term of ['oldpath', 'oldlabel', 'oldtail', 'oldbody']) expect(match(db, term)).toEqual([]);
+      for (const term of ['newpath', 'newlabel', 'newtail', 'newbody']) expect(match(db, term)).toEqual([{ file_id: 'f1', ordinal: 0 }]);
       db.exec("DELETE FROM file_chunks WHERE file_id='f1' AND ordinal=0");
-      for (const term of ['newpath', 'newlabel', 'newbody']) expect(match(db, term)).toEqual([]);
+      for (const term of ['newpath', 'newlabel', 'newtail', 'newbody']) expect(match(db, term)).toEqual([]);
       expect(match(db, 'otherbody')).toEqual([{ file_id: 'f1', ordinal: 1 }]);
       db.exec("DELETE FROM files WHERE id='f1'");
       expect(match(db, 'otherbody')).toEqual([]);
