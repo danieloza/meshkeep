@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   primaryKey,
@@ -137,6 +138,7 @@ export const files = sqliteTable(
   (table) => [
     uniqueIndex('files_object_key_uq').on(table.objectKey),
     index('files_project_idx').on(table.projectId),
+    uniqueIndex('files_project_path_uq').on(table.projectId, table.relativePath),
   ],
 );
 
@@ -167,6 +169,51 @@ export const fileTexts = sqliteTable(
     indexedAt: timestamp('indexed_at'),
   },
   (table) => [index('file_texts_project_idx').on(table.projectId)],
+);
+
+// FTS5 external content and triggers are maintained in the SQL migration.
+export const fileChunkStates = sqliteTable(
+  'file_chunk_states',
+  {
+    fileId: text('file_id').primaryKey().references(() => files.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').notNull(),
+    fileSha: text('file_sha').notNull(),
+    extractorVersion: text('extractor_version').notNull(),
+    status: text('status', { enum: ['indexing', 'indexed', 'unsupported', 'failed'] }).notNull(),
+    attempts: integer('attempts').notNull(),
+    leaseId: text('lease_id'),
+    claimedAt: integer('claimed_at').notNull(),
+    chunkCount: integer('chunk_count').notNull(),
+    reason: text('reason'),
+    indexedAt: integer('indexed_at').notNull(),
+  },
+  (table) => [
+    index('file_chunk_states_project_file_idx').on(table.projectId, table.fileId),
+    check('file_chunk_states_status_check', sql`${table.status} IN ('indexing', 'indexed', 'unsupported', 'failed')`),
+  ],
+);
+
+export const fileChunks = sqliteTable(
+  'file_chunks',
+  {
+    fileId: text('file_id').notNull().references(() => files.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').notNull(),
+    path: text('path').notNull(),
+    ordinal: integer('ordinal').notNull(),
+    chunkKey: text('chunk_key').notNull(),
+    startChar: integer('start_char').notNull(),
+    endChar: integer('end_char').notNull(),
+    content: text('content').notNull(),
+    label: text('label').notNull(),
+    place: text('place').notNull(),
+    heading: text('heading').notNull(),
+    headerCut: integer('header_cut').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fileId, table.ordinal] }),
+    index('file_chunks_project_file_idx').on(table.projectId, table.fileId),
+    index('file_chunks_chunk_key_idx').on(table.chunkKey),
+  ],
 );
 
 export const conversations = sqliteTable(
