@@ -32,6 +32,8 @@ export type Unit = {
   place: string;
   // The headings above the unit, outermost first, joined with ` › `.
   heading: string;
+  // Exact heading components; display separators may also occur in a title.
+  headings?: string[];
   // A Markdown heading line, or the first line of a sheet: a chunk kept to
   // one section starts here.
   section: boolean;
@@ -112,9 +114,10 @@ export function markdownUnits(text: string): Unit[] {
   let first: Line | null = null;
   let last: Line | null = null;
   let fenced = false;
-  const trailText = () => trail.filter(Boolean).join(' › ');
+  const trailParts = () => trail.filter(Boolean);
+  const trailText = () => trailParts().join(' › ');
   const close = () => {
-    if (first && last) units.push({ start: first.start, end: last.end, place: '', heading: trailText(), section: false });
+    if (first && last) units.push({ start: first.start, end: last.end, place: '', heading: trailText(), headings: trailParts(), section: false });
     first = null;
     last = null;
   };
@@ -125,7 +128,7 @@ export function markdownUnits(text: string): Unit[] {
       close();
       trail.length = heading[1].length - 1;
       trail[heading[1].length - 1] = heading[2].trim();
-      units.push({ start: line.start, end: line.end, place: '', heading: trailText(), section: true });
+      units.push({ start: line.start, end: line.end, place: '', heading: trailText(), headings: trailParts(), section: true });
       continue;
     }
     if (!line.text.trim() && !fenced) { close(); continue; }
@@ -217,7 +220,10 @@ export function splitRange(text: string, start: number, end: number, rule: Chunk
 // maximum.
 export function chunksOf(document: Document, joinSections: boolean, rule: ChunkRule = CHUNK_RULE): Chunk[] {
   const { text } = document;
-  const pieces = document.units.flatMap((unit) => splitRange(text, unit.start, unit.end, rule).map(([start, end], index) => ({ ...unit, start, end, section: index === 0 && unit.section, cut: index > 0 })));
+  const pieces = document.units.flatMap((unit) => {
+    const ranges = splitRange(text, unit.start, unit.end, rule);
+    return ranges.map(([start, end], index) => ({ ...unit, start, end, section: index === 0 && unit.section, cut: index > 0, split: ranges.length > 1 }));
+  });
   const chunks: Chunk[] = [];
   // Typed by assertion: `close` resets it inside a closure, which narrowing
   // from a plain `= null` would not see.
@@ -234,12 +240,12 @@ export function chunksOf(document: Document, joinSections: boolean, rule: ChunkR
       place: current.place,
       heading: current.heading,
       continuesPrevious,
-      ...(header === undefined ? {} : { header: header.slice(0, rule.headerChars), ...(header.length > rule.headerChars ? { headerCut: true } : {}) }),
+      ...(header === undefined ? {} : { header: safeHeader(header, rule.headerChars), ...(header.length > rule.headerChars ? { headerCut: true } : {}) }),
     });
     current = null;
   };
   for (const piece of pieces) {
-    const mayJoin = current !== null && !piece.cut && current.place === piece.place && (joinSections || !piece.section) && piece.end - current.start <= rule.targetChars;
+    const mayJoin = current !== null && !piece.split && current.place === piece.place && (joinSections || !piece.section) && piece.end - current.start <= rule.targetChars;
     if (current && mayJoin) {
       current = { ...current, end: piece.end, header: current.header ?? piece.header };
       continue;
@@ -252,6 +258,13 @@ export function chunksOf(document: Document, joinSections: boolean, rule: ChunkR
   return chunks;
 }
 
+// A UTF-16 limit may fall between the two halves of a supplementary character.
+function safeHeader(header: string, limit: number): string {
+  let end = Math.min(header.length, limit);
+  if (end < header.length && isHighSurrogate(header.charCodeAt(end - 1))) end -= 1;
+  return header.slice(0, end);
+}
+
 // The label a passage is sent under: its place, the headings above it, and
 // for a sheet its header row.
 export function passageLabel(chunk: Chunk): string {
@@ -260,44 +273,95 @@ export function passageLabel(chunk: Chunk): string {
   return parts.length ? `[${parts.join(' · ')}]` : '';
 }
 
-// The text a file contributes when some of its chunks are sent: chunks that
-// follow each other become one slice of the file, exactly as the file has it,
-// under the label of the first; a gap between them is marked.
-export function passagesText(document: Document, chunks: Chunk[]): string {
+// Keep each page, sheet and heading label with its own source span. A run is
+// also the unit against which a quote can be checked without matching a label.
+export function passageRuns(document: Document, chunks: Chunk[]): Array<{ label: string; body: string; first: Chunk; last: Chunk }> {
   const sorted = [...chunks].sort((a, b) => a.ordinal - b.ordinal);
   const runs: Chunk[][] = [];
   for (const chunk of sorted) {
     const run = runs.at(-1);
-    if (run && run.at(-1)!.ordinal + 1 === chunk.ordinal) run.push(chunk);
+    if (run && run.at(-1)!.ordinal + 1 === chunk.ordinal && run.at(-1)!.place === chunk.place && (chunk.continuesPrevious || passageLabel(run[0]) === passageLabel(chunk))) run.push(chunk);
     else runs.push([chunk]);
   }
-  return runs.map((run) => {
-    const label = passageLabel(run[0]);
-    const body = document.text.slice(run[0].start, run.at(-1)!.end);
-    return label ? `${label}\n${body}` : body;
-  }).join('\n\n[…]\n\n');
+  return runs.map((run) => ({ label: passageLabel(run[0]), body: document.text.slice(run[0].start, run.at(-1)!.end), first: run[0], last: run.at(-1)! }));
 }
 
-// The chosen chunks of one file, with the neighbours a cut inside a line
-// makes inseparable added while `room` characters allow. A chunk that
-// continues the one before is read only with it, and the other way round.
-export function withNeighbours(chunks: Chunk[], chosen: number[], room: number): number[] {
-  const taken = new Set(chosen);
-  let used = chosen.reduce((sum, ordinal) => sum + chunks[ordinal].text.length, 0);
+// The text actually sent, including labels and separators. A label change is
+// not a missing chunk; an ordinal gap is marked as an omission.
+export function passagesText(document: Document, chunks: Chunk[]): string {
+  const runs = passageRuns(document, chunks);
+  return runs.map((run, index) => {
+    const prefix = index === 0 ? '' : runs[index - 1].last.ordinal + 1 === run.first.ordinal ? '\n\n' : '\n\n[…]\n\n';
+    return `${prefix}${run.label ? `${run.label}\n` : ''}${run.body}`;
+  }).join('');
+}
+
+export type PassageLocator = { page: number } | { sheet: number } | { heading: string };
+
+// For a whole file, no labels interrupt the text. Limit it to the requested
+// location when one exists, including nested headings in that section.
+export function wholeSourceTexts(document: Document, locator?: PassageLocator): string[] {
+  if (!locator) return [document.text];
+  const texts: string[] = [];
+  let start: number | null = null;
+  let end = 0;
+  const flush = () => { if (start !== null) texts.push(document.text.slice(start, end)); start = null; };
+  for (const unit of document.units) {
+    const matches = 'page' in locator ? unit.place === `page ${locator.page}`
+      : 'sheet' in locator ? unit.place === `sheet ${locator.sheet}`
+        : unit.headings?.includes(locator.heading) ?? false;
+    if (!matches) { flush(); continue; }
+    if (start === null) start = unit.start;
+    end = unit.end;
+  }
+  flush();
+  return texts;
+}
+
+// Only source slices, not generated labels or omission markers, qualify as
+// passages. If a locator was supplied, keep the match on that page/section.
+export function sourcePassageTexts(document: Document, chunks: Chunk[], locator?: PassageLocator): string[] {
+  const texts: string[] = [];
+  for (const run of passageRuns(document, chunks)) {
+    if (!locator) { texts.push(run.body); continue; }
+    if ('page' in locator || 'sheet' in locator) {
+      const place = 'page' in locator ? `page ${locator.page}` : `sheet ${locator.sheet}`;
+      if (run.first.place === place) texts.push(run.body);
+      continue;
+    }
+    // A chunk can span several Markdown headings. Check the units within the
+    // selected run, not just the heading used for the run's display label.
+    let start: number | null = null;
+    let end = 0;
+    const flush = () => { if (start !== null) texts.push(document.text.slice(start, end)); start = null; };
+    for (const unit of document.units) {
+      if (unit.end <= run.first.start || unit.start >= run.last.end) continue;
+      if (!unit.headings?.includes(locator.heading)) { flush(); continue; }
+      if (start === null) start = Math.max(unit.start, run.first.start);
+      end = Math.min(unit.end, run.last.end);
+    }
+    flush();
+  }
+  return texts;
+}
+
+// Select in ranking order and then add linked neighbours when the *serialized*
+// text fits. This charges the restored source gaps, labels and omission marks.
+export function selectPassages(document: Document, chunks: Chunk[], ranked: number[], allowance: number): number[] {
+  const chosen = new Set<number>();
+  const add = (ordinal: number): boolean => {
+    if (!chunks[ordinal] || chosen.has(ordinal)) return false;
+    const candidate = [...chosen, ordinal].map((index) => chunks[index]);
+    if (passagesText(document, candidate).length > allowance) return false;
+    chosen.add(ordinal);
+    return true;
+  };
+  for (const ordinal of ranked) add(ordinal);
   const queue = [...chosen];
   while (queue.length) {
     const ordinal = queue.shift()!;
-    const linked = [
-      chunks[ordinal].continuesPrevious ? ordinal - 1 : -1,
-      chunks[ordinal + 1]?.continuesPrevious ? ordinal + 1 : -1,
-    ];
-    for (const neighbour of linked) {
-      if (neighbour < 0 || taken.has(neighbour)) continue;
-      if (used + chunks[neighbour].text.length > room) continue;
-      taken.add(neighbour);
-      used += chunks[neighbour].text.length;
-      queue.push(neighbour);
-    }
+    const neighbours = [chunks[ordinal].continuesPrevious ? ordinal - 1 : -1, chunks[ordinal + 1]?.continuesPrevious ? ordinal + 1 : -1];
+    for (const neighbour of neighbours) if (neighbour >= 0 && add(neighbour)) queue.push(neighbour);
   }
-  return [...taken].sort((a, b) => a - b);
+  return [...chosen].sort((a, b) => a - b);
 }

@@ -24,8 +24,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
-import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passagesText, pdfDocument, sheetUnits, withNeighbours } from '../eval/context/chunking.ts';
-import { contextTotal, fileContextMessage, grouped, mimeOf, quoteDelivered, totalOf } from '../eval/context/measure.ts';
+import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passagesText, pdfDocument, selectPassages, sheetUnits, sourcePassageTexts, wholeSourceTexts } from '../eval/context/chunking.ts';
+import { contextTotal, fileContextMessage, grouped, mean, mimeOf, quoteDelivered, remainingFileContextChars, totalOf } from '../eval/context/measure.ts';
 import { questionSet } from '../eval/context/schema.ts';
 import { wydobadzTekstDokumentu } from '../lib/document-text.ts';
 import { buildSuggestQuery } from '../lib/search.ts';
@@ -151,7 +151,8 @@ function topChunks(table, limit) {
     for (const { file, ordinal } of select.all(match, question.project, limit)) chosen.set(file, [...(chosen.get(file) ?? []), Number(ordinal)]);
     return new Map([...chosen.entries()].map(([file, ordinals]) => {
       const chunks = chunksByTable[table].get(file);
-      return [file, passagesText(documents.get(file), ordinals.map((ordinal) => chunks[ordinal]))];
+      const selected = ordinals.map((ordinal) => chunks[ordinal]);
+      return [file, { text: passagesText(documents.get(file), selected), chunks: selected }];
     }));
   };
 }
@@ -167,30 +168,21 @@ function filesThenPassages(totalChars) {
   const pickPassages = database.prepare('SELECT ordinal FROM joined WHERE joined MATCH ? AND file = ? ORDER BY bm25(joined, 4.0, 2.0, 1.0) LIMIT 40');
   return (question, match) => {
     const sent = new Map();
-    let room = totalChars;
     for (const { file } of pickFiles.all(match, question.project, FILE_LIMIT)) {
       const whole = wholeTexts.get(file);
+      const current = [...sent.entries()].map(([path, value]) => ({ path: pathIn(path), mimeType: mimeOf(path), sizeBytes: sizeOf.get(path), text: value.text }));
+      const room = remainingFileContextChars(current, { path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file) }, totalChars);
       if (whole.length <= WHOLE_FILE_CHARS) {
-        if (whole.length > room) continue;
-        sent.set(file, whole);
-        room -= whole.length;
+        if (!whole || whole.length > room) continue;
+        sent.set(file, { text: whole, chunks: null });
         continue;
       }
       const chunks = chunksByTable.joined.get(file);
       const allowance = Math.min(PER_FILE_CHARS, room);
-      const chosen = [];
-      let used = 0;
-      for (const { ordinal } of pickPassages.all(match, file)) {
-        const length = chunks[Number(ordinal)].text.length;
-        if (used + length > allowance) continue;
-        chosen.push(Number(ordinal));
-        used += length;
-      }
-      if (!chosen.length) continue;
-      const ordinals = withNeighbours(chunks, chosen, allowance);
-      used = ordinals.reduce((sum, ordinal) => sum + chunks[ordinal].text.length, 0);
-      sent.set(file, passagesText(documents.get(file), ordinals.map((ordinal) => chunks[ordinal])));
-      room -= used;
+      const ordinals = selectPassages(documents.get(file), chunks, pickPassages.all(match, file).map(({ ordinal }) => Number(ordinal)), allowance);
+      if (!ordinals.length) continue;
+      const selected = ordinals.map((ordinal) => chunks[ordinal]);
+      sent.set(file, { text: passagesText(documents.get(file), selected), chunks: selected });
     }
     return sent;
   };
@@ -213,15 +205,17 @@ const sizeOf = new Map(files.map((file) => [file, statSync(join(SET, 'corpus', f
 function ask(question, pick) {
   const match = buildSuggestQuery(question.question.slice(0, 500));
   const sent = match ? pick(question, match) : new Map();
-  const message = fileContextMessage([...sent.entries()].map(([file, text]) => ({ path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file), text })));
+  const message = fileContextMessage([...sent.entries()].map(([file, value]) => ({ path: pathIn(file), mimeType: mimeOf(file), sizeBytes: sizeOf.get(file), text: value.text })));
 
   const scored = isScored(question.kind);
-  const sources = question.expected.map((source) => ({
-    file: source.file,
-    found: sent.has(source.file),
-    // Only text chosen from the source's own file can deliver its quote.
-    delivered: quoteDelivered(source.quote, sent.get(source.file)),
-  }));
+  const sources = question.expected.map((source) => {
+    const value = sent.get(source.file);
+    const delivered = quoteDelivered(source.quote, value?.text);
+    const passages = value?.chunks === null ? wholeSourceTexts(documents.get(source.file), source.locator)
+      : value ? sourcePassageTexts(documents.get(source.file), value.chunks, source.locator) : [];
+    const passageDelivered = delivered && passages.some((text) => quoteDelivered(source.quote, text));
+    return { file: source.file, found: Boolean(value), delivered, passageDelivered };
+  });
   return {
     id: question.id,
     kind: question.kind,
@@ -234,6 +228,7 @@ function ask(question, pick) {
     // A question with no expected source is not scored.
     complete: scored ? sources.every((source) => source.found) : null,
     delivered: scored ? sources.every((source) => source.delivered) : null,
+    passageDelivered: scored ? sources.every((source) => source.passageDelivered) : null,
   };
 }
 
@@ -242,7 +237,7 @@ function ask(question, pick) {
 // left out.
 function total(results) {
   const { n, complete, found, delivered } = totalOf(results.map((result) => ({ ranks: result.sources.map((source) => (source.found ? 1 : null)), delivered: result.sources.map((source) => source.delivered) })));
-  return { n, complete, found, delivered };
+  return { n, complete, found, delivered, passageDelivered: mean(results.map((result) => (result.passageDelivered ? 1 : 0))) };
 }
 const contextOf = (results) => contextTotal(results.map((result) => result.chars));
 
@@ -259,7 +254,8 @@ for (const [name, { describe, pick }] of Object.entries(STRATEGIES)) {
     byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain']), total),
     context: { scored: contextOf(scored), noAnswer: contextOf(noAnswer) },
     notDelivered: scored.filter((result) => !result.delivered).map((result) => result.id),
-    questions: results.map(({ id, kind, files: fileCount, chars, complete, delivered }) => ({ id, kind, files: fileCount, chars, complete, delivered })),
+    deliveredWithoutPassage: scored.filter((result) => result.delivered && !result.passageDelivered).map((result) => result.id),
+    questions: results.map(({ id, kind, files: fileCount, chars, complete, delivered, passageDelivered, sources }) => ({ id, kind, files: fileCount, chars, complete, delivered, passageDelivered, sources })),
   };
 }
 

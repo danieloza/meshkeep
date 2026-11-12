@@ -27,7 +27,7 @@ The decisions below keep what works and change what does not:
 | 7 | Each answer records which passages went to which connection. |
 | 8 | No vector search now. It gets considered when a named threshold on the evaluation sets is missed. |
 
-A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 6 111
+A simulation of decision 0 on the same questions delivers the answer for 37 of 40, with 6 131
 characters of context on average instead of 25 588. The three it still misses are the three
 where the question and the file are in different languages.
 
@@ -204,9 +204,12 @@ every route.
 FTS5 with the application's tokenizer and query builder, and runs the same questions through
 several strategies. It is not the application: see section 4.
 
-It counts by the same rules as the baseline: a quote is delivered only from text chosen from
-its own file, and context size is the length of the message the chat would write around the
-chosen text, with the same opening sentence and `FILE:` lines.
+It counts delivery by the same rule as the baseline: a quote reached the provider from its
+own file, including any generated label. It also reports `passageDelivered` separately: the
+quote is present in a selected source slice at its expected locator, not merely in a label.
+Context size is the length of the message the chat would write around the chosen text, with
+the same opening sentence and `FILE:` lines. The passage budget counts restored gaps, labels
+and omission markers; the total budget also counts the message and file headings.
 
 Its choice of files was checked against the application. Choosing files the way the
 application does, it returns the same files in the same order as the application suggested,
@@ -216,18 +219,22 @@ ranked. The check says nothing about passages: the application has none to compa
 | Strategy | Found | Delivered | Mean characters | Most |
 |---|---|---|---|---|
 | Baseline (measured) | 37 | 32 | 25 588 | 80 626 |
-| Best 12 chunks, small chunks (mean 330 characters) | 37 | 33 | 4 221 | 8 201 |
-| Best 12 chunks, joined chunks (mean 1 101 characters) | 37 | 35 | 8 142 | 16 438 |
-| Files, then passages | 37 | 37 | 6 111 | 10 736 |
+| Best 12 chunks, small chunks (mean 330 characters) | 37 | 33 | 4 363 | 8 219 |
+| Best 12 chunks, joined chunks (mean 1 101 characters) | 37 | 35 | 8 231 | 16 676 |
+| Files, then passages | 37 | 37 | 6 131 | 10 736 |
 
-Each row: n = 40 scored questions, all of which sent context. The simulation's figures are from its second revision, after review 2 made chunks verbatim slices of the file under a label; the first revision rewrote headings into the text and gave 33, 36 and 37 delivered. The baseline did not change.
+Each row: n = 40 scored questions, all of which sent context. After review 3 the simulation
+counts the serialized budget, retains each page or sheet label and distinguishes selected
+source passages from labels. For this dev set, passage delivery equals delivery in every row.
+The preceding revision gave 33, 35 and 37 delivered at 4 221, 8 142 and 6 111 characters;
+the baseline did not change. Earlier revisions rewrote headings into the text.
 
 `no-answer` questions (n = 7; in every row 5 of them sent context, 2 sent nothing):
 
 | Strategy | Mean over all 7 | Mean over the 5 that sent |
 |---|---|---|
 | Baseline (measured) | 14 945 | 20 924 |
-| Files, then passages | 4 849 | 6 788 |
+| Files, then passages | 4 847 | 6 785 |
 
 Three things follow.
 
@@ -259,7 +266,7 @@ Three things follow.
 
 **Why.** F2 and F3 are both the result of filling one budget with whole files in order
 (`app/api/chat/route.ts:25`). The simulation delivers 37 of 40 this way against 32, with
-6 111 characters on average against 25 588.
+6 131 characters on average against 25 588.
 
 **Rejected.**
 - *Rank chunks across the project and drop the file step.* Measured: 33 of 40 with small
@@ -280,8 +287,9 @@ the holdout set decides whether they stay.
 
 **Decision.**
 - *A chunk is a slice of the file's text,* given by its start and end. Its text is never
-  rewritten: headings, table rows and line breaks stay where the file has them, and chunks
-  that follow each other, put together, give the file's text back exactly.
+  rewritten: headings, table rows and line breaks stay where the file has them. Consecutive
+  selected chunks with the same label are sent as the exact span between them, including
+  any intervening whitespace. Leading and trailing whitespace outside the units is omitted.
 - *Unit.* A chunk is made of whole units, cut along the file's structure: paragraphs; each
   Markdown heading line as a unit of its own; each row of a sheet; each PDF page's paragraphs,
   with the page as their place.
@@ -291,13 +299,14 @@ the holdout set decides whether they stay.
 - *Label.* What a chunk is about travels beside its text and is sent as a label line above
   it: the page or sheet, the headings above it (`Runbook › Deploying`), and for a sheet its
   header row, so that a row is never sent without the names of its columns. The label is
-  searched too. A header row longer than 1 000 characters is cut in the label, and the chunk
-  is marked: the last columns of its rows then have no name, and the manifest says so.
+  searched too. A header row longer than 1 000 UTF-16 code units is cut at a character
+  boundary in the label, and the chunk is marked: the last columns of its rows then have no
+  name, and the manifest says so. Consecutive pages, sheets or headings retain their labels.
 - *Long lines.* A unit longer than the maximum is cut into pieces of at most 1 500
   characters: at the last line end in reach, else the last space or tab, else inside the
   text, never between the two halves of a character outside the BMP. Nothing is dropped and
-  nothing is added. Because a chunk is never longer than 2 400 characters, it always fits in
-  a file's allowance of 6 000.
+  nothing is added to the source slice. A passage is selected only if the serialized text,
+  including labels and any restored gaps, fits the file's allowance.
 - *No overlap,* with one exception in how passages are chosen: pieces cut from one unit are
   linked, and when one is chosen the pieces it is linked to come along while the file's
   allowance has room. Sent together, they are one slice of the file, so a word or a sentence

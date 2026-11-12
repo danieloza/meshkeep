@@ -43,20 +43,23 @@
         "n": 40,
         "complete": 0.9,
         "found": 0.9,
-        "delivered": 0.825
+        "delivered": 0.825,
+        "passageDelivered": 0.825
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.875,
           "found": 0.875,
-          "delivered": 0.8125
+          "delivered": 0.8125,
+          "passageDelivered": 0.8125
         },
         "multi-file": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 0.875
+          "delivered": 0.875,
+          "passageDelivered": 0.875
         }
       },
       "byLang": {
@@ -64,13 +67,15 @@
           "n": 17,
           "complete": 0.8824,
           "found": 0.8824,
-          "delivered": 0.7059
+          "delivered": 0.7059,
+          "passageDelivered": 0.7059
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -78,64 +83,72 @@
           "n": 5,
           "complete": 0.4,
           "found": 0.4,
-          "delivered": 0.2
+          "delivered": 0.2,
+          "passageDelivered": 0.2
         },
         "deep": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 0.9167,
           "found": 0.9167,
-          "delivered": 0.75
+          "delivered": 0.75,
+          "passageDelivered": 0.75
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 2591,
-          "meanCharsWhenSent": 2591,
+          "meanChars": 2640,
+          "meanCharsWhenSent": 2640,
           "maxChars": 4796
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 2111,
-          "meanCharsWhenSent": 2955,
+          "meanChars": 2174,
+          "meanCharsWhenSent": 3044,
           "maxChars": 3574
         }
       },
@@ -148,14 +161,24 @@
         "en-012",
         "en-m02"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
           "files": 2,
-          "chars": 4299,
+          "chars": 4335,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
@@ -163,7 +186,16 @@
           "files": 6,
           "chars": 4796,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -171,31 +203,67 @@
           "files": 4,
           "chars": 3038,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
           "kind": "answerable",
           "files": 3,
-          "chars": 2232,
+          "chars": 2441,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
           "files": 5,
-          "chars": 3318,
+          "chars": 3327,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
           "kind": "answerable",
           "files": 3,
-          "chars": 4556,
+          "chars": 4574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -203,7 +271,16 @@
           "files": 3,
           "chars": 3174,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -211,31 +288,67 @@
           "files": 3,
           "chars": 2360,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
           "kind": "answerable",
           "files": 4,
-          "chars": 4113,
+          "chars": 4185,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
           "kind": "answerable",
           "files": 3,
-          "chars": 2404,
+          "chars": 2474,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
           "kind": "answerable",
           "files": 3,
-          "chars": 1731,
+          "chars": 1860,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -243,7 +356,16 @@
           "files": 2,
           "chars": 921,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -251,15 +373,33 @@
           "files": 2,
           "chars": 1325,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
           "kind": "answerable",
           "files": 3,
-          "chars": 2012,
+          "chars": 2095,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
@@ -267,7 +407,16 @@
           "files": 5,
           "chars": 3556,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -275,31 +424,67 @@
           "files": 5,
           "chars": 3271,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
           "kind": "answerable",
           "files": 4,
-          "chars": 2315,
+          "chars": 2468,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
           "kind": "answerable",
           "files": 4,
-          "chars": 2693,
+          "chars": 2702,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
           "kind": "answerable",
           "files": 4,
-          "chars": 2232,
+          "chars": 2276,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
@@ -307,7 +492,16 @@
           "files": 2,
           "chars": 2437,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-003",
@@ -315,7 +509,16 @@
           "files": 4,
           "chars": 2084,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
@@ -323,63 +526,135 @@
           "files": 4,
           "chars": 1688,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 2,
-          "chars": 1710,
+          "chars": 1775,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
           "kind": "answerable",
           "files": 4,
-          "chars": 1571,
+          "chars": 1627,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 1,
-          "chars": 3371,
+          "chars": 3508,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 1,
-          "chars": 2038,
+          "chars": 2156,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 3,
-          "chars": 2097,
+          "chars": 2161,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
           "kind": "answerable",
           "files": 3,
-          "chars": 2374,
+          "chars": 2583,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
           "kind": "answerable",
           "files": 1,
-          "chars": 1565,
+          "chars": 1574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -387,15 +662,33 @@
           "files": 2,
           "chars": 1649,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-013",
           "kind": "answerable",
           "files": 1,
-          "chars": 1027,
+          "chars": 1048,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -403,63 +696,177 @@
           "files": 4,
           "chars": 1634,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
           "files": 5,
-          "chars": 3900,
+          "chars": 3980,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
           "files": 2,
-          "chars": 2647,
+          "chars": 2656,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
           "files": 5,
-          "chars": 4373,
+          "chars": 4382,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
           "files": 3,
-          "chars": 2568,
+          "chars": 2697,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
           "files": 4,
-          "chars": 3420,
+          "chars": 3438,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
           "files": 3,
-          "chars": 1636,
+          "chars": 1689,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
           "files": 3,
-          "chars": 2018,
+          "chars": 2200,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-m03",
@@ -467,31 +874,52 @@
           "files": 2,
           "chars": 3467,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
           "files": 3,
-          "chars": 2884,
+          "chars": 3093,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
           "files": 4,
-          "chars": 3383,
+          "chars": 3464,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
           "files": 4,
-          "chars": 2682,
+          "chars": 2835,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -499,7 +927,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
@@ -507,7 +937,9 @@
           "files": 3,
           "chars": 3574,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -515,7 +947,9 @@
           "files": 5,
           "chars": 2254,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -523,7 +957,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     },
@@ -533,20 +969,23 @@
         "n": 40,
         "complete": 0.925,
         "found": 0.925,
-        "delivered": 0.825
+        "delivered": 0.825,
+        "passageDelivered": 0.825
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.9063,
           "found": 0.9063,
-          "delivered": 0.8125
+          "delivered": 0.8125,
+          "passageDelivered": 0.8125
         },
         "multi-file": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 0.875
+          "delivered": 0.875,
+          "passageDelivered": 0.875
         }
       },
       "byLang": {
@@ -554,13 +993,15 @@
           "n": 17,
           "complete": 0.9412,
           "found": 0.9412,
-          "delivered": 0.7059
+          "delivered": 0.7059,
+          "passageDelivered": 0.7059
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -568,65 +1009,73 @@
           "n": 5,
           "complete": 0.6,
           "found": 0.6,
-          "delivered": 0.2
+          "delivered": 0.2,
+          "passageDelivered": 0.2
         },
         "deep": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 0.9167,
           "found": 0.9167,
-          "delivered": 0.75
+          "delivered": 0.75,
+          "passageDelivered": 0.75
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 4221,
-          "meanCharsWhenSent": 4221,
-          "maxChars": 8201
+          "meanChars": 4363,
+          "meanCharsWhenSent": 4363,
+          "maxChars": 8219
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4199,
-          "meanCharsWhenSent": 5879,
-          "maxChars": 7251
+          "meanChars": 4322,
+          "meanCharsWhenSent": 6051,
+          "maxChars": 7467
         }
       },
       "notDelivered": [
@@ -638,22 +1087,41 @@
         "en-012",
         "en-m02"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
           "files": 5,
-          "chars": 7220,
+          "chars": 7256,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
           "kind": "answerable",
           "files": 8,
-          "chars": 7088,
+          "chars": 7377,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -661,31 +1129,67 @@
           "files": 4,
           "chars": 3038,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
           "kind": "answerable",
           "files": 7,
-          "chars": 7435,
+          "chars": 7653,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
           "files": 6,
-          "chars": 4305,
+          "chars": 4314,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
           "kind": "answerable",
           "files": 3,
-          "chars": 4556,
+          "chars": 4574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -693,7 +1197,16 @@
           "files": 3,
           "chars": 3174,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -701,31 +1214,67 @@
           "files": 3,
           "chars": 2360,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
           "kind": "answerable",
           "files": 8,
-          "chars": 7914,
+          "chars": 8062,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
           "kind": "answerable",
           "files": 3,
-          "chars": 2404,
+          "chars": 2474,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
           "kind": "answerable",
           "files": 7,
-          "chars": 3853,
+          "chars": 3982,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -733,7 +1282,16 @@
           "files": 2,
           "chars": 921,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -741,23 +1299,50 @@
           "files": 2,
           "chars": 1325,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
           "kind": "answerable",
           "files": 3,
-          "chars": 2650,
+          "chars": 2818,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
           "kind": "answerable",
           "files": 6,
-          "chars": 5944,
+          "chars": 6165,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -765,47 +1350,101 @@
           "files": 5,
           "chars": 3271,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
           "kind": "answerable",
           "files": 4,
-          "chars": 2315,
+          "chars": 2468,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
           "kind": "answerable",
           "files": 6,
-          "chars": 5944,
+          "chars": 6165,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
           "kind": "answerable",
           "files": 5,
-          "chars": 4863,
+          "chars": 4907,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
           "kind": "answerable",
           "files": 2,
-          "chars": 4326,
+          "chars": 4514,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-003",
           "kind": "answerable",
           "files": 4,
-          "chars": 4153,
+          "chars": 4457,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
@@ -813,63 +1452,135 @@
           "files": 4,
           "chars": 5617,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 2,
-          "chars": 3834,
+          "chars": 4285,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
           "kind": "answerable",
           "files": 5,
-          "chars": 3596,
+          "chars": 3822,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 2,
-          "chars": 6262,
+          "chars": 6547,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 1,
-          "chars": 5078,
+          "chars": 5675,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 3,
-          "chars": 6565,
+          "chars": 6629,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
           "kind": "answerable",
           "files": 7,
-          "chars": 6133,
+          "chars": 6441,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
           "kind": "answerable",
           "files": 1,
-          "chars": 1565,
+          "chars": 1574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -877,15 +1588,33 @@
           "files": 2,
           "chars": 1649,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-013",
           "kind": "answerable",
           "files": 1,
-          "chars": 1027,
+          "chars": 1048,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -893,95 +1622,230 @@
           "files": 4,
           "chars": 1634,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
           "files": 7,
-          "chars": 5444,
+          "chars": 5533,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
           "files": 2,
-          "chars": 2647,
+          "chars": 2656,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
           "files": 8,
-          "chars": 8201,
+          "chars": 8219,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
           "kind": "multi-file",
           "files": 4,
-          "chars": 2872,
+          "chars": 3040,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
           "files": 6,
-          "chars": 5944,
+          "chars": 6165,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
           "files": 4,
-          "chars": 2597,
+          "chars": 2982,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
           "files": 6,
-          "chars": 3877,
+          "chars": 4207,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
           "files": 2,
-          "chars": 5219,
+          "chars": 5526,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-n01",
           "kind": "no-answer",
           "files": 6,
-          "chars": 5844,
+          "chars": 6152,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
           "files": 7,
-          "chars": 7251,
+          "chars": 7467,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
           "files": 6,
-          "chars": 5944,
+          "chars": 6165,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -989,15 +1853,19 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
           "kind": "no-answer",
           "files": 3,
-          "chars": 5515,
+          "chars": 5628,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -1005,7 +1873,9 @@
           "files": 5,
           "chars": 4841,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -1013,7 +1883,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     },
@@ -1023,20 +1895,23 @@
         "n": 40,
         "complete": 0.9,
         "found": 0.9125,
-        "delivered": 0.85
+        "delivered": 0.85,
+        "passageDelivered": 0.85
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.9063,
           "found": 0.9063,
-          "delivered": 0.8438
+          "delivered": 0.8438,
+          "passageDelivered": 0.8438
         },
         "multi-file": {
           "n": 8,
           "complete": 0.875,
           "found": 0.9375,
-          "delivered": 0.875
+          "delivered": 0.875,
+          "passageDelivered": 0.875
         }
       },
       "byLang": {
@@ -1044,13 +1919,15 @@
           "n": 17,
           "complete": 0.8824,
           "found": 0.9118,
-          "delivered": 0.7647
+          "delivered": 0.7647,
+          "passageDelivered": 0.7647
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -1058,65 +1935,73 @@
           "n": 5,
           "complete": 0.6,
           "found": 0.6,
-          "delivered": 0.2
+          "delivered": 0.2,
+          "passageDelivered": 0.2
         },
         "deep": {
           "n": 3,
           "complete": 0.6667,
           "found": 0.8333,
-          "delivered": 0.6667
+          "delivered": 0.6667,
+          "passageDelivered": 0.6667
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 0.9167,
           "found": 0.9167,
-          "delivered": 0.9167
+          "delivered": 0.9167,
+          "passageDelivered": 0.9167
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 5113,
-          "meanCharsWhenSent": 5113,
-          "maxChars": 8385
+          "meanChars": 5149,
+          "meanCharsWhenSent": 5149,
+          "maxChars": 8645
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4411,
-          "meanCharsWhenSent": 6176,
-          "maxChars": 8535
+          "meanChars": 4421,
+          "meanCharsWhenSent": 6189,
+          "maxChars": 8595
         }
       },
       "notDelivered": [
@@ -1127,14 +2012,24 @@
         "en-012",
         "en-m03"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
           "files": 2,
-          "chars": 4299,
+          "chars": 4335,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
@@ -1142,7 +2037,16 @@
           "files": 6,
           "chars": 4796,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -1150,7 +2054,16 @@
           "files": 4,
           "chars": 3038,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
@@ -1158,23 +2071,50 @@
           "files": 6,
           "chars": 6163,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
           "files": 5,
-          "chars": 4780,
+          "chars": 4789,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
           "kind": "answerable",
           "files": 3,
-          "chars": 4556,
+          "chars": 4574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -1182,7 +2122,16 @@
           "files": 3,
           "chars": 3645,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -1190,7 +2139,16 @@
           "files": 3,
           "chars": 2910,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
@@ -1198,7 +2156,16 @@
           "files": 5,
           "chars": 5030,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
@@ -1206,7 +2173,16 @@
           "files": 3,
           "chars": 4059,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
@@ -1214,7 +2190,16 @@
           "files": 6,
           "chars": 6561,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -1222,7 +2207,16 @@
           "files": 2,
           "chars": 1688,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -1230,7 +2224,16 @@
           "files": 2,
           "chars": 2060,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
@@ -1238,7 +2241,16 @@
           "files": 3,
           "chars": 3198,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
@@ -1246,7 +2258,16 @@
           "files": 6,
           "chars": 5247,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -1254,7 +2275,16 @@
           "files": 5,
           "chars": 4039,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
@@ -1262,15 +2292,33 @@
           "files": 4,
           "chars": 3359,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
           "kind": "answerable",
           "files": 5,
-          "chars": 4924,
+          "chars": 4933,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
@@ -1278,39 +2326,84 @@
           "files": 5,
           "chars": 7413,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
           "kind": "answerable",
           "files": 2,
-          "chars": 7944,
+          "chars": 8185,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-003",
           "kind": "answerable",
           "files": 4,
-          "chars": 7700,
+          "chars": 7825,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
           "kind": "answerable",
           "files": 4,
-          "chars": 7743,
+          "chars": 7800,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 2,
-          "chars": 7287,
+          "chars": 7480,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
@@ -1318,31 +2411,67 @@
           "files": 5,
           "chars": 6708,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 1,
-          "chars": 8360,
+          "chars": 8645,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 1,
-          "chars": 8385,
+          "chars": 8566,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 3,
-          "chars": 8210,
+          "chars": 8270,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
@@ -1350,15 +2479,33 @@
           "files": 6,
           "chars": 6036,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
           "kind": "answerable",
           "files": 1,
-          "chars": 1565,
+          "chars": 1574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -1366,7 +2513,16 @@
           "files": 2,
           "chars": 1649,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-013",
@@ -1374,7 +2530,16 @@
           "files": 1,
           "chars": 1475,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -1382,31 +2547,85 @@
           "files": 4,
           "chars": 5725,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
           "files": 5,
-          "chars": 4553,
+          "chars": 4562,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
           "files": 2,
-          "chars": 2647,
+          "chars": 2656,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
           "files": 5,
-          "chars": 4987,
+          "chars": 4996,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
@@ -1414,15 +2633,45 @@
           "files": 4,
           "chars": 4198,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
           "files": 4,
-          "chars": 4651,
+          "chars": 4669,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
@@ -1430,7 +2679,22 @@
           "files": 4,
           "chars": 7432,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
@@ -1438,15 +2702,45 @@
           "files": 6,
           "chars": 7623,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
           "files": 2,
-          "chars": 7866,
+          "chars": 8047,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-n01",
@@ -1454,15 +2748,19 @@
           "files": 5,
           "chars": 5809,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
           "files": 5,
-          "chars": 4787,
+          "chars": 4796,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
@@ -1470,7 +2768,9 @@
           "files": 6,
           "chars": 5358,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -1478,15 +2778,19 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
           "kind": "no-answer",
           "files": 3,
-          "chars": 8535,
+          "chars": 8595,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -1494,7 +2798,9 @@
           "files": 4,
           "chars": 6389,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -1502,7 +2808,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     },
@@ -1512,20 +2820,23 @@
         "n": 40,
         "complete": 0.925,
         "found": 0.9375,
-        "delivered": 0.875
+        "delivered": 0.875,
+        "passageDelivered": 0.875
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.9375,
           "found": 0.9375,
-          "delivered": 0.875
+          "delivered": 0.875,
+          "passageDelivered": 0.875
         },
         "multi-file": {
           "n": 8,
           "complete": 0.875,
           "found": 0.9375,
-          "delivered": 0.875
+          "delivered": 0.875,
+          "passageDelivered": 0.875
         }
       },
       "byLang": {
@@ -1533,13 +2844,15 @@
           "n": 17,
           "complete": 0.9412,
           "found": 0.9706,
-          "delivered": 0.8235
+          "delivered": 0.8235,
+          "passageDelivered": 0.8235
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -1547,65 +2860,73 @@
           "n": 5,
           "complete": 0.6,
           "found": 0.6,
-          "delivered": 0.2
+          "delivered": 0.2,
+          "passageDelivered": 0.2
         },
         "deep": {
           "n": 3,
           "complete": 0.6667,
           "found": 0.8333,
-          "delivered": 0.6667
+          "delivered": 0.6667,
+          "passageDelivered": 0.6667
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 8142,
-          "meanCharsWhenSent": 8142,
-          "maxChars": 16438
+          "meanChars": 8231,
+          "meanCharsWhenSent": 8231,
+          "maxChars": 16676
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 7930,
-          "meanCharsWhenSent": 11102,
-          "maxChars": 17132
+          "meanChars": 7961,
+          "meanCharsWhenSent": 11145,
+          "maxChars": 17312
         }
       },
       "notDelivered": [
@@ -1615,22 +2936,41 @@
         "en-012",
         "en-m03"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
           "kind": "answerable",
           "files": 5,
-          "chars": 7220,
+          "chars": 7256,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
           "kind": "answerable",
           "files": 8,
-          "chars": 9097,
+          "chars": 9195,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -1638,31 +2978,67 @@
           "files": 4,
           "chars": 3038,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
           "kind": "answerable",
           "files": 8,
-          "chars": 9455,
+          "chars": 9464,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
           "files": 6,
-          "chars": 5716,
+          "chars": 5725,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
           "kind": "answerable",
           "files": 3,
-          "chars": 4556,
+          "chars": 4574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -1670,7 +3046,16 @@
           "files": 3,
           "chars": 3645,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -1678,15 +3063,33 @@
           "files": 3,
           "chars": 2910,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
           "kind": "answerable",
           "files": 8,
-          "chars": 9573,
+          "chars": 9591,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
@@ -1694,7 +3097,16 @@
           "files": 3,
           "chars": 4059,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
@@ -1702,7 +3114,16 @@
           "files": 10,
           "chars": 11480,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -1710,7 +3131,16 @@
           "files": 2,
           "chars": 1688,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -1718,7 +3148,16 @@
           "files": 2,
           "chars": 2060,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
@@ -1726,15 +3165,33 @@
           "files": 3,
           "chars": 3198,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
           "kind": "answerable",
           "files": 6,
-          "chars": 6402,
+          "chars": 6420,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -1742,7 +3199,16 @@
           "files": 5,
           "chars": 4039,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
@@ -1750,15 +3216,33 @@
           "files": 4,
           "chars": 3359,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
           "kind": "answerable",
           "files": 6,
-          "chars": 6402,
+          "chars": 6420,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
@@ -1766,71 +3250,152 @@
           "files": 5,
           "chars": 14265,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
           "kind": "answerable",
           "files": 4,
-          "chars": 15517,
+          "chars": 15881,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-003",
           "kind": "answerable",
           "files": 7,
-          "chars": 14828,
+          "chars": 15075,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
           "kind": "answerable",
           "files": 5,
-          "chars": 14791,
+          "chars": 14976,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 3,
-          "chars": 13965,
+          "chars": 14278,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
           "kind": "answerable",
           "files": 5,
-          "chars": 14578,
+          "chars": 14898,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 3,
-          "chars": 15583,
+          "chars": 15868,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 3,
-          "chars": 15347,
+          "chars": 15713,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 3,
-          "chars": 16438,
+          "chars": 16676,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
@@ -1838,15 +3403,33 @@
           "files": 7,
           "chars": 7034,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
           "kind": "answerable",
           "files": 1,
-          "chars": 1565,
+          "chars": 1574,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -1854,7 +3437,16 @@
           "files": 2,
           "chars": 1649,
           "complete": true,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-013",
@@ -1862,7 +3454,16 @@
           "files": 1,
           "chars": 1475,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -1870,31 +3471,85 @@
           "files": 4,
           "chars": 5725,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
           "kind": "multi-file",
           "files": 7,
-          "chars": 6689,
+          "chars": 6778,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
           "kind": "multi-file",
           "files": 2,
-          "chars": 2647,
+          "chars": 2656,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
           "kind": "multi-file",
           "files": 9,
-          "chars": 10229,
+          "chars": 10256,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
@@ -1902,39 +3557,114 @@
           "files": 4,
           "chars": 4198,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
           "kind": "multi-file",
           "files": 6,
-          "chars": 6402,
+          "chars": 6420,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
           "files": 5,
-          "chars": 14665,
+          "chars": 14999,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
           "kind": "multi-file",
           "files": 10,
-          "chars": 14132,
+          "chars": 14276,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
           "files": 3,
-          "chars": 16061,
+          "chars": 16430,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-n01",
@@ -1942,23 +3672,29 @@
           "files": 7,
           "chars": 7743,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
           "files": 9,
-          "chars": 10571,
+          "chars": 10589,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
           "kind": "no-answer",
           "files": 7,
-          "chars": 6821,
+          "chars": 6839,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -1966,15 +3702,19 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
           "kind": "no-answer",
           "files": 3,
-          "chars": 17132,
+          "chars": 17312,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -1982,7 +3722,9 @@
           "files": 4,
           "chars": 13241,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -1990,7 +3732,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     },
@@ -2000,20 +3744,23 @@
         "n": 40,
         "complete": 0.925,
         "found": 0.925,
-        "delivered": 0.925
+        "delivered": 0.925,
+        "passageDelivered": 0.925
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.9063,
           "found": 0.9063,
-          "delivered": 0.9063
+          "delivered": 0.9063,
+          "passageDelivered": 0.9063
         },
         "multi-file": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "byLang": {
@@ -2021,13 +3768,15 @@
           "n": 17,
           "complete": 0.9412,
           "found": 0.9412,
-          "delivered": 0.9412
+          "delivered": 0.9412,
+          "passageDelivered": 0.9412
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -2035,65 +3784,73 @@
           "n": 5,
           "complete": 0.4,
           "found": 0.4,
-          "delivered": 0.4
+          "delivered": 0.4,
+          "passageDelivered": 0.4
         },
         "deep": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 6111,
-          "meanCharsWhenSent": 6111,
+          "meanChars": 6131,
+          "meanCharsWhenSent": 6131,
           "maxChars": 10736
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4849,
-          "meanCharsWhenSent": 6788,
-          "maxChars": 9988
+          "meanChars": 4847,
+          "meanCharsWhenSent": 6785,
+          "maxChars": 10048
         }
       },
       "notDelivered": [
@@ -2101,6 +3858,7 @@
         "pl-013",
         "en-010"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
@@ -2108,7 +3866,16 @@
           "files": 5,
           "chars": 7885,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
@@ -2116,7 +3883,16 @@
           "files": 5,
           "chars": 7061,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -2124,7 +3900,16 @@
           "files": 4,
           "chars": 5624,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
@@ -2132,15 +3917,33 @@
           "files": 5,
           "chars": 7521,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "files": 5,
-          "chars": 6203,
+          "files": 4,
+          "chars": 6130,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
@@ -2148,7 +3951,16 @@
           "files": 3,
           "chars": 5823,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -2156,7 +3968,16 @@
           "files": 3,
           "chars": 5287,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -2164,15 +3985,33 @@
           "files": 3,
           "chars": 2799,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "files": 5,
-          "chars": 6492,
+          "files": 4,
+          "chars": 6419,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
@@ -2180,7 +4019,16 @@
           "files": 3,
           "chars": 4010,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
@@ -2188,7 +4036,16 @@
           "files": 5,
           "chars": 5470,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -2196,7 +4053,16 @@
           "files": 2,
           "chars": 1600,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -2204,7 +4070,16 @@
           "files": 2,
           "chars": 2029,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
@@ -2212,7 +4087,16 @@
           "files": 3,
           "chars": 3147,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
@@ -2220,7 +4104,16 @@
           "files": 5,
           "chars": 5601,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -2228,7 +4121,16 @@
           "files": 5,
           "chars": 3868,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
@@ -2236,7 +4138,16 @@
           "files": 4,
           "chars": 4368,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
@@ -2244,7 +4155,16 @@
           "files": 5,
           "chars": 5307,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
@@ -2252,71 +4172,152 @@
           "files": 5,
           "chars": 10736,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
           "kind": "answerable",
           "files": 5,
-          "chars": 9951,
+          "chars": 10081,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-003",
           "kind": "answerable",
           "files": 5,
-          "chars": 10057,
+          "chars": 10182,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
           "kind": "answerable",
           "files": 5,
-          "chars": 10116,
+          "chars": 10173,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 3,
-          "chars": 7366,
+          "chars": 7559,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
           "kind": "answerable",
           "files": 5,
-          "chars": 10411,
+          "chars": 10288,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 5,
-          "chars": 9623,
+          "chars": 9685,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 4,
-          "chars": 8322,
+          "chars": 8503,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 5,
-          "chars": 9998,
+          "chars": 10058,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
@@ -2324,7 +4325,16 @@
           "files": 5,
           "chars": 4954,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
@@ -2332,7 +4342,16 @@
           "files": 1,
           "chars": 1555,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -2340,7 +4359,16 @@
           "files": 2,
           "chars": 2782,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-013",
@@ -2348,7 +4376,16 @@
           "files": 1,
           "chars": 1466,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -2356,7 +4393,16 @@
           "files": 3,
           "chars": 3160,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
@@ -2364,7 +4410,22 @@
           "files": 5,
           "chars": 7129,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
@@ -2372,7 +4433,22 @@
           "files": 2,
           "chars": 4552,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
@@ -2380,7 +4456,22 @@
           "files": 5,
           "chars": 6628,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
@@ -2388,7 +4479,22 @@
           "files": 4,
           "chars": 4096,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
@@ -2396,15 +4502,45 @@
           "files": 5,
           "chars": 5601,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
           "files": 5,
-          "chars": 9698,
+          "chars": 9837,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
@@ -2412,15 +4548,45 @@
           "files": 5,
           "chars": 5960,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
           "files": 5,
-          "chars": 10179,
+          "chars": 10299,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-n01",
@@ -2428,15 +4594,19 @@
           "files": 5,
           "chars": 7326,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "files": 5,
-          "chars": 5703,
+          "files": 4,
+          "chars": 5630,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
@@ -2444,7 +4614,9 @@
           "files": 5,
           "chars": 5252,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -2452,15 +4624,19 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
           "kind": "no-answer",
           "files": 5,
-          "chars": 9988,
+          "chars": 10048,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -2468,7 +4644,9 @@
           "files": 5,
           "chars": 5671,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -2476,7 +4654,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     },
@@ -2486,20 +4666,23 @@
         "n": 40,
         "complete": 0.925,
         "found": 0.925,
-        "delivered": 0.925
+        "delivered": 0.925,
+        "passageDelivered": 0.925
       },
       "byKind": {
         "answerable": {
           "n": 32,
           "complete": 0.9063,
           "found": 0.9063,
-          "delivered": 0.9063
+          "delivered": 0.9063,
+          "passageDelivered": 0.9063
         },
         "multi-file": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "byLang": {
@@ -2507,13 +4690,15 @@
           "n": 17,
           "complete": 0.9412,
           "found": 0.9412,
-          "delivered": 0.9412
+          "delivered": 0.9412,
+          "passageDelivered": 0.9412
         },
         "pl": {
           "n": 23,
           "complete": 0.913,
           "found": 0.913,
-          "delivered": 0.913
+          "delivered": 0.913,
+          "passageDelivered": 0.913
         }
       },
       "byTag": {
@@ -2521,65 +4706,73 @@
           "n": 5,
           "complete": 0.4,
           "found": 0.4,
-          "delivered": 0.4
+          "delivered": 0.4,
+          "passageDelivered": 0.4
         },
         "deep": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "diacritics": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "exact": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "inflection": {
           "n": 6,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "plain": {
           "n": 12,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "synonym": {
           "n": 3,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         },
         "table": {
           "n": 8,
           "complete": 1,
           "found": 1,
-          "delivered": 1
+          "delivered": 1,
+          "passageDelivered": 1
         }
       },
       "context": {
         "scored": {
           "n": 40,
           "withContext": 40,
-          "meanChars": 6111,
-          "meanCharsWhenSent": 6111,
+          "meanChars": 6131,
+          "meanCharsWhenSent": 6131,
           "maxChars": 10736
         },
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 4849,
-          "meanCharsWhenSent": 6788,
-          "maxChars": 9988
+          "meanChars": 4847,
+          "meanCharsWhenSent": 6785,
+          "maxChars": 10048
         }
       },
       "notDelivered": [
@@ -2587,6 +4780,7 @@
         "pl-013",
         "en-010"
       ],
+      "deliveredWithoutPassage": [],
       "questions": [
         {
           "id": "pl-001",
@@ -2594,7 +4788,16 @@
           "files": 5,
           "chars": 7885,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-002",
@@ -2602,7 +4805,16 @@
           "files": 5,
           "chars": 7061,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-003",
@@ -2610,7 +4822,16 @@
           "files": 4,
           "chars": 5624,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-1.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-004",
@@ -2618,15 +4839,33 @@
           "files": 5,
           "chars": 7521,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/notatka-spotkanie-2026-04-03.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-005",
           "kind": "answerable",
-          "files": 5,
-          "chars": 6203,
+          "files": 4,
+          "chars": 6130,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-006",
@@ -2634,7 +4873,16 @@
           "files": 3,
           "chars": 5823,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-007",
@@ -2642,7 +4890,16 @@
           "files": 3,
           "chars": 5287,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/faq-rozliczenia.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-008",
@@ -2650,15 +4907,33 @@
           "files": 3,
           "chars": 2799,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/harmonogram-platnosci.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-009",
           "kind": "answerable",
-          "files": 5,
-          "chars": 6492,
+          "files": 4,
+          "chars": 6419,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-010",
@@ -2666,7 +4941,16 @@
           "files": 3,
           "chars": 4010,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/decyzje-techniczne.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-011",
@@ -2674,7 +4958,16 @@
           "files": 5,
           "chars": 5470,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-012",
@@ -2682,7 +4975,16 @@
           "files": 2,
           "chars": 1600,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-013",
@@ -2690,7 +4992,16 @@
           "files": 2,
           "chars": 2029,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "pl-014",
@@ -2698,7 +5009,16 @@
           "files": 3,
           "chars": 3147,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/retro-sprint-12.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-015",
@@ -2706,7 +5026,16 @@
           "files": 5,
           "chars": 5601,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-016",
@@ -2714,7 +5043,16 @@
           "files": 5,
           "chars": 3868,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/kosztorys.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-017",
@@ -2722,7 +5060,16 @@
           "files": 4,
           "chars": 4368,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/wymagania-dostepnosc.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-018",
@@ -2730,7 +5077,16 @@
           "files": 5,
           "chars": 5307,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-001",
@@ -2738,71 +5094,152 @@
           "files": 5,
           "chars": 10736,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-002",
           "kind": "answerable",
           "files": 5,
-          "chars": 9951,
+          "chars": 10081,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-003",
           "kind": "answerable",
           "files": 5,
-          "chars": 10057,
+          "chars": 10182,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/onboarding.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-004",
           "kind": "answerable",
           "files": 5,
-          "chars": 10116,
+          "chars": 10173,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-005",
           "kind": "answerable",
           "files": 3,
-          "chars": 7366,
+          "chars": 7559,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-006",
           "kind": "answerable",
           "files": 5,
-          "chars": 10411,
+          "chars": 10288,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-007",
           "kind": "answerable",
           "files": 5,
-          "chars": 9623,
+          "chars": 9685,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-008",
           "kind": "answerable",
           "files": 4,
-          "chars": 8322,
+          "chars": 8503,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-009",
           "kind": "answerable",
           "files": 5,
-          "chars": 9998,
+          "chars": 10058,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/README.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-010",
@@ -2810,7 +5247,16 @@
           "files": 5,
           "chars": 4954,
           "complete": false,
-          "delivered": false
+          "delivered": false,
+          "passageDelivered": false,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": false,
+              "delivered": false,
+              "passageDelivered": false
+            }
+          ]
         },
         {
           "id": "en-011",
@@ -2818,7 +5264,16 @@
           "files": 1,
           "chars": 1555,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/sla.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-012",
@@ -2826,7 +5281,16 @@
           "files": 2,
           "chars": 2782,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-013",
@@ -2834,7 +5298,16 @@
           "files": 1,
           "chars": 1466,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-014",
@@ -2842,7 +5315,16 @@
           "files": 3,
           "chars": 3160,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/runbook.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m01",
@@ -2850,7 +5332,22 @@
           "files": 5,
           "chars": 7129,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/cennik-2026.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m02",
@@ -2858,7 +5355,22 @@
           "files": 2,
           "chars": 4552,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/korespondencja-reklamacja.txt",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m03",
@@ -2866,7 +5378,22 @@
           "files": 5,
           "chars": 6628,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "umowy-kormoran/umowa-ramowa.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "umowy-kormoran/aneks-nr-2.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m04",
@@ -2874,7 +5401,22 @@
           "files": 4,
           "chars": 4096,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/harmonogram-wdrozenia.xlsx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/testy-wydajnosci.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-m05",
@@ -2882,15 +5424,45 @@
           "files": 5,
           "chars": 5601,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "oferta-zielony-dach/oferta.docx",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "oferta-zielony-dach/brief-klienta.pdf",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m01",
           "kind": "multi-file",
           "files": 5,
-          "chars": 9698,
+          "chars": 9837,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/incident-2026-03-14.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/monitoring.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m02",
@@ -2898,15 +5470,45 @@
           "files": 5,
           "chars": 5960,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/changelog.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/incident-2026-05-19.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "en-m03",
           "kind": "multi-file",
           "files": 5,
-          "chars": 10179,
+          "chars": 10299,
           "complete": true,
-          "delivered": true
+          "delivered": true,
+          "passageDelivered": true,
+          "sources": [
+            {
+              "file": "sklep-wdrozenie/api-reference.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            },
+            {
+              "file": "sklep-wdrozenie/architecture.md",
+              "found": true,
+              "delivered": true,
+              "passageDelivered": true
+            }
+          ]
         },
         {
           "id": "pl-n01",
@@ -2914,15 +5516,19 @@
           "files": 5,
           "chars": 7326,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n02",
           "kind": "no-answer",
-          "files": 5,
-          "chars": 5703,
+          "files": 4,
+          "chars": 5630,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n03",
@@ -2930,7 +5536,9 @@
           "files": 5,
           "chars": 5252,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "pl-n04",
@@ -2938,15 +5546,19 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n01",
           "kind": "no-answer",
           "files": 5,
-          "chars": 9988,
+          "chars": 10048,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n02",
@@ -2954,7 +5566,9 @@
           "files": 5,
           "chars": 5671,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         },
         {
           "id": "en-n03",
@@ -2962,7 +5576,9 @@
           "files": 0,
           "chars": null,
           "complete": null,
-          "delivered": null
+          "delivered": null,
+          "passageDelivered": null,
+          "sources": []
         }
       ]
     }

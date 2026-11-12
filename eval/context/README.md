@@ -63,6 +63,13 @@ For each expected source of a question:
   model provider received. The same words arriving from another file do not count. The
   comparison collapses whitespace first, so it is containment, not a byte-for-byte quotation.
 
+The simulation also reports **passageDelivered** for each source and scored question. It
+requires the quote in an actually selected source slice, at the expected page, sheet or heading
+when specified. A generated label can contain the words the model receives, but cannot by
+itself prove a source passage was selected. `deliveredWithoutPassage` lists questions where
+delivery passed and this stricter check did not; it can include a locator mismatch as well as
+label-only matches. Whole files are checked against their extracted text and location.
+
 A share always stands next to its count. With five questions of a kind, one question is twenty
 percentage points.
 
@@ -70,6 +77,10 @@ percentage points.
 provider, as the chat writes it. Two means are given: over every question of a group, where a
 question that sent nothing counts as zero, and over the questions that sent something. Compare
 like with like.
+
+The files-then-passages simulation enforces each long file's allowance on its serialized
+passages (including labels, restored gaps and omission marks), and the total allowance on the
+entire file-context message (including the preamble, file headings and section rules).
 
 **`no-answer` questions are not scored.** What was suggested and sent for them is reported;
 whether a model then says "the documents do not say" is not something these sets measure.

@@ -48,6 +48,12 @@ export function fileContextMessage(files: SentFile[]): string {
   return `${FILE_CONTEXT_PREAMBLE}\n\n${files.map((file) => `FILE: ${file.path} (${file.mimeType}, ${file.sizeBytes} B)\n${file.text}`).join(SECTION_RULE)}`;
 }
 
+// Remaining room for the next file's body after the real message preamble,
+// section rules and file heading have all been counted.
+export function remainingFileContextChars(files: SentFile[], next: Omit<SentFile, 'text'>, limit: number): number {
+  return Math.max(0, limit - fileContextMessage([...files, { ...next, text: '' }]).length);
+}
+
 // The text each file contributed to a file-context message, by path. `paths`
 // are the files the message is known to carry, in order (the chat's manifest
 // lists them). They are needed because a file's own text may contain the rule
