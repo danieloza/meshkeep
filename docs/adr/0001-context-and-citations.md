@@ -299,9 +299,11 @@ the holdout set decides whether they stay.
 - *Label.* What a chunk is about travels beside its text and is sent as a label line above
   it: the page or sheet, the headings above it (`Runbook › Deploying`), and for a sheet its
   header row, so that a row is never sent without the names of its columns. The label is
-  searched too. A header row longer than 1 000 UTF-16 code units is cut at a character
-  boundary in the label, and the chunk is marked: the last columns of its rows then have no
-  name, and the manifest says so. Consecutive pages, sheets or headings retain their labels.
+  searched too, using the full heading trail or sheet header rather than the display label.
+  A heading trail or header row longer than 1 000 UTF-16 code units is cut at a character
+  boundary in the display label and marked with an ellipsis; the exact heading locator is
+  kept separately. For a cut sheet header, the last columns have no name in the label, and
+  the manifest says so. Consecutive pages, sheets or headings retain their labels.
 - *Long lines.* A unit longer than the maximum is cut into pieces of at most 1 500
   characters: at the last line end in reach, else the last space or tab, else inside the
   text, never between the two halves of a character outside the BMP. Nothing is dropped and
@@ -653,7 +655,7 @@ Each step is its own pull request and is accepted on numbers from `npm run eval:
 | Step | What | Accepted when |
 |---|---|---|
 | A | Block extraction, `file_chunks`, indexing rounds fill it, one file per path enforced. No change in behaviour. | The baseline is unchanged; every readable file has chunks; a 7 000-character line is cut and nothing of it is lost; the Sites migration test passes. |
-| B | Passages inside files, the per-file allowance, the neighbour rule, `passages` in the manifest. | On the dev set: delivered at least 37 of 40, mean context at most 8 000 characters, found still 37 of 40, all 8 forbidden files refused. On the holdout set: delivered no lower than found by more than one question in twenty. |
+| B | Passages inside files, the per-file allowance, the neighbour rule, `passages` in the manifest. | On the dev set: at least 37 of 40 source passages delivered at their expected locators, mean context at most 8 000 characters, found still 37 of 40, all 8 forbidden files refused. On the holdout set: source-passage delivery no lower than found by more than one question in twenty. Update the application-backed evaluator to verify actual transmitted source spans and locators; a generated label alone cannot pass this criterion. |
 | C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); with two identical files in one project each citation opens its own file; a citation to a changed file says so and shows no text; after a file is deleted its citations keep only their numbers, with no path, label, hash or stamp; answers without citations still save. |
 | D | History on the server, the budget per model. | A request over the budget is trimmed, not refused; the stored record equals what the provider received. |
 | E | Connection and host on the message. | An answer shows which connection received which passages, after the file is deleted. |

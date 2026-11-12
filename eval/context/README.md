@@ -69,6 +69,9 @@ when specified. A generated label can contain the words the model receives, but 
 itself prove a source passage was selected. `deliveredWithoutPassage` lists questions where
 delivery passed and this stricter check did not; it can include a locator mismatch as well as
 label-only matches. Whole files are checked against their extracted text and location.
+A heading locator means the body after the first matching heading and before the next real
+heading at any level; heading-like lines inside Markdown fences do not end the section.
+The full heading and sheet header are searchable even when their display labels are shortened.
 
 A share always stands next to its count. With five questions of a kind, one question is twenty
 percentage points.

@@ -2924,9 +2924,9 @@
         "noAnswer": {
           "n": 7,
           "withContext": 5,
-          "meanChars": 7961,
-          "meanCharsWhenSent": 11145,
-          "maxChars": 17312
+          "meanChars": 7825,
+          "meanCharsWhenSent": 10954,
+          "maxChars": 16360
         }
       },
       "notDelivered": [
@@ -3709,8 +3709,8 @@
         {
           "id": "en-n01",
           "kind": "no-answer",
-          "files": 3,
-          "chars": 17312,
+          "files": 4,
+          "chars": 16360,
           "complete": null,
           "delivered": null,
           "passageDelivered": null,

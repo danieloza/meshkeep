@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
-import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passagesText, pdfDocument, selectPassages, sheetUnits, sourcePassageTexts, wholeSourceTexts } from '../eval/context/chunking.ts';
+import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageSearchLabel, passagesText, pdfDocument, selectPassages, sheetUnits, sourcePassageTexts, wholeSourceTexts } from '../eval/context/chunking.ts';
 import { contextTotal, fileContextMessage, grouped, mean, mimeOf, quoteDelivered, remainingFileContextChars, totalOf } from '../eval/context/measure.ts';
 import { questionSet } from '../eval/context/schema.ts';
 import { wydobadzTekstDokumentu } from '../lib/document-text.ts';
@@ -127,7 +127,7 @@ for (const file of files) {
     const chunks = chunksOf(document, joinSections);
     chunksByTable[table].set(file, chunks);
     const insert = database.prepare(`INSERT INTO ${table} (path, label, content, project, file, ordinal) VALUES (?, ?, ?, ?, ?, ?)`);
-    for (const chunk of chunks) insert.run(pathIn(file), passageLabel(chunk), chunk.text, project, file, chunk.ordinal);
+    for (const chunk of chunks) insert.run(pathIn(file), passageSearchLabel(chunk), chunk.text, project, file, chunk.ordinal);
     const lengths = chunks.map((chunk) => chunk.text.length);
     const entry = shape[table] ?? (shape[table] = { chunks: 0, chars: 0, longest: 0 });
     entry.chunks += chunks.length;

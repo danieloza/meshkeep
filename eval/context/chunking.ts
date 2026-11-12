@@ -51,6 +51,8 @@ export type Chunk = {
   place: string;
   heading: string;
   header?: string;
+  // The full header remains searchable even when the displayed label is cut.
+  searchHeader?: string;
   // The header row was longer than the label allows and is cut there: the
   // last columns of this chunk's rows have no name in the label.
   headerCut?: boolean;
@@ -105,6 +107,19 @@ export function lineUnits(text: string, place = ''): Unit[] {
   return linesOf(text).filter((line) => line.text.trim()).map((line) => ({ start: line.start, end: line.end, place, heading: '', section: false }));
 }
 
+type MarkdownFence = { marker: '`' | '~'; length: number } | null;
+
+// Track the opening fence's character and length. A shorter fence or the
+// other character inside it is ordinary code, not a closing fence.
+export function nextMarkdownFence(line: string, fence: MarkdownFence): MarkdownFence {
+  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+  if (!match) return fence;
+  const marker = match[1][0] as '`' | '~';
+  if (fence) return marker === fence.marker && match[1].length >= fence.length && !match[2].trim() ? null : fence;
+  if (marker === '`' && match[2].includes('`')) return null;
+  return { marker, length: match[1].length };
+}
+
 // Markdown: each heading line is a unit that starts a section, each paragraph
 // a unit carrying the headings above it. A `#` inside a fenced code block is
 // not a heading, and a blank line inside one does not end it.
@@ -113,7 +128,7 @@ export function markdownUnits(text: string): Unit[] {
   const trail: string[] = [];
   let first: Line | null = null;
   let last: Line | null = null;
-  let fenced = false;
+  let fence: MarkdownFence = null;
   const trailParts = () => trail.filter(Boolean);
   const trailText = () => trailParts().join(' › ');
   const close = () => {
@@ -122,8 +137,8 @@ export function markdownUnits(text: string): Unit[] {
     last = null;
   };
   for (const line of linesOf(text)) {
-    const heading = fenced ? null : line.text.match(/^(#{1,6}) (.*)$/);
-    if (line.text.startsWith('```')) fenced = !fenced;
+    const heading = fence ? null : line.text.match(/^(#{1,6}) (.*)$/);
+    const nextFence = nextMarkdownFence(line.text, fence);
     if (heading) {
       close();
       trail.length = heading[1].length - 1;
@@ -131,9 +146,10 @@ export function markdownUnits(text: string): Unit[] {
       units.push({ start: line.start, end: line.end, place: '', heading: trailText(), headings: trailParts(), section: true });
       continue;
     }
-    if (!line.text.trim() && !fenced) { close(); continue; }
+    if (!line.text.trim() && !fence && !nextFence) { close(); continue; }
     if (!first) first = line;
     last = line;
+    fence = nextFence;
   }
   close();
   return units;
@@ -240,7 +256,7 @@ export function chunksOf(document: Document, joinSections: boolean, rule: ChunkR
       place: current.place,
       heading: current.heading,
       continuesPrevious,
-      ...(header === undefined ? {} : { header: safeHeader(header, rule.headerChars), ...(header.length > rule.headerChars ? { headerCut: true } : {}) }),
+      ...(header === undefined ? {} : { header: safeHeader(header, rule.headerChars), searchHeader: header, ...(header.length > rule.headerChars ? { headerCut: true } : {}) }),
     });
     current = null;
   };
@@ -268,9 +284,16 @@ function safeHeader(header: string, limit: number): string {
 // The label a passage is sent under: its place, the headings above it, and
 // for a sheet its header row.
 export function passageLabel(chunk: Chunk): string {
-  const parts = [chunk.place, chunk.heading].filter(Boolean);
+  const heading = safeHeader(chunk.heading, CHUNK_RULE.headerChars);
+  const parts = [chunk.place, heading ? `${heading}${chunk.heading.length > heading.length ? ' …' : ''}` : ''].filter(Boolean);
   if (chunk.header !== undefined) parts.push(`columns: ${chunk.header.replaceAll('\t', ' | ')}${chunk.headerCut ? ' …' : ''}`);
   return parts.length ? `[${parts.join(' · ')}]` : '';
+}
+
+// Search the full source heading and spreadsheet header. Their display label
+// is bounded separately so long metadata cannot exhaust the context budget.
+export function passageSearchLabel(chunk: Chunk): string {
+  return [chunk.place, chunk.heading, chunk.searchHeader ?? chunk.header].filter(Boolean).join(' ');
 }
 
 // Keep each page, sheet and heading label with its own source span. A run is
@@ -280,7 +303,8 @@ export function passageRuns(document: Document, chunks: Chunk[]): Array<{ label:
   const runs: Chunk[][] = [];
   for (const chunk of sorted) {
     const run = runs.at(-1);
-    if (run && run.at(-1)!.ordinal + 1 === chunk.ordinal && run.at(-1)!.place === chunk.place && (chunk.continuesPrevious || passageLabel(run[0]) === passageLabel(chunk))) run.push(chunk);
+    const sameSourceLabel = run && run[0].heading === chunk.heading && (run[0].searchHeader ?? run[0].header) === (chunk.searchHeader ?? chunk.header);
+    if (run && run.at(-1)!.ordinal + 1 === chunk.ordinal && run.at(-1)!.place === chunk.place && (chunk.continuesPrevious || sameSourceLabel)) run.push(chunk);
     else runs.push([chunk]);
   }
   return runs.map((run) => ({ label: passageLabel(run[0]), body: document.text.slice(run[0].start, run.at(-1)!.end), first: run[0], last: run.at(-1)! }));
@@ -298,18 +322,31 @@ export function passagesText(document: Document, chunks: Chunk[]): string {
 
 export type PassageLocator = { page: number } | { sheet: number } | { heading: string };
 
+// The set validator defines a heading location as the first matching heading's
+// body up to the next heading of any level. The heading line itself is not its
+// body. Preserve the literal components: a title may contain the display separator.
+function headingRegion(document: Document, heading: string): [number, number] | null {
+  const index = document.units.findIndex((unit) => unit.section && unit.headings?.at(-1) === heading);
+  if (index < 0) return null;
+  const first = document.units[index];
+  const next = document.units.slice(index + 1).find((unit) => unit.section);
+  return [first.end, next?.start ?? document.text.length];
+}
+
 // For a whole file, no labels interrupt the text. Limit it to the requested
-// location when one exists, including nested headings in that section.
+// location when one exists.
 export function wholeSourceTexts(document: Document, locator?: PassageLocator): string[] {
   if (!locator) return [document.text];
+  if ('heading' in locator) {
+    const range = headingRegion(document, locator.heading);
+    return range ? [document.text.slice(...range)] : [];
+  }
   const texts: string[] = [];
   let start: number | null = null;
   let end = 0;
   const flush = () => { if (start !== null) texts.push(document.text.slice(start, end)); start = null; };
   for (const unit of document.units) {
-    const matches = 'page' in locator ? unit.place === `page ${locator.page}`
-      : 'sheet' in locator ? unit.place === `sheet ${locator.sheet}`
-        : unit.headings?.includes(locator.heading) ?? false;
+    const matches = 'page' in locator ? unit.place === `page ${locator.page}` : unit.place === `sheet ${locator.sheet}`;
     if (!matches) { flush(); continue; }
     if (start === null) start = unit.start;
     end = unit.end;
@@ -329,18 +366,11 @@ export function sourcePassageTexts(document: Document, chunks: Chunk[], locator?
       if (run.first.place === place) texts.push(run.body);
       continue;
     }
-    // A chunk can span several Markdown headings. Check the units within the
-    // selected run, not just the heading used for the run's display label.
-    let start: number | null = null;
-    let end = 0;
-    const flush = () => { if (start !== null) texts.push(document.text.slice(start, end)); start = null; };
-    for (const unit of document.units) {
-      if (unit.end <= run.first.start || unit.start >= run.last.end) continue;
-      if (!unit.headings?.includes(locator.heading)) { flush(); continue; }
-      if (start === null) start = Math.max(unit.start, run.first.start);
-      end = Math.min(unit.end, run.last.end);
-    }
-    flush();
+    const region = headingRegion(document, locator.heading);
+    if (!region) continue;
+    const start = Math.max(region[0], run.first.start);
+    const end = Math.min(region[1], run.last.end);
+    if (start < end) texts.push(document.text.slice(start, end));
   }
   return texts;
 }

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
+import { nextMarkdownFence } from '@/eval/context/chunking';
 import { normalizeText } from '@/eval/context/measure';
 import { baseline, canAsk, canRead, projects, questionSet, team, type ExpectedSource, type Projects, type QuestionSet, type Team } from '@/eval/context/schema';
 import { ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu } from '@/lib/document-text';
@@ -67,12 +68,29 @@ function sheetText(text: string, sheet: number): string {
 // The part of a Markdown file under one heading, up to the next heading.
 function headingText(text: string, heading: string): string {
   const lines = text.split('\n');
-  const start = lines.findIndex((line) => /^#{1,6} /.test(line) && line.replace(/^#{1,6} /, '').trim() === heading);
-  if (start < 0) return '';
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => /^#{1,6} /.test(line));
-  return (end < 0 ? rest : rest.slice(0, end)).join('\n');
+  const body: string[] = [];
+  let fence: ReturnType<typeof nextMarkdownFence> = null;
+  let inSection = false;
+  for (const line of lines) {
+    const match = !fence ? line.match(/^#{1,6} (.*)$/) : null;
+    fence = nextMarkdownFence(line, fence);
+    if (match) {
+      if (inSection) break;
+      if (match[1].trim() === heading) inSection = true;
+    } else if (inSection) body.push(line);
+  }
+  return body.join('\n');
 }
+
+it('checks heading bodies beyond tilde and longer backtick code fences', () => {
+  for (const fence of ['~~~', '````']) {
+    const inner = fence === '~~~' ? '~~~not-closing' : '```';
+    const text = `# Parent\n\n${fence}\n${inner}\n# fake heading\n${fence}\n\nexpected target\n\n## Child\nnot parent`;
+    expect(headingText(text, 'Parent')).toContain('expected target');
+    expect(headingText(text, 'Parent')).not.toContain('not parent');
+    expect(headingText(text, 'fake heading')).toBe('');
+  }
+});
 
 async function locatorProblem(set: string, source: ExpectedSource): Promise<string | null> {
   if (!source.locator) return null;
