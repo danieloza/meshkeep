@@ -85,6 +85,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const pathsValue = form.get('paths');
     try { paths = JSON.parse(typeof pathsValue === 'string' ? pathsValue : '[]'); } catch { throw new ApiError(400, 'Invalid path list.'); }
     if (!Array.isArray(paths) || paths.length !== uploaded.length || !paths.every((path) => typeof path === 'string')) throw new ApiError(400, 'The path list does not match the files.');
+    // The path is a file's stable project address. Detect duplicates before
+    // writing any objects, rather than letting the unique index fail midway.
+    const checkedPaths = paths.map((path) => checkedRelativePath(path as string));
+    if (new Set(checkedPaths).size !== checkedPaths.length) throw new ApiError(400, 'Each file in an import needs a different path.');
     const total = uploaded.reduce((sum, file) => sum + file.size, 0);
     if (total > MAX_REQUEST_BYTES) throw new ApiError(413, 'An import can be up to 50 MB.');
 
@@ -92,7 +96,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const indexRows = [];
     for (let index = 0; index < uploaded.length; index += 1) {
       const file = uploaded[index];
-      const relativePath = checkedRelativePath(paths[index] as string);
+      const relativePath = checkedPaths[index];
       if (!isAllowedUpload(relativePath, file.size)) throw new ApiError(415, `File “${file.name.slice(0, 100)}” has a disallowed type or size.`);
       const bytes = await file.arrayBuffer();
       const byteView = new Uint8Array(bytes);

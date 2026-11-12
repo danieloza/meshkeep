@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildContextChunks, contextDocument, limitPdfPages, MAX_FILE_CHUNKS } from '@/lib/context-document';
+import { buildContextChunks, contextDocument, limitContextText, limitPdfPages, MAX_FILE_CHUNKS } from '@/lib/context-document';
 
 const file = { id: 'file-a', projectId: 'project-a', relativePath: 'docs/test.md', sha256: 'a'.repeat(64) };
 
@@ -34,6 +34,13 @@ describe('context documents', () => {
     expect(document.text).toBe('abc\n\nxy');
     expect(document.units.map((unit) => unit.place)).toEqual(['page 1', 'page 3']);
     expect(limitPdfPages(['abc', '😀more', 'later'], 6).pages).toEqual(['abc', '', '']);
+  });
+
+  it('bounds extracted text at a Unicode boundary before creating units', () => {
+    const result = limitContextText('x'.repeat(119_999) + '😀tail');
+    expect(result.truncated).toBe(true);
+    expect(result.text.length).toBe(119_999);
+    expect(contextDocument('txt', result.text).text).toBe(result.text);
   });
 
   it('gives identical bytes the same stamp but different file addresses', async () => {

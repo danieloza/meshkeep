@@ -5,6 +5,7 @@ import { getDb } from '@/db';
 import { files, fileTexts } from '@/db/schema';
 import { EXTRACTING_STALE_MS, MAX_EXTRACTION_ATTEMPTS, outcomeOf, type Outcome, RETRY_AFTER_MS } from '@/lib/extraction-outcome';
 import { jestDokumentem, rozszerzeniePliku, trescPliku } from './file-text';
+import { indexPendingContextChunks } from './context-index';
 
 // Enough for the parts of a file people search for, small enough that one row
 // stays far below D1's 2 MB row limit even in multi-byte text.
@@ -112,5 +113,16 @@ export async function indexPendingFiles(projectId: string) {
     .from(files)
     .leftJoin(fileTexts, eq(fileTexts.fileId, files.id))
     .where(waiting(projectId, Date.now()));
-  return { indexed: due.length, failed, remaining };
+  // Backfill passages in the same bounded rounds, without changing the
+  // existing file-index counters or the response shape. While file extraction
+  // is busy, take only one additional document to limit worker CPU time.
+  let contextRemaining = 0;
+  try {
+    contextRemaining = (await indexPendingContextChunks(projectId, due.length ? 1 : 2)).remaining;
+  } catch {
+    // This derived index is optional for today's search and chat. A failed
+    // chunk round must not hide the result of a successful file-text round.
+    console.error('The optional context-chunk indexing round failed.');
+  }
+  return { indexed: due.length, failed, remaining: remaining + contextRemaining };
 }

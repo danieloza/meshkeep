@@ -5,6 +5,15 @@ import { canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, pass
 export const CHUNK_EXTRACTOR_VERSION = '1';
 export const MAX_FILE_CHUNKS = 600;
 export const MAX_CHUNK_PDF_CHARS = 120_000;
+export const MAX_CHUNK_TEXT_CHARS = 120_000;
+
+export function limitContextText(text: string, limit = MAX_CHUNK_TEXT_CHARS): { text: string; truncated: boolean } {
+  if (text.length <= limit) return { text, truncated: false };
+  let end = Math.max(0, limit);
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return { text: text.slice(0, end), truncated: true };
+}
 
 export type ChunkFile = { id: string; projectId: string; relativePath: string; sha256: string };
 export type ChunkRow = {

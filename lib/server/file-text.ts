@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { env } from 'cloudflare:workers';
-import { ROZSZERZENIA_BEZ_WSPARCIA, ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu, type WynikEkstrakcji } from '@/lib/document-text';
+import { ROZSZERZENIA_BEZ_WSPARCIA, ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu, type DocumentExtractionLimits, type WynikEkstrakcji } from '@/lib/document-text';
 import { wydobadzTekstPdf } from './pdf-text';
 
 // Shared by chat context and the search index, so a file the model can read is
@@ -38,7 +38,7 @@ type PlikProjektu = { objectKey: string; sizeBytes: number };
 // zamiast tresci, zeby model wiedzial, ze plik istnieje, ale jest nieczytelny -
 // bez tego zgaduje, czemu zalacznik jest pusty. Wysylka przekazuje `bajty`, bo
 // ma je juz w pamieci; pozostali czytaja z R2.
-export async function trescPliku(plik: PlikProjektu, rozszerzenie: string, bajty?: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
+export async function trescPliku(plik: PlikProjektu, rozszerzenie: string, bajty?: Uint8Array<ArrayBuffer>, limits?: DocumentExtractionLimits): Promise<WynikEkstrakcji> {
   const zwykly = jestZwyklymTekstem(rozszerzenie);
   const dokument = jestDokumentem(rozszerzenie);
 
@@ -64,5 +64,5 @@ export async function trescPliku(plik: PlikProjektu, rozszerzenie: string, bajty
   if (zwykly) return { tekst: new TextDecoder().decode(zawartosc).replaceAll('\0', '') };
   return rozszerzenie === 'pdf'
     ? wydobadzTekstPdf(zawartosc)
-    : wydobadzTekstDokumentu(rozszerzenie, zawartosc);
+    : wydobadzTekstDokumentu(rozszerzenie, zawartosc, limits);
 }

@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, openSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
 export const PORT = 8813;
 export const BASE = `http://127.0.0.1:${PORT}`;
@@ -164,6 +165,36 @@ function seedSql(): string {
 
 let proces: ChildProcess | null = null;
 let katalogStanu = '';
+
+// Read the disposable local D1 directly to check derived rows that have no
+// public API. The connection is read-only and never points at a hosted DB.
+function sciezkaLokalnejD1(): string {
+  if (!katalogStanu) throw new Error('The local test worker is not running.');
+  const root = join(katalogStanu, 'v3', 'd1');
+  const walk = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? walk(path) : entry.name.endsWith('.sqlite') ? [path] : [];
+  });
+  const paths = walk(root).filter((path) => {
+    const candidate = new DatabaseSync(path, { readOnly: true });
+    try { return Boolean(candidate.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='file_chunk_states'").get()); }
+    finally { candidate.close(); }
+  });
+  if (paths.length !== 1) throw new Error(`Expected one disposable app D1 database; found ${paths.length}.`);
+  return paths[0];
+}
+
+export function odczytajLokalneD1(sql: string, ...params: SQLInputValue[]): Array<Record<string, unknown>> {
+  const db = new DatabaseSync(sciezkaLokalnejD1(), { readOnly: true });
+  try { return db.prepare(sql).all(...params) as Array<Record<string, unknown>>; } finally { db.close(); }
+}
+
+// Failure injection, only in the disposable local test database, at the end
+// of its test suite. No production database can be reached by this helper.
+export function zepsujLokalnyIndeksFragmentow(): void {
+  const db = new DatabaseSync(sciezkaLokalnejD1());
+  try { db.exec('DROP TABLE file_chunk_states'); } finally { db.close(); }
+}
 // Trzymane w module, a nie przekazywane do `podnieProces`, bo ten jest wolany
 // takze przy restarcie po awarii transportu. Restart bez tych zmiennych
 // podnioslby workera w innym trybie logowania niz ten, ktory test sprawdza.

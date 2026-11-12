@@ -94,6 +94,12 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 0 });
   });
 
+  it('allows the caller to bound a round while leaving due work for later', async () => {
+    addFile('a'); addFile('b'); addFile('c');
+    expect(await indexPendingContextChunks('p', 1)).toEqual({ processed: 1, failed: 0, remaining: 2 });
+    expect(await indexPendingContextChunks('p', 2)).toEqual({ processed: 2, failed: 0, remaining: 0 });
+  });
+
   it('retains full searchable labels, records truncation, and fails closed on size limits', async () => {
     addFile('a'); addFile('b');
     mocks.build.mockImplementation(async (file: File) => file.id === 'a'

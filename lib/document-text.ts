@@ -22,13 +22,16 @@ const DEKODER = new TextDecoder('utf-8');
 // --- ZIP -------------------------------------------------------------------
 
 type WpisZip = { nazwa: string; metoda: number; offset: number; rozmiar: number };
+export type DocumentExtractionLimits = { maxArchiveBytes: number; maxArchiveEntries: number; maxOutputChars?: number };
+type ArchiveBudget = { remaining: number; maxEntries: number; maxOutputChars?: number };
+class ArchiveLimitError extends Error {}
 
 function u16(dane: Uint8Array<ArrayBuffer>, i: number) { return dane[i] | (dane[i + 1] << 8); }
 function u32(dane: Uint8Array<ArrayBuffer>, i: number) { return (dane[i] | (dane[i + 1] << 8) | (dane[i + 2] << 16)) + dane[i + 3] * 0x1000000; }
 
 // Katalog centralny czytamy od konca pliku, tak jak przewiduje format. Nie da
 // sie isc od poczatku, bo dopiero on mowi, gdzie zaczyna sie kazdy wpis.
-function czytajKatalog(dane: Uint8Array<ArrayBuffer>): WpisZip[] {
+function czytajKatalog(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): WpisZip[] {
   let eocd = -1;
   const dolnaGranica = Math.max(0, dane.length - 66_000);
   for (let i = dane.length - 22; i >= dolnaGranica; i -= 1) {
@@ -37,6 +40,7 @@ function czytajKatalog(dane: Uint8Array<ArrayBuffer>): WpisZip[] {
   if (eocd < 0) return [];
 
   const ile = u16(dane, eocd + 10);
+  if (budget && ile > budget.maxEntries) throw new ArchiveLimitError('The document has too many archive entries for passage indexing.');
   let wskaznik = u32(dane, eocd + 16);
   const wpisy: WpisZip[] = [];
   for (let n = 0; n < ile && wskaznik + 46 <= dane.length; n += 1) {
@@ -55,7 +59,7 @@ function czytajKatalog(dane: Uint8Array<ArrayBuffer>): WpisZip[] {
   return wpisy;
 }
 
-async function rozpakuj(dane: Uint8Array<ArrayBuffer>, wpis: WpisZip): Promise<string | null> {
+async function rozpakuj(dane: Uint8Array<ArrayBuffer>, wpis: WpisZip, budget?: ArchiveBudget): Promise<string | null> {
   const naglowek = wpis.offset;
   if (u32(dane, naglowek) !== 0x04034b50) return null;
   // Naglowek lokalny bywa niezgodny z katalogiem centralnym co do dlugosci pol,
@@ -63,7 +67,11 @@ async function rozpakuj(dane: Uint8Array<ArrayBuffer>, wpis: WpisZip): Promise<s
   const start = naglowek + 30 + u16(dane, naglowek + 26) + u16(dane, naglowek + 28);
   const surowe = dane.subarray(start, start + wpis.rozmiar);
 
-  if (wpis.metoda === 0) return DEKODER.decode(surowe);
+  if (wpis.metoda === 0) {
+    if (budget && surowe.byteLength > budget.remaining) throw new ArchiveLimitError('The document expands beyond the safe passage-indexing limit.');
+    if (budget) budget.remaining -= surowe.byteLength;
+    return DEKODER.decode(surowe);
+  }
   if (wpis.metoda !== 8) return null;
 
   // `deflate-raw` to strumien deflate bez naglowka zlib - dokladnie to, co ZIP
@@ -74,17 +82,34 @@ async function rozpakuj(dane: Uint8Array<ArrayBuffer>, wpis: WpisZip): Promise<s
     start(kontroler) { kontroler.enqueue(surowe); kontroler.close(); },
   });
   const strumien = zrodlo.pipeThrough(new DecompressionStream('deflate-raw'));
+  if (budget) {
+    const reader = strumien.getReader();
+    const decoder = new TextDecoder('utf-8');
+    const parts: string[] = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value.byteLength > budget.remaining) {
+        await reader.cancel().catch(() => undefined);
+        throw new ArchiveLimitError('The document expands beyond the safe passage-indexing limit.');
+      }
+      budget.remaining -= value.byteLength;
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join('');
+  }
   return new Response(strumien).text();
 }
 
-async function czytajZArchiwum(dane: Uint8Array<ArrayBuffer>, pasuje: (nazwa: string) => boolean): Promise<Array<{ nazwa: string; tresc: string }>> {
-  const wybrane = czytajKatalog(dane).filter((wpis) => pasuje(wpis.nazwa));
+async function czytajZArchiwum(dane: Uint8Array<ArrayBuffer>, pasuje: (nazwa: string) => boolean, budget?: ArchiveBudget): Promise<Array<{ nazwa: string; tresc: string }>> {
+  const wybrane = czytajKatalog(dane, budget).filter((wpis) => pasuje(wpis.nazwa));
   const wyniki: Array<{ nazwa: string; tresc: string }> = [];
   for (const wpis of wybrane.sort((a, b) => a.nazwa.localeCompare(b.nazwa, 'en'))) {
     try {
-      const tresc = await rozpakuj(dane, wpis);
+      const tresc = await rozpakuj(dane, wpis, budget);
       if (tresc !== null) wyniki.push({ nazwa: wpis.nazwa, tresc });
-    } catch { /* pojedynczy uszkodzony wpis nie ma wywracac calego pliku */ }
+    } catch (error) { if (error instanceof ArchiveLimitError) throw error; /* pojedynczy uszkodzony wpis nie ma wywracac calego pliku */ }
   }
   return wyniki;
 }
@@ -108,8 +133,8 @@ function tekstZnacznikow(xml: string, znacznik: string): string[] {
 
 // --- DOCX ------------------------------------------------------------------
 
-async function zDocx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
-  const pliki = await czytajZArchiwum(dane, (n) => n === 'word/document.xml');
+async function zDocx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
+  const pliki = await czytajZArchiwum(dane, (n) => n === 'word/document.xml', budget);
   if (!pliki.length) return { tekst: '', powod: 'Missing word/document.xml; this does not appear to be a Word document.' };
 
   // Akapity rozdzielamy nowa linia, a wewnatrz akapitu sklejamy przebiegi
@@ -128,8 +153,8 @@ async function zDocx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
 
 // --- XLSX ------------------------------------------------------------------
 
-async function zXlsx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
-  const pliki = await czytajZArchiwum(dane, (n) => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
+  const pliki = await czytajZArchiwum(dane, (n) => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n), budget);
   const wspolne = pliki.find((p) => p.nazwa === 'xl/sharedStrings.xml');
   // Ciagi wspoldzielone to tablica indeksowana pozycja - komorka z `t="s"`
   // trzyma numer, a nie tekst. Bez tej mapy arkusz jest zbiorem liczb.
@@ -141,14 +166,23 @@ async function zXlsx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
   if (!arkusze.length) return { tekst: '', powod: 'No worksheets found; this does not appear to be an Excel workbook.' };
 
   const czesci: string[] = [];
+  let outputChars = 0;
   for (const arkusz of arkusze) {
     const wiersze = [...arkusz.tresc.matchAll(/<row(?:\s[^>]*)?>([\s\S]*?)<\/row>/g)].map((wiersz) => {
       const komorki = [...wiersz[1].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)].map(([, atrybuty, wnetrze]) => {
         const wartosc = tekstZnacznikow(wnetrze, 'v')[0] ?? '';
-        if (/t="s"/.test(atrybuty)) return slownik[Number(wartosc)] ?? '';
+        let tekst: string;
+        if (/t="s"/.test(atrybuty)) tekst = slownik[Number(wartosc)] ?? '';
         // `t="inlineStr"` trzyma tekst wprost w komorce, poza slownikiem.
-        if (/t="inlineStr"/.test(atrybuty)) return tekstZnacznikow(wnetrze, 't').join('');
-        return wartosc;
+        else if (/t="inlineStr"/.test(atrybuty)) tekst = tekstZnacznikow(wnetrze, 't').join('');
+        else tekst = wartosc;
+        // A small shared string can be referenced thousands of times. Count
+        // each expanded cell before joining it into an enormous output.
+        outputChars += tekst.length + 1;
+        if (budget?.maxOutputChars !== undefined && outputChars > budget.maxOutputChars) {
+          throw new ArchiveLimitError('The workbook expands beyond the safe passage-indexing output limit.');
+        }
+        return tekst;
       });
       return komorki.join('\t');
     }).filter((wiersz) => wiersz.trim().length > 0);
@@ -159,8 +193,8 @@ async function zXlsx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
 
 // --- PPTX ------------------------------------------------------------------
 
-async function zPptx(dane: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
-  const slajdy = await czytajZArchiwum(dane, (n) => /^ppt\/slides\/slide\d+\.xml$/.test(n));
+async function zPptx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
+  const slajdy = await czytajZArchiwum(dane, (n) => /^ppt\/slides\/slide\d+\.xml$/.test(n), budget);
   if (!slajdy.length) return { tekst: '', powod: 'No slides found; this does not appear to be a PowerPoint presentation.' };
 
   // Numer slajdu wyciagamy z nazwy, bo sortowanie tekstowe daje 1, 10, 11, 2.
@@ -253,16 +287,18 @@ export const ROZSZERZENIA_DOKUMENTOW = new Set(['docx', 'xlsx', 'pptx', 'rtf']);
 // zamiast milczec.
 export const ROZSZERZENIA_BEZ_WSPARCIA = new Set(['doc', 'xls', 'ppt']);
 
-export async function wydobadzTekstDokumentu(rozszerzenie: string, bajty: Uint8Array<ArrayBuffer>): Promise<WynikEkstrakcji> {
+export async function wydobadzTekstDokumentu(rozszerzenie: string, bajty: Uint8Array<ArrayBuffer>, limits?: DocumentExtractionLimits): Promise<WynikEkstrakcji> {
   try {
+    const budget = limits ? { remaining: limits.maxArchiveBytes, maxEntries: limits.maxArchiveEntries, maxOutputChars: limits.maxOutputChars } : undefined;
     switch (rozszerzenie) {
-      case 'docx': return await zDocx(bajty);
-      case 'xlsx': return await zXlsx(bajty);
-      case 'pptx': return await zPptx(bajty);
+      case 'docx': return await zDocx(bajty, budget);
+      case 'xlsx': return await zXlsx(bajty, budget);
+      case 'pptx': return await zPptx(bajty, budget);
       case 'rtf': return zRtf(new TextDecoder('utf-8').decode(bajty));
       default: return { tekst: '', powod: `Nieobslugiwany format: ${rozszerzenie}.` };
     }
   } catch (blad) {
+    if (blad instanceof ArchiveLimitError) return { tekst: '', powod: blad.message };
     return { tekst: '', powod: `Could not read the file: ${blad instanceof Error ? blad.message : 'unknown error'}.`, blad: true };
   }
 }

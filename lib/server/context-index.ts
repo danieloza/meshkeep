@@ -126,7 +126,7 @@ async function settle(db: Client, file: ContextFile, lease: string, status: 'ind
 
 // Remaining counts only work eligible for a claim now. Delayed retries and
 // current leases must not make the caller spin while waiting for a deadline.
-export async function indexPendingContextChunks(projectId: string): Promise<{ processed: number; failed: number; remaining: number }> {
+export async function indexPendingContextChunks(projectId: string, maxFiles = FILES_PER_ROUND): Promise<{ processed: number; failed: number; remaining: number }> {
   const db = getDb().$client;
   const now = Date.now();
   // A dead last attempt cannot retain an indexing lease forever.
@@ -141,7 +141,7 @@ export async function indexPendingContextChunks(projectId: string): Promise<{ pr
     FROM files f JOIN file_texts t ON t.file_id=f.id AND t.project_id=f.project_id
     LEFT JOIN file_chunk_states s ON s.file_id=f.id
     WHERE f.project_id=? AND t.status='indexed' AND ${due} ORDER BY f.id LIMIT ?`)
-    .bind(projectId, ...dueArgs(now), FILES_PER_ROUND).all<ContextFile>();
+    .bind(projectId, ...dueArgs(now), Math.max(0, Math.min(FILES_PER_ROUND, Math.floor(maxFiles)))).all<ContextFile>();
   let processed = 0;
   let failed = 0;
   for (const file of candidates.results) {
