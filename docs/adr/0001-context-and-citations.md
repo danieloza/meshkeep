@@ -379,8 +379,13 @@ that step 1 and the Ctrl K search use. No row is rewritten: a file that has text
 chunks counts as waiting, and the existing indexing rounds (`search-index.ts:68`) fill the
 table five files at a time.
 
-The chunk table holds the whole text of a file, up to 600 chunks (about 900 000 characters);
-beyond that the file is marked as partly read, as a long PDF is today.
+Passage indexing reads at most the first 120 000 characters per file and, for PDF, at most
+the first 40 pages as well. Each file also has a ceiling of 600 chunks. Text, Markdown, DOCX
+and PDF files stay well below it within these limits, but a workbook with several hundred
+small sheets can reach it, because sheets are never joined into one chunk; such a file is
+then marked as partly indexed. Longer files are marked as partly indexed with a reason; some
+oversized documents are refused with a reason rather than indexed partially. Answers beyond
+these limits cannot reach a passage, so F3 (answers deep in long files) is only partly addressed.
 
 `chunk_key` is indexed but not unique: identical files share their stamps (decision 1). A
 citation finds its chunk through the file's path (decision 5), so a project must hold one
@@ -654,7 +659,7 @@ Each step is its own pull request and is accepted on numbers from `npm run eval:
 
 | Step | What | Accepted when |
 |---|---|---|
-| A | Block extraction, `file_chunks`, indexing rounds fill it, one file per path enforced. No change in behaviour. | The baseline is unchanged; every readable file has chunks; a 7 000-character line is cut and nothing of it is lost; the Sites migration test passes. |
+| A | Block extraction, `file_chunks`, indexing rounds fill it, one file per path enforced. No change in behaviour. | The baseline is unchanged; files readable within indexing budgets have chunks for their first 120 000 characters (at most 40 pages for a PDF), and a longer file, or a workbook past 600 chunks, is marked as partly indexed; oversized documents can instead be refused with a reason; a 7 000-character line is cut and nothing of it is lost; the Sites migration test passes. |
 | B | Passages inside files, the per-file allowance, the neighbour rule, `passages` in the manifest. | On the dev set: at least 37 of 40 source passages delivered at their expected locators, mean context at most 8 000 characters, found still 37 of 40, all 8 forbidden files refused. On the holdout set: source-passage delivery no lower than found by more than one question in twenty. Update the application-backed evaluator to verify actual transmitted source spans and locators; a generated label alone cannot pass this criterion. |
 | C | Citation numbers, validation on the server, citations in the interface. | Every stored citation points at a sent passage (API test); with two identical files in one project each citation opens its own file; a citation to a changed file says so and shows no text; after a file is deleted its citations keep only their numbers, with no path, label, hash or stamp; answers without citations still save. |
 | D | History on the server, the budget per model. | A request over the budget is trimmed, not refused; the stored record equals what the provider received. |

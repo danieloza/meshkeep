@@ -1,0 +1,396 @@
+// Shared passage rules for context indexing and the evaluation simulation.
+// The application still sends files as before until a later change enables
+// passage selection in chat.
+//
+// A chunk is a slice of the file's text, by offsets, never a rewritten copy:
+// chunks that follow each other put back together give the text exactly, and
+// what a passage says is what the file says. What a chunk is about (the
+// headings above it, the page, a sheet's header row) travels beside it, as a
+// label.
+//
+// Only erasable TypeScript, and no imports: Node runs this file as it is.
+
+export type ChunkRule = {
+  // A chunk aims at this many characters.
+  targetChars: number;
+  // No chunk is longer than this.
+  maxChars: number;
+  // A sheet's header row is repeated in the label of every chunk of the
+  // sheet, up to this many characters.
+  headerChars: number;
+};
+
+export const CHUNK_RULE: ChunkRule = { targetChars: 1_500, maxChars: 2_400, headerChars: 1_000 };
+
+// A unit is text that belongs together: a paragraph, a heading line, a row of
+// a sheet. A chunk is made of whole units, unless one unit is too long alone.
+export type Unit = {
+  start: number;
+  end: number;
+  // Where in the file: `page 3`, `sheet 2`, or empty.
+  place: string;
+  // The headings above the unit, outermost first, joined with ` › `.
+  heading: string;
+  // Exact heading components; display separators may also occur in a title.
+  headings?: string[];
+  // A Markdown heading line, or the first line of a sheet: a chunk kept to
+  // one section starts here.
+  section: boolean;
+  // A sheet's header row.
+  header?: string;
+};
+
+export type Document = { text: string; units: Unit[] };
+
+export type Chunk = {
+  ordinal: number;
+  start: number;
+  end: number;
+  text: string;
+  place: string;
+  heading: string;
+  header?: string;
+  // The full header remains searchable even when the displayed label is cut.
+  searchHeader?: string;
+  // The header row was longer than the label allows and is cut there: the
+  // last columns of this chunk's rows have no name in the label.
+  headerCut?: boolean;
+  // The boundary with the chunk before falls inside a unit (a long line was
+  // cut), so this chunk reads only together with that one.
+  continuesPrevious: boolean;
+};
+
+// One line ending everywhere. A checkout on Windows may hold the same file
+// with CRLF, and a paragraph break must be the same break in both.
+export function canonicalText(text: string): string {
+  return text.replace(/\r\n?/g, '\n');
+}
+
+type Line = { start: number; end: number; text: string };
+
+function linesOf(text: string, from = 0, to = text.length): Line[] {
+  const lines: Line[] = [];
+  let start = from;
+  while (start <= to) {
+    const newline = text.indexOf('\n', start);
+    const end = newline < 0 || newline > to ? to : newline;
+    lines.push({ start, end, text: text.slice(start, end) });
+    if (end >= to) break;
+    start = end + 1;
+  }
+  return lines;
+}
+
+// Runs of lines that are not blank, as units: paragraphs of plain text, one
+// line per paragraph of a DOCX.
+export function paragraphUnits(text: string, place = '', from = 0, to = text.length): Unit[] {
+  const units: Unit[] = [];
+  let first: Line | null = null;
+  let last: Line | null = null;
+  const close = () => {
+    if (first && last) units.push({ start: first.start, end: last.end, place, heading: '', section: false });
+    first = null;
+    last = null;
+  };
+  for (const line of linesOf(text, from, to)) {
+    if (!line.text.trim()) { close(); continue; }
+    if (!first) first = line;
+    last = line;
+  }
+  close();
+  return units;
+}
+
+// Every line that is not blank is a unit of its own.
+export function lineUnits(text: string, place = ''): Unit[] {
+  return linesOf(text).filter((line) => line.text.trim()).map((line) => ({ start: line.start, end: line.end, place, heading: '', section: false }));
+}
+
+type MarkdownFence = { marker: '`' | '~'; length: number } | null;
+
+// Track the opening fence's character and length. A shorter fence or the
+// other character inside it is ordinary code, not a closing fence.
+export function nextMarkdownFence(line: string, fence: MarkdownFence): MarkdownFence {
+  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+  if (!match) return fence;
+  const marker = match[1][0] as '`' | '~';
+  if (fence) return marker === fence.marker && match[1].length >= fence.length && !match[2].trim() ? null : fence;
+  if (marker === '`' && match[2].includes('`')) return null;
+  return { marker, length: match[1].length };
+}
+
+// Markdown: each heading line is a unit that starts a section, each paragraph
+// a unit carrying the headings above it. A `#` inside a fenced code block is
+// not a heading, and a blank line inside one does not end it.
+export function markdownUnits(text: string): Unit[] {
+  const units: Unit[] = [];
+  const trail: string[] = [];
+  let first: Line | null = null;
+  let last: Line | null = null;
+  let fence: MarkdownFence = null;
+  const trailParts = () => trail.filter(Boolean);
+  const trailText = () => trailParts().join(' › ');
+  const close = () => {
+    if (first && last) units.push({ start: first.start, end: last.end, place: '', heading: trailText(), headings: trailParts(), section: false });
+    first = null;
+    last = null;
+  };
+  for (const line of linesOf(text)) {
+    const heading = fence ? null : line.text.match(/^(#{1,6}) (.*)$/);
+    const nextFence = nextMarkdownFence(line.text, fence);
+    if (heading) {
+      close();
+      trail.length = heading[1].length - 1;
+      trail[heading[1].length - 1] = heading[2].trim();
+      units.push({ start: line.start, end: line.end, place: '', heading: trailText(), headings: trailParts(), section: true });
+      continue;
+    }
+    if (!line.text.trim() && !fence && !nextFence) { close(); continue; }
+    if (!first) first = line;
+    last = line;
+    fence = nextFence;
+  }
+  close();
+  return units;
+}
+
+// A spreadsheet as MeshKeep's extractor writes it: `# sheetN.xml`, then a
+// header row, then rows, tab-separated. Each line is a unit carrying its
+// sheet's header row.
+export function sheetUnits(text: string): Unit[] {
+  const units: Unit[] = [];
+  let place = '';
+  let header: string | undefined;
+  let sheetLine: Unit | null = null;
+  for (const line of linesOf(text)) {
+    const sheet = line.text.match(/^# sheet(\d+)\.xml$/);
+    if (sheet) {
+      place = `sheet ${sheet[1]}`;
+      header = undefined;
+      sheetLine = { start: line.start, end: line.end, place, heading: '', section: true };
+      units.push(sheetLine);
+      continue;
+    }
+    if (!line.text.trim()) continue;
+    if (sheetLine) {
+      // The first row is the header. The sheet's own line carries it too,
+      // so the chunk that starts the sheet is labelled like the rest.
+      header = line.text;
+      sheetLine.header = header;
+      sheetLine = null;
+    }
+    units.push({ start: line.start, end: line.end, place, heading: '', section: false, header });
+  }
+  return units;
+}
+
+// A PDF read page by page: the pages joined with a blank line, each page's
+// paragraphs as units with the page as their place.
+export function pdfDocument(pages: string[]): Document {
+  let text = '';
+  const units: Unit[] = [];
+  pages.forEach((page, index) => {
+    const content = canonicalText(page).trim();
+    if (!content) return;
+    if (text) text += '\n\n';
+    const from = text.length;
+    text += content;
+    units.push(...paragraphUnits(text, `page ${index + 1}`, from, text.length));
+  });
+  return { text, units };
+}
+
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+
+// A range longer than the maximum, cut into pieces of at most the target: at
+// the last line end in reach, else the last space or tab, else inside the text. A
+// cut never falls between the two halves of a character outside the BMP.
+// The pieces are adjacent: nothing is dropped and nothing is added.
+export function splitRange(text: string, start: number, end: number, rule: ChunkRule = CHUNK_RULE): Array<[number, number]> {
+  if (end - start <= rule.maxChars) return [[start, end]];
+  const pieces: Array<[number, number]> = [];
+  let position = start;
+  while (end - position > rule.targetChars) {
+    const window = text.slice(position, position + rule.targetChars);
+    const half = rule.targetChars / 2;
+    let cut = window.lastIndexOf('\n');
+    // A space or a tab: the cells of a sheet's row are separated by tabs.
+    if (cut < half) cut = Math.max(window.lastIndexOf(' '), window.lastIndexOf('\t'));
+    if (cut < half) cut = rule.targetChars;
+    let at = position + cut;
+    if (isHighSurrogate(text.charCodeAt(at - 1))) at -= 1;
+    pieces.push([position, at]);
+    position = at;
+  }
+  pieces.push([position, end]);
+  return pieces;
+}
+
+// Units in order, joined into chunks while they fit.
+//   `joinSections` false: a chunk starts at every heading, so chunks are
+//   small and each is about one thing.
+//   `joinSections` true: neighbouring sections share a chunk while it has
+//   room.
+// Either way a chunk never crosses a page or a sheet and never passes the
+// maximum.
+export function chunksOf(document: Document, joinSections: boolean, rule: ChunkRule = CHUNK_RULE): Chunk[] {
+  const { text } = document;
+  const pieces = document.units.flatMap((unit) => {
+    const ranges = splitRange(text, unit.start, unit.end, rule);
+    return ranges.map(([start, end], index) => ({ ...unit, start, end, section: index === 0 && unit.section, cut: index > 0, split: ranges.length > 1 }));
+  });
+  const chunks: Chunk[] = [];
+  // Typed by assertion: `close` resets it inside a closure, which narrowing
+  // from a plain `= null` would not see.
+  let current = null as (typeof pieces)[number] | null;
+  let continuesPrevious = false;
+  const close = () => {
+    if (!current) return;
+    const header = current.header;
+    chunks.push({
+      ordinal: chunks.length,
+      start: current.start,
+      end: current.end,
+      text: text.slice(current.start, current.end),
+      place: current.place,
+      heading: current.heading,
+      continuesPrevious,
+      ...(header === undefined ? {} : { header: safeHeader(header, rule.headerChars), searchHeader: header, ...(header.length > rule.headerChars ? { headerCut: true } : {}) }),
+    });
+    current = null;
+  };
+  for (const piece of pieces) {
+    const mayJoin = current !== null && !piece.split && current.place === piece.place && (joinSections || !piece.section) && piece.end - current.start <= rule.targetChars;
+    if (current && mayJoin) {
+      current = { ...current, end: piece.end, header: current.header ?? piece.header };
+      continue;
+    }
+    close();
+    continuesPrevious = piece.cut;
+    current = { ...piece };
+  }
+  close();
+  return chunks;
+}
+
+// A UTF-16 limit may fall between the two halves of a supplementary character.
+function safeHeader(header: string, limit: number): string {
+  let end = Math.min(header.length, limit);
+  if (end < header.length && isHighSurrogate(header.charCodeAt(end - 1))) end -= 1;
+  return header.slice(0, end);
+}
+
+// The label a passage is sent under: its place, the headings above it, and
+// for a sheet its header row.
+export function passageLabel(chunk: Chunk): string {
+  const heading = safeHeader(chunk.heading, CHUNK_RULE.headerChars);
+  const parts = [chunk.place, heading ? `${heading}${chunk.heading.length > heading.length ? ' …' : ''}` : ''].filter(Boolean);
+  if (chunk.header !== undefined) parts.push(`columns: ${chunk.header.replaceAll('\t', ' | ')}${chunk.headerCut ? ' …' : ''}`);
+  return parts.length ? `[${parts.join(' · ')}]` : '';
+}
+
+// Search the full source heading and spreadsheet header. Their display label
+// is bounded separately so long metadata cannot exhaust the context budget.
+export function passageSearchLabel(chunk: Chunk): string {
+  return [chunk.place, chunk.heading, chunk.searchHeader ?? chunk.header].filter(Boolean).join(' ');
+}
+
+// Keep each page, sheet and heading label with its own source span. A run is
+// also the unit against which a quote can be checked without matching a label.
+export function passageRuns(document: Document, chunks: Chunk[]): Array<{ label: string; body: string; first: Chunk; last: Chunk }> {
+  const sorted = [...chunks].sort((a, b) => a.ordinal - b.ordinal);
+  const runs: Chunk[][] = [];
+  for (const chunk of sorted) {
+    const run = runs.at(-1);
+    const sameSourceLabel = run && run[0].heading === chunk.heading && (run[0].searchHeader ?? run[0].header) === (chunk.searchHeader ?? chunk.header);
+    if (run && run.at(-1)!.ordinal + 1 === chunk.ordinal && run.at(-1)!.place === chunk.place && (chunk.continuesPrevious || sameSourceLabel)) run.push(chunk);
+    else runs.push([chunk]);
+  }
+  return runs.map((run) => ({ label: passageLabel(run[0]), body: document.text.slice(run[0].start, run.at(-1)!.end), first: run[0], last: run.at(-1)! }));
+}
+
+// The text actually sent, including labels and separators. A label change is
+// not a missing chunk; an ordinal gap is marked as an omission.
+export function passagesText(document: Document, chunks: Chunk[]): string {
+  const runs = passageRuns(document, chunks);
+  return runs.map((run, index) => {
+    const prefix = index === 0 ? '' : runs[index - 1].last.ordinal + 1 === run.first.ordinal ? '\n\n' : '\n\n[…]\n\n';
+    return `${prefix}${run.label ? `${run.label}\n` : ''}${run.body}`;
+  }).join('');
+}
+
+export type PassageLocator = { page: number } | { sheet: number } | { heading: string };
+
+// The set validator defines a heading location as the first matching heading's
+// body up to the next heading of any level. The heading line itself is not its
+// body. Preserve the literal components: a title may contain the display separator.
+function headingRegion(document: Document, heading: string): [number, number] | null {
+  const index = document.units.findIndex((unit) => unit.section && unit.headings?.at(-1) === heading);
+  if (index < 0) return null;
+  const first = document.units[index];
+  const next = document.units.slice(index + 1).find((unit) => unit.section);
+  return [first.end, next?.start ?? document.text.length];
+}
+
+// For a whole file, no labels interrupt the text. Limit it to the requested
+// location when one exists.
+export function wholeSourceTexts(document: Document, locator?: PassageLocator): string[] {
+  if (!locator) return [document.text];
+  if ('heading' in locator) {
+    const range = headingRegion(document, locator.heading);
+    return range ? [document.text.slice(...range)] : [];
+  }
+  const texts: string[] = [];
+  let start: number | null = null;
+  let end = 0;
+  const flush = () => { if (start !== null) texts.push(document.text.slice(start, end)); start = null; };
+  for (const unit of document.units) {
+    const matches = 'page' in locator ? unit.place === `page ${locator.page}` : unit.place === `sheet ${locator.sheet}`;
+    if (!matches) { flush(); continue; }
+    if (start === null) start = unit.start;
+    end = unit.end;
+  }
+  flush();
+  return texts;
+}
+
+// Only source slices, not generated labels or omission markers, qualify as
+// passages. If a locator was supplied, keep the match on that page/section.
+export function sourcePassageTexts(document: Document, chunks: Chunk[], locator?: PassageLocator): string[] {
+  const texts: string[] = [];
+  for (const run of passageRuns(document, chunks)) {
+    if (!locator) { texts.push(run.body); continue; }
+    if ('page' in locator || 'sheet' in locator) {
+      const place = 'page' in locator ? `page ${locator.page}` : `sheet ${locator.sheet}`;
+      if (run.first.place === place) texts.push(run.body);
+      continue;
+    }
+    const region = headingRegion(document, locator.heading);
+    if (!region) continue;
+    const start = Math.max(region[0], run.first.start);
+    const end = Math.min(region[1], run.last.end);
+    if (start < end) texts.push(document.text.slice(start, end));
+  }
+  return texts;
+}
+
+// Select in ranking order and then add linked neighbours when the *serialized*
+// text fits. This charges the restored source gaps, labels and omission marks.
+export function selectPassages(document: Document, chunks: Chunk[], ranked: number[], allowance: number): number[] {
+  const chosen = new Set<number>();
+  const add = (ordinal: number): boolean => {
+    if (!chunks[ordinal] || chosen.has(ordinal)) return false;
+    const candidate = [...chosen, ordinal].map((index) => chunks[index]);
+    if (passagesText(document, candidate).length > allowance) return false;
+    chosen.add(ordinal);
+    return true;
+  };
+  for (const ordinal of ranked) add(ordinal);
+  const queue = [...chosen];
+  while (queue.length) {
+    const ordinal = queue.shift()!;
+    const neighbours = [chunks[ordinal].continuesPrevious ? ordinal - 1 : -1, chunks[ordinal + 1]?.continuesPrevious ? ordinal + 1 : -1];
+    for (const neighbour of neighbours) if (neighbour >= 0 && add(neighbour)) queue.push(neighbour);
+  }
+  return [...chosen].sort((a, b) => a - b);
+}

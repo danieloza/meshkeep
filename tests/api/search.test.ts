@@ -1,10 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deletedResponse } from '@/lib/contracts/common';
 import { allConversations, conversationDetail, projectConversations } from '@/lib/contracts/conversations';
 import { fileSuggestions, indexRound, projectFiles } from '@/lib/contracts/files';
 import { searchResults } from '@/lib/contracts/search';
 import { MARK_START } from '@/lib/search';
-import { ID, ORIGIN, TOKENY, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
+import { ID, ORIGIN, TOKENY, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba, zepsujLokalnyIndeksFragmentow } from './harness';
 
 // Wyszukiwanie i podpowiedzi plikow na zbudowanym workerze. Najwazniejsza
 // regula: wynik nigdy nie pokazuje tresci z projektu, do ktorego pytajacy nie
@@ -22,6 +24,7 @@ const DLUGOSC = 205;
 // Projekt z kopia na Dysku Google. W testach Dysk nie jest skonfigurowany, wiec
 // wysylka pada juz po zapisie do R2 - dokladnie tam, gdzie zostawal sierota.
 const PROJEKT_NA_DYSKU = crypto.randomUUID();
+const PROJEKT_FRAGMENTOW = crypto.randomUUID();
 // Pliki w roznych stanach odczytu, w prywatnym projekcie wlasciciela. Ich
 // obiektow nie ma w R2, wiec kazda proba odczytu konczy sie bledem.
 const STAN = { ponowiony: crypto.randomUUID(), wyczerpany: crypto.randomUUID(), zawieszony: crypto.randomUUID() };
@@ -40,6 +43,7 @@ const DODATKOWE_WIADOMOSCI = [
   `INSERT INTO conversations (id,project_id,created_by,title,created_at,updated_at) VALUES ('${DLUGA_ROZMOWA}','${ID.projektWspolny}','${ID.wlasciciel}','Dluga rozmowa',${t},${t});`,
   `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${DLUGOSC}) INSERT INTO messages (id,conversation_id,member_id,role,content,created_at) SELECT 'dluga-' || i, '${DLUGA_ROZMOWA}', '${ID.wlasciciel}', 'user', 'Wpis numer ' || i, ${t} + i FROM n;`,
   `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,drive_folder_id,created_at,updated_at) VALUES ('${PROJEKT_NA_DYSKU}','${ID.wlasciciel}','Projekt na Dysku','','private','google_drive','folder-testowy',${t},${t});`,
+  `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,created_at,updated_at) VALUES ('${PROJEKT_FRAGMENTOW}','${ID.wlasciciel}','Projekt fragmentow','','private','r2',${t},${t});`,
   plikWStanie(STAN.ponowiony, 'stan/ponowiony.txt', 'failed', 'Stary powod', 1),
   plikWStanie(STAN.wyczerpany, 'stan/wyczerpany.txt', 'failed', 'Wyczerpany powod', 3),
   plikWStanie(STAN.zawieszony, 'stan/zawieszony.txt', 'extracting', null, 3),
@@ -85,6 +89,17 @@ describe('wysylka wielu plikow naraz', () => {
     const odp = await wyslij(TOKENY.wlasciciel, ID.projektWspolny, pliki);
     expect(odp.status, odp.tekst).toBe(201);
     expect(projectFiles.parse(odp.dane).files.length).toBe(12);
+  });
+
+  it('odrzuca powtorzone sciezki zanim zapisze obiekty', async () => {
+    const before = await sieroty();
+    const odp = await wyslij(TOKENY.wlasciciel, ID.projektWspolny, [
+      { sciezka: 'duplicate/test.txt', tresc: 'first' },
+      { sciezka: 'duplicate/test.txt', tresc: 'second' },
+    ]);
+    expect(odp.status, odp.tekst).toBe(400);
+    expect(odp.dane.error).toContain('different path');
+    expect(await sieroty()).toEqual(before);
   });
 });
 
@@ -293,4 +308,68 @@ describe('stan odczytu plikow', () => {
     expect(obraz.text.note).toContain('not converted to text');
     expect(notatka.text).toEqual({ status: 'indexed', note: null, retrying: false });
   });
+});
+
+describe('indeks fragmentow dokumentu', () => {
+  it('reports passage backlog separately from completed file-text indexing', async () => {
+    const files = Array.from({ length: 5 }, (_, i) => ({ sciezka: `passages/file-${i}.txt`, tresc: `Ready text ${i}` }));
+    const upload = await wyslij(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW, files);
+    expect(upload.status, upload.tekst).toBe(201);
+    expect(projectFiles.parse(upload.dane).files.every((file) => file.text.status === 'indexed')).toBe(true);
+    const first = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(first.status, first.tekst).toBe(200);
+    expect(indexRound.parse(first.dane)).toMatchObject({ indexed: 0, failed: 0, remaining: 0, passagesRemaining: 3 });
+    const second = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(indexRound.parse(second.dane)).toMatchObject({ remaining: 0, passagesRemaining: 1 });
+    const third = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(indexRound.parse(third.dane)).toMatchObject({ remaining: 0, passagesRemaining: 0 });
+  }, 120_000);
+
+  it('zapisuje tresc i strony prawdziwych plikow, a kasowanie usuwa indeks', async () => {
+    const form = new FormData();
+    form.append('files', new File(['# Contract\n\nUnique chunk marker zenith.'], 'context-check.md', { type: 'text/markdown' }));
+    form.append('files', new File([readFileSync(join(import.meta.dirname, '..', 'fixtures', 'umowa.pdf'))], 'context-check.pdf', { type: 'application/pdf' }));
+    form.append('paths', JSON.stringify(['chunks/context-check.md', 'chunks/context-check.pdf']));
+    const upload = await zapytaj(`/api/projects/${ID.projektWspolny}/files`, { method: 'POST', headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel) }, body: form });
+    expect(upload.status, upload.tekst).toBe(201);
+    const [markdown, pdf] = projectFiles.parse(upload.dane).files;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const round = await indeksuj(TOKENY.wlasciciel, ID.projektWspolny);
+      expect(round.status, round.tekst).toBe(200);
+      const parsed = indexRound.parse(round.dane);
+      if (parsed.remaining === 0 && parsed.passagesRemaining === 0) break;
+      if (attempt === 29) throw new Error('Context indexing did not finish in 30 rounds.');
+    }
+    const states = odczytajLokalneD1('SELECT file_id, status, chunk_count FROM file_chunk_states WHERE file_id IN (?, ?) ORDER BY file_id', markdown.id, pdf.id);
+    expect(states).toHaveLength(2);
+    for (const state of states) { expect(state.status).toBe('indexed'); expect(Number(state.chunk_count)).toBeGreaterThan(0); }
+    const markdownRows = odczytajLokalneD1('SELECT content, label FROM file_chunks WHERE file_id = ? ORDER BY ordinal', markdown.id);
+    expect(markdownRows.some((row) => String(row.content).includes('Unique chunk marker zenith.'))).toBe(true);
+    const pdfRows = odczytajLokalneD1('SELECT place, content FROM file_chunks WHERE file_id = ? ORDER BY ordinal', pdf.id);
+    expect(pdfRows.some((row) => String(row.place).startsWith('page ') && String(row.content).length > 0)).toBe(true);
+    const fts = odczytajLokalneD1('SELECT c.file_id FROM file_chunks_fts x JOIN file_chunks c ON c.rowid=x.rowid WHERE file_chunks_fts MATCH ?', 'zenith');
+    expect(fts.some((row) => row.file_id === markdown.id)).toBe(true);
+    const removed = await zapytaj(`/api/files/${markdown.id}`, { method: 'DELETE', headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel) } });
+    expect(removed.status, removed.tekst).toBe(200);
+    expect(odczytajLokalneD1('SELECT file_id FROM file_chunks WHERE file_id = ?', markdown.id)).toEqual([]);
+    expect(odczytajLokalneD1('SELECT c.file_id FROM file_chunks_fts x JOIN file_chunks c ON c.rowid=x.rowid WHERE file_chunks_fts MATCH ?', 'zenith')).toEqual([]);
+  }, 120_000);
+
+  it('preserves existing file indexing when the new index fails', async () => {
+    const form = new FormData();
+    form.append('files', new File([readFileSync(join(import.meta.dirname, '..', 'fixtures', 'umowa.pdf'))], 'legacy-fallback.pdf', { type: 'application/pdf' }));
+    form.append('paths', JSON.stringify(['chunks/legacy-fallback.pdf']));
+    const upload = await zapytaj(`/api/projects/${ID.projektWspolny}/files`, { method: 'POST', headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel) }, body: form });
+    expect(upload.status, upload.tekst).toBe(201);
+    const file = projectFiles.parse(upload.dane).files[0];
+    expect(file.text.status).toBe('pending');
+    zepsujLokalnyIndeksFragmentow();
+    const round = await indeksuj(TOKENY.wlasciciel, ID.projektWspolny);
+    expect(round.status, round.tekst).toBe(200);
+    const parsed = indexRound.parse(round.dane);
+    expect(parsed.indexed).toBeGreaterThan(0);
+    expect(parsed.passagesRemaining).toBeUndefined();
+    const listing = await zapytaj(`/api/projects/${ID.projektWspolny}/files`, { headers: jako(TOKENY.wlasciciel) });
+    expect(projectFiles.parse(listing.dane).files.find((item) => item.id === file.id)?.text.status).toBe('indexed');
+  }, 120_000);
 });

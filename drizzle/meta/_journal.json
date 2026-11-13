@@ -64,6 +64,13 @@
       "when": 1793901693518,
       "tag": "0008_extraction_status",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793901693519,
+      "tag": "0009_file_chunks",
+      "breakpoints": true
     }
   ]
 }
