@@ -24,6 +24,7 @@ const DLUGOSC = 205;
 // Projekt z kopia na Dysku Google. W testach Dysk nie jest skonfigurowany, wiec
 // wysylka pada juz po zapisie do R2 - dokladnie tam, gdzie zostawal sierota.
 const PROJEKT_NA_DYSKU = crypto.randomUUID();
+const PROJEKT_FRAGMENTOW = crypto.randomUUID();
 // Pliki w roznych stanach odczytu, w prywatnym projekcie wlasciciela. Ich
 // obiektow nie ma w R2, wiec kazda proba odczytu konczy sie bledem.
 const STAN = { ponowiony: crypto.randomUUID(), wyczerpany: crypto.randomUUID(), zawieszony: crypto.randomUUID() };
@@ -42,6 +43,7 @@ const DODATKOWE_WIADOMOSCI = [
   `INSERT INTO conversations (id,project_id,created_by,title,created_at,updated_at) VALUES ('${DLUGA_ROZMOWA}','${ID.projektWspolny}','${ID.wlasciciel}','Dluga rozmowa',${t},${t});`,
   `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${DLUGOSC}) INSERT INTO messages (id,conversation_id,member_id,role,content,created_at) SELECT 'dluga-' || i, '${DLUGA_ROZMOWA}', '${ID.wlasciciel}', 'user', 'Wpis numer ' || i, ${t} + i FROM n;`,
   `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,drive_folder_id,created_at,updated_at) VALUES ('${PROJEKT_NA_DYSKU}','${ID.wlasciciel}','Projekt na Dysku','','private','google_drive','folder-testowy',${t},${t});`,
+  `INSERT INTO projects (id,owner_id,name,description,visibility,storage_provider,created_at,updated_at) VALUES ('${PROJEKT_FRAGMENTOW}','${ID.wlasciciel}','Projekt fragmentow','','private','r2',${t},${t});`,
   plikWStanie(STAN.ponowiony, 'stan/ponowiony.txt', 'failed', 'Stary powod', 1),
   plikWStanie(STAN.wyczerpany, 'stan/wyczerpany.txt', 'failed', 'Wyczerpany powod', 3),
   plikWStanie(STAN.zawieszony, 'stan/zawieszony.txt', 'extracting', null, 3),
@@ -309,6 +311,20 @@ describe('stan odczytu plikow', () => {
 });
 
 describe('indeks fragmentow dokumentu', () => {
+  it('reports passage backlog separately from completed file-text indexing', async () => {
+    const files = Array.from({ length: 5 }, (_, i) => ({ sciezka: `passages/file-${i}.txt`, tresc: `Ready text ${i}` }));
+    const upload = await wyslij(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW, files);
+    expect(upload.status, upload.tekst).toBe(201);
+    expect(projectFiles.parse(upload.dane).files.every((file) => file.text.status === 'indexed')).toBe(true);
+    const first = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(first.status, first.tekst).toBe(200);
+    expect(indexRound.parse(first.dane)).toMatchObject({ indexed: 0, failed: 0, remaining: 0, passagesRemaining: 3 });
+    const second = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(indexRound.parse(second.dane)).toMatchObject({ remaining: 0, passagesRemaining: 1 });
+    const third = await indeksuj(TOKENY.wlasciciel, PROJEKT_FRAGMENTOW);
+    expect(indexRound.parse(third.dane)).toMatchObject({ remaining: 0, passagesRemaining: 0 });
+  }, 120_000);
+
   it('zapisuje tresc i strony prawdziwych plikow, a kasowanie usuwa indeks', async () => {
     const form = new FormData();
     form.append('files', new File(['# Contract\n\nUnique chunk marker zenith.'], 'context-check.md', { type: 'text/markdown' }));
@@ -320,7 +336,8 @@ describe('indeks fragmentow dokumentu', () => {
     for (let attempt = 0; attempt < 30; attempt += 1) {
       const round = await indeksuj(TOKENY.wlasciciel, ID.projektWspolny);
       expect(round.status, round.tekst).toBe(200);
-      if (indexRound.parse(round.dane).remaining === 0) break;
+      const parsed = indexRound.parse(round.dane);
+      if (parsed.remaining === 0 && parsed.passagesRemaining === 0) break;
       if (attempt === 29) throw new Error('Context indexing did not finish in 30 rounds.');
     }
     const states = odczytajLokalneD1('SELECT file_id, status, chunk_count FROM file_chunk_states WHERE file_id IN (?, ?) ORDER BY file_id', markdown.id, pdf.id);
@@ -349,7 +366,9 @@ describe('indeks fragmentow dokumentu', () => {
     zepsujLokalnyIndeksFragmentow();
     const round = await indeksuj(TOKENY.wlasciciel, ID.projektWspolny);
     expect(round.status, round.tekst).toBe(200);
-    expect(indexRound.parse(round.dane).indexed).toBeGreaterThan(0);
+    const parsed = indexRound.parse(round.dane);
+    expect(parsed.indexed).toBeGreaterThan(0);
+    expect(parsed.passagesRemaining).toBeUndefined();
     const listing = await zapytaj(`/api/projects/${ID.projektWspolny}/files`, { headers: jako(TOKENY.wlasciciel) });
     expect(projectFiles.parse(listing.dane).files.find((item) => item.id === file.id)?.text.status).toBe('indexed');
   }, 120_000);

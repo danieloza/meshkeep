@@ -116,7 +116,8 @@ export async function indexPendingFiles(projectId: string) {
   // Backfill passages in the same bounded rounds, without changing the
   // existing file-index counters or the response shape. While file extraction
   // is busy, take only one additional document to limit worker CPU time.
-  let contextRemaining = 0;
+  // Leave the optional count absent when this round fails: its backlog is unknown.
+  let contextRemaining: number | undefined;
   try {
     contextRemaining = (await indexPendingContextChunks(projectId, due.length ? 1 : 2)).remaining;
   } catch {
@@ -124,5 +125,5 @@ export async function indexPendingFiles(projectId: string) {
     // chunk round must not hide the result of a successful file-text round.
     console.error('The optional context-chunk indexing round failed.');
   }
-  return { indexed: due.length, failed, remaining: remaining + contextRemaining };
+  return { indexed: due.length, failed, remaining, passagesRemaining: contextRemaining };
 }

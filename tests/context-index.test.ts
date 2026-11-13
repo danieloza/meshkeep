@@ -160,6 +160,14 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     expect(state('b')).toMatchObject({ status: 'failed', lease_id: null, attempts: 3 });
   });
 
+  it('persists the partial-document reason from the reader', async () => {
+    addFile('a');
+    const reason = 'Only the beginning of this PDF was indexed for passages.';
+    mocks.read.mockResolvedValue({ document: { text: 'page 1' }, reason, failed: false });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
+    expect(state('a')).toMatchObject({ status: 'indexed', reason, chunk_count: 1 });
+  });
+
   it('prevents a stale worker from deleting or overwriting the newer lease and its FTS rows', async () => {
     addFile('a');
     let resume!: (value: unknown) => void;
@@ -191,6 +199,35 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     expect(await first).toEqual({ processed: 1, failed: 0, remaining: 0 });
     expect(mocks.read).toHaveBeenCalledTimes(1);
     expect(state('a')).toMatchObject({ attempts: 1, status: 'indexed' });
+  });
+
+  it('fences an expired worker while its replacement is still indexing', async () => {
+    addFile('a');
+    let finishOld!: (value: unknown) => void;
+    let finishNew!: (value: unknown) => void;
+    let oldStarted!: () => void;
+    let newStarted!: () => void;
+    const oldReading = new Promise<void>((resolve) => { oldStarted = resolve; });
+    const newReading = new Promise<void>((resolve) => { newStarted = resolve; });
+    mocks.read.mockImplementationOnce(() => { oldStarted(); return new Promise((resolve) => { finishOld = resolve; }); });
+    mocks.read.mockImplementationOnce(() => { newStarted(); return new Promise((resolve) => { finishNew = resolve; }); });
+    const old = indexPendingContextChunks('p');
+    await oldReading;
+    const oldLease = state('a')?.lease_id;
+    vi.advanceTimersByTime(2 * 60_000 + 1);
+    const newer = indexPendingContextChunks('p');
+    await newReading;
+    const newState = state('a');
+    expect(newState).toMatchObject({ status: 'indexing', attempts: 2 });
+    expect(newState?.lease_id).not.toBe(oldLease);
+    finishOld({ document: { text: 'old' }, reason: null, failed: false });
+    await old;
+    expect(state('a')).toEqual(newState);
+    expect(chunks('a')).toEqual([]);
+    finishNew({ document: { text: 'new' }, reason: null, failed: false });
+    expect(await newer).toEqual({ processed: 1, failed: 0, remaining: 0 });
+    expect(state('a')).toMatchObject({ status: 'indexed', attempts: 2, lease_id: null });
+    expect(chunks('a')).toHaveLength(1);
   });
 
   it('rolls back all inserted chunks when a later insert fails and refuses more than 600 chunks', async () => {

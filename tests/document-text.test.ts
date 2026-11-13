@@ -47,6 +47,15 @@ function zip(entries: Record<string, string>): Uint8Array<ArrayBuffer> {
 }
 
 describe('DOCX', () => {
+  it('rejects a real ZIP with more archive entries than the positive limit', async () => {
+    const bytes = zip({ 'word/document.xml': '<w:p><w:t>Hello</w:t></w:p>', 'other.xml': '<other/>' });
+    const allowed = await wydobadzTekstDokumentu('docx', bytes, { maxArchiveBytes: 1_000_000, maxArchiveEntries: 2 });
+    expect(allowed.tekst).toBe('Hello');
+    const rejected = await wydobadzTekstDokumentu('docx', bytes, { maxArchiveBytes: 1_000_000, maxArchiveEntries: 1 });
+    expect(rejected.tekst).toBe('');
+    expect(rejected.powod).toContain('too many archive entries');
+    expect(rejected.blad).toBeUndefined();
+  });
   it('limits actual decompressed bytes and leaves normal extraction unchanged', async () => {
     const bytes = wczytaj('przyklad.docx');
     const normal = await wydobadzTekstDokumentu('docx', bytes);

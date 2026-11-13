@@ -44,9 +44,11 @@ export const pruneFilesResponse = z.object({ deleted: z.number().int(), notFound
 export type PruneFilesResponse = z.infer<typeof pruneFilesResponse>;
 
 // POST /api/projects/[id]/search-index
-// `failed`: files this round could not read. `remaining`: files due now; one
-// waiting for its next try after a failure is not counted until it is due.
-export const indexRound = z.object({ indexed: z.number().int(), failed: z.number().int(), remaining: z.number().int() });
+// `failed`: file-text reads that failed this round. `remaining`: file-text work
+// due now; delayed retries are excluded. `passagesRemaining`: optional separate
+// count of passage-index work due now, also excluding delayed retries; absent
+// when passage indexing failed and its backlog could not be counted.
+export const indexRound = z.object({ indexed: z.number().int(), failed: z.number().int(), remaining: z.number().int(), passagesRemaining: z.number().int().optional() });
 export type IndexRound = z.infer<typeof indexRound>;
 
 // GET /api/projects/[id]/suggest-files
