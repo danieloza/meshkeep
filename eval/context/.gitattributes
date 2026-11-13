@@ -1,0 +1,12 @@
+# The corpus of a set is uploaded byte for byte, and every result depends on
+# those bytes: lengths, hashes, where a paragraph ends. With core.autocrlf, Git
+# would check the text files out with CRLF on Windows and LF elsewhere, and the
+# same commit would measure differently on two machines. `-text` makes Git keep
+# the bytes as they are committed, which is with LF.
+sets/*/corpus/** -text
+
+# Sources the corpus is built from, and the results, always with LF, so that
+# rebuilding or re-measuring never shows a difference that is only line endings.
+sets/*/sources/** text eol=lf
+sets/*/*.json text eol=lf
+sets/*/*.mjs text eol=lf

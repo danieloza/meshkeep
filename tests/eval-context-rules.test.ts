@@ -1,0 +1,397 @@
+import { DatabaseSync } from 'node:sqlite';
+import { describe, expect, it } from 'vitest';
+import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passageSearchLabel, passagesText, pdfDocument, selectPassages, sheetUnits, sourcePassageTexts, splitRange, wholeSourceTexts, type Document } from '@/eval/context/chunking';
+import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, fileContextMessage, normalizeText, quoteDelivered, remainingFileContextChars, splitFileContext, totalOf } from '@/eval/context/measure';
+import { buildSuggestQuery } from '@/lib/search';
+
+// The rules the context evaluation counts by, and the chunking rule its
+// simulation uses. Each case here is one a review found the earlier versions
+// got wrong, or could get wrong without anyone noticing.
+
+const markdown = (text: string): Document => ({ text: canonicalText(text), units: markdownUnits(canonicalText(text)) });
+const plain = (text: string): Document => ({ text: canonicalText(text), units: paragraphUnits(canonicalText(text)) });
+const sheet = (text: string): Document => ({ text: canonicalText(text), units: sheetUnits(canonicalText(text)) });
+const loneSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+const hasFts5 = (() => {
+  const db = new DatabaseSync(':memory:');
+  try { db.exec('CREATE VIRTUAL TABLE probe USING fts5(text)'); return true; } catch { return false; } finally { db.close(); }
+})();
+
+describe('chunking', () => {
+  const runbook = '# Runbook\n\nIntro paragraph.\n\n## Deploying\n\nReleases go out on Tuesday.\n\nNo releases on Fridays.\n\n## Rollback\n\nRun the rollback command.\n';
+
+  it('every chunk is a slice of the text, and consecutive chunks give it back exactly', () => {
+    for (const document of [markdown(runbook), plain('One.\n\nTwo.\n\n\nThree.'), sheet('# sheet1.xml\nName\tValue\na\t1\nb\t2')]) {
+      for (const joinSections of [false, true]) {
+        const chunks = chunksOf(document, joinSections);
+        for (const chunk of chunks) expect(chunk.text).toBe(document.text.slice(chunk.start, chunk.end));
+        // Every displayed run remains an exact source slice; labels are separate.
+        for (const body of sourcePassageTexts(document, chunks)) expect(document.text).toContain(body);
+      }
+    }
+  });
+
+  it('cuts a file the same way with LF and with CRLF line endings', () => {
+    const crlf = runbook.replaceAll('\n', '\r\n');
+    expect(crlf).not.toBe(runbook);
+    for (const joinSections of [false, true]) expect(chunksOf(markdown(crlf), joinSections)).toEqual(chunksOf(markdown(runbook), joinSections));
+    expect(chunksOf(plain('A.\r\n\r\nB.'), true)).toEqual(chunksOf(plain('A.\n\nB.'), true));
+    expect(canonicalText('a\r\nb\rc\nd')).toBe('a\nb\nc\nd');
+  });
+
+  it('keeps headings in the text where the file has them, and in the label', () => {
+    const document = markdown('# Final instructions\n\n## Details\n\nKeep original wording.');
+    const [chunk] = chunksOf(document, true);
+    expect(chunk.text).toBe('# Final instructions\n\n## Details\n\nKeep original wording.');
+    // A quote with the heading syntax in it is found as the file has it.
+    expect(quoteDelivered('## Details Keep original wording.', passagesText(document, [chunk]))).toBe(true);
+
+    // A heading with no text under it does not disappear.
+    const empty = markdown('## A\n## B\ntext');
+    expect(chunksOf(empty, true).map((entry) => entry.text).join('')).toContain('## A');
+    expect(chunksOf(empty, false).map((entry) => entry.text)).toEqual(['## A', '## B\ntext']);
+
+    // Kept apart, a chunk starts at every heading, and its label says where it is.
+    const apart = chunksOf(markdown(runbook), false);
+    expect(apart.map((entry) => entry.heading)).toEqual(['Runbook', 'Runbook › Deploying', 'Runbook › Rollback']);
+    expect(passageLabel(apart[1])).toBe('[Runbook › Deploying]');
+    expect(apart[1].text.startsWith('## Deploying\n\nReleases')).toBe(true);
+  });
+
+  it('does not take a # inside a code fence for a heading', () => {
+    const units = markdownUnits('## Setup\n\n```bash\n# not a heading\n\nnpm ci\n```\n');
+    expect(units.filter((unit) => unit.section)).toHaveLength(1);
+    expect(units.at(-1)!.heading).toBe('Setup');
+    for (const fence of ['~~~', '````']) {
+      const inner = fence === '~~~' ? '~~~not-closing' : '```';
+      const text = `# Parent\n\n${fence}\n${inner}\n# fake heading\n${fence}\n\nexpected target`;
+      const document = markdown(text);
+      expect(document.units.filter((unit) => unit.section).map((unit) => unit.heading)).toEqual(['Parent']);
+      expect(wholeSourceTexts(document, { heading: 'Parent' }).some((body) => quoteDelivered('expected target', body))).toBe(true);
+      expect(sourcePassageTexts(document, chunksOf(document, true), { heading: 'Parent' }).some((body) => quoteDelivered('expected target', body))).toBe(true);
+    }
+  });
+
+  it('cuts a line longer than the maximum, losing and adding nothing', () => {
+    const spaced = Array.from({ length: 1_200 }, (_, index) => `word${index}`).join(' ');
+    const solid = 'x'.repeat(7_000);
+    for (const line of [spaced, solid]) {
+      const pieces = splitRange(line, 0, line.length);
+      expect(pieces.length).toBeGreaterThan(1);
+      for (const [start, end] of pieces) expect(end - start).toBeLessThanOrEqual(CHUNK_RULE.targetChars);
+      expect(pieces.map(([start, end]) => line.slice(start, end)).join('')).toBe(line);
+    }
+    expect(splitRange('y'.repeat(CHUNK_RULE.maxChars), 0, CHUNK_RULE.maxChars)).toHaveLength(1);
+  });
+
+  it('never cuts between the two halves of a character', () => {
+    const line = 'x'.repeat(CHUNK_RULE.targetChars - 1) + '😀'.repeat(2_000);
+    for (const [start, end] of splitRange(line, 0, line.length)) expect(loneSurrogate.test(line.slice(start, end))).toBe(false);
+  });
+
+  it('never makes a chunk longer than the maximum, whatever the input', () => {
+    const inputs = [
+      plain(Array.from({ length: 1_200 }, (_, index) => `word${index}`).join(' ')),
+      plain('short line\n'.repeat(400)),
+      markdown(`# ${'Title '.repeat(500)}\n\n${'z'.repeat(CHUNK_RULE.maxChars - 10)}`),
+      sheet(`# sheet1.xml\nName\tValue\n${Array.from({ length: 300 }, (_, index) => `row ${index}\t${index}`).join('\n')}`),
+    ];
+    for (const document of inputs) {
+      for (const joinSections of [false, true]) {
+        const chunks = chunksOf(document, joinSections);
+        expect(chunks.length).toBeGreaterThan(0);
+        for (const chunk of chunks) expect(chunk.text.length).toBeLessThanOrEqual(CHUNK_RULE.maxChars);
+      }
+    }
+  });
+
+  it('a quote across a cut inside a word is delivered when both pieces are sent, and not when one is', () => {
+    const document = plain(`${'x'.repeat(1_495)}ABCDEF1234${'y'.repeat(5_500)}`);
+    const quote = 'xxxxxABCDEF1234yyyyy';
+    const chunks = chunksOf(document, true);
+    const holder = chunks.findIndex((chunk) => chunk.text.includes('ABCDEF1234'));
+    expect(holder).toBe(-1); // the cut falls inside the token
+    expect(chunks[1].continuesPrevious).toBe(true);
+    expect(quoteDelivered(quote, passagesText(document, chunks))).toBe(true);
+    expect(quoteDelivered(quote, passagesText(document, chunks.slice(0, 2)))).toBe(true);
+    expect(quoteDelivered(quote, passagesText(document, [chunks[0]]))).toBe(false);
+    expect(quoteDelivered(quote, passagesText(document, [chunks[0], chunks[2]]))).toBe(false);
+  });
+
+  it('brings the neighbours a cut makes inseparable, while there is room', () => {
+    // A line of 2 505 characters: over the maximum, so cut once, into two pieces.
+    const document = plain(`Intro.\n\n${'x'.repeat(1_495)}ABCDEF1234${'y'.repeat(1_000)}\n\nOutro.`);
+    const chunks = chunksOf(document, true);
+    const cutAt = chunks.findIndex((chunk) => chunk.continuesPrevious);
+    expect(cutAt).toBeGreaterThan(0);
+    // Choosing either half brings the other.
+    expect(selectPassages(document, chunks, [cutAt], 10_000)).toEqual([cutAt - 1, cutAt]);
+    expect(selectPassages(document, chunks, [cutAt - 1], 10_000)).toEqual([cutAt - 1, cutAt]);
+    expect(quoteDelivered('xxxxxABCDEF1234yyyyy', passagesText(document, selectPassages(document, chunks, [cutAt], 10_000).map((ordinal) => chunks[ordinal])))).toBe(true);
+    // Not past the room, and never a chunk that is not linked.
+    expect(selectPassages(document, chunks, [cutAt], chunks[cutAt].text.length)).toEqual([cutAt]);
+    expect(selectPassages(document, chunks, [0], 10_000)).toEqual([0]);
+
+    // A longer line is cut more than once, and all its pieces belong together.
+    const longDocument = plain(`${'x'.repeat(1_495)}ABCDEF1234${'y'.repeat(3_000)}`);
+    const longer = chunksOf(longDocument, true);
+    expect(longer.length).toBeGreaterThan(2);
+    expect(selectPassages(longDocument, longer, [1], 10_000)).toEqual(longer.map((chunk) => chunk.ordinal));
+  });
+
+  it('labels every chunk of a sheet with its header row, bounded, and says when it is cut', () => {
+    const rows = Array.from({ length: 300 }, (_, index) => `Position ${index}\t${index * 10}`).join('\n');
+    const document = sheet(`# sheet1.xml\nPosition\tAmount\n${rows}\n\n# sheet2.xml\nRole\tRate\nTester\t120`);
+    const chunks = chunksOf(document, true);
+    for (const chunk of chunks.filter((entry) => entry.place === 'sheet 1' && entry.header !== undefined)) expect(passageLabel(chunk)).toBe('[sheet 1 · columns: Position | Amount]');
+    const tester = chunks.find((entry) => entry.text.includes('Tester\t120'))!;
+    expect(passageLabel(tester)).toBe('[sheet 2 · columns: Role | Rate]');
+
+    // A header longer than the label allows: the row is still sent under it, cut and marked.
+    const header = Array.from({ length: 300 }, (_, index) => `column${index}`).join('\t');
+    const wide = sheet(`# sheet1.xml\n${header}\nitem\t42`);
+    const row = chunksOf(wide, true).find((entry) => entry.text.includes('item\t42'))!;
+    expect(row.headerCut).toBe(true);
+    expect(passageLabel(row)).toContain('columns: column0 | column1');
+    expect(passageLabel(row).endsWith(' …]')).toBe(true);
+    expect(row.header!.length).toBe(CHUNK_RULE.headerChars);
+    expect(passagesText(wide, [row])).toContain('columns: column0');
+    expect(passageSearchLabel(row)).toContain('column299');
+  });
+
+  it('keeps every chunk of a PDF on its page', () => {
+    const document = pdfDocument(['First page.\n\nMore on page one.', '', 'Third page.']);
+    const chunks = chunksOf(document, true);
+    expect(chunks.map((chunk) => chunk.place)).toEqual(['page 1', 'page 3']);
+    expect(chunks[1].text).toBe('Third page.');
+    expect(lineUnits('a\n\nb\nc').map((unit) => unit.end - unit.start)).toEqual([1, 1, 1]);
+  });
+
+  it('keeps labels for adjacent pages and sheets while joining pieces of one unit', () => {
+    const pdf = pdfDocument(['First page text', 'Second page text']);
+    expect(passagesText(pdf, chunksOf(pdf, true))).toBe('[page 1]\nFirst page text\n\n[page 2]\nSecond page text');
+    const table = sheet('# sheet1.xml\nName\tCost\nApple\t5\n\n# sheet2.xml\nCountry\tCurrency\nPoland\tPLN');
+    const text = passagesText(table, chunksOf(table, true));
+    expect(text).toContain('[sheet 1 · columns: Name | Cost]');
+    expect(text).toContain('[sheet 2 · columns: Country | Currency]');
+    const long = plain('x'.repeat(1_495) + 'ABCDEF1234' + 'y'.repeat(5_500));
+    const chunks = chunksOf(long, true);
+    expect(passagesText(long, chunks.slice(0, 2))).toBe(long.text.slice(chunks[0].start, chunks[1].end));
+    // A long unit after a heading change must not start in an earlier-labelled
+    // chunk and then acquire a new label in the middle of a word.
+    const afterHeading = markdown('# A\n\n## B\n\n' + 'x'.repeat(1_495) + 'ABCDEF1234' + 'y'.repeat(5_500));
+    const following = chunksOf(afterHeading, true);
+    const acrossCut = selectPassages(afterHeading, following, following.map((chunk) => chunk.ordinal), 10_000);
+    const sent = passagesText(afterHeading, acrossCut.map((ordinal) => following[ordinal]));
+    expect(quoteDelivered('xxxxxABCDEF1234yyyyy', sent)).toBe(true);
+    const cut = following.findIndex((chunk) => chunk.continuesPrevious);
+    expect(following[cut - 1].heading).toBe('A › B');
+    expect(following[cut].heading).toBe('A › B');
+    // This first piece is short enough to fit after the preceding headings;
+    // merging it there would inject a changed label into the cut paragraph.
+    const shortFirst = markdown('# A\n\n## B\n\n' + 'x'.repeat(800) + ' ' + 'y'.repeat(3_000));
+    const shortChunks = chunksOf(shortFirst, true);
+    const shortSelected = selectPassages(shortFirst, shortChunks, shortChunks.map((chunk) => chunk.ordinal), 10_000);
+    expect(quoteDelivered('xxxx yyyy', passagesText(shortFirst, shortSelected.map((ordinal) => shortChunks[ordinal])))).toBe(true);
+  });
+
+  it('charges restored gaps, labels, markers and the complete message before selection', () => {
+    const document = plain('alpha' + '\n'.repeat(50_000) + 'bravo');
+    const chunks = chunksOf(document, true);
+    expect(chunks.map((chunk) => chunk.text.length)).toEqual([5, 5]);
+    const chosen = selectPassages(document, chunks, [0, 1], 6_000);
+    expect(chosen).toEqual([0]);
+    expect(passagesText(document, chosen.map((ordinal) => chunks[ordinal])).length).toBeLessThanOrEqual(6_000);
+    const prior = [{ path: 'a.md', mimeType: 'text/markdown', sizeBytes: 3, text: 'abc' }];
+    const next = { path: 'b.md', mimeType: 'text/markdown', sizeBytes: 50_010 };
+    const allowance = remainingFileContextChars(prior, next, 300);
+    const selected = selectPassages(document, chunks, [0, 1], allowance);
+    const body = passagesText(document, selected.map((ordinal) => chunks[ordinal]));
+    expect(body).toBe('alpha');
+    expect(fileContextMessage([...prior, { ...next, text: body }]).length).toBeLessThanOrEqual(300);
+    const labelled = markdown(`# ${'heading '.repeat(200)}\n\nbody`);
+    expect(selectPassages(labelled, chunksOf(labelled, false), [0], 10)).toEqual([]);
+  });
+
+  it('separates delivered labels from selected source ranges and checks the locator', () => {
+    const document = markdown('# Confidential milestone\n\n' + 'other info '.repeat(180));
+    const chunks = chunksOf(document, false);
+    const body = chunks.find((chunk) => !chunk.text.includes('Confidential milestone'))!;
+    expect(quoteDelivered('Confidential milestone', passagesText(document, [body]))).toBe(true);
+    expect(sourcePassageTexts(document, [body], { heading: 'Confidential milestone' }).some((text) => quoteDelivered('Confidential milestone', text))).toBe(false);
+    const title = chunks.find((chunk) => chunk.text.includes('Confidential milestone'))!;
+    expect(sourcePassageTexts(document, [title]).some((text) => quoteDelivered('Confidential milestone', text))).toBe(true);
+    expect(sourcePassageTexts(document, [title], { heading: 'Another heading' })).toEqual([]);
+    const pdf = pdfDocument(['duplicate quote', 'duplicate quote']);
+    const pages = chunksOf(pdf, true);
+    expect(sourcePassageTexts(pdf, [pages[0]], { page: 2 })).toEqual([]);
+    expect(sourcePassageTexts(pdf, [pages[1]], { page: 2 })).toEqual(['duplicate quote']);
+    const nested = markdown('# Parent\n\n## Details\n\nAnswer here.');
+    expect(sourcePassageTexts(nested, chunksOf(nested, true), { heading: 'Details' }).some((text) => quoteDelivered('Answer here.', text))).toBe(true);
+    expect(wholeSourceTexts(nested, { heading: 'Parent' }).some((text) => quoteDelivered('Answer here.', text))).toBe(false);
+    expect(wholeSourceTexts(pdf, { page: 2 })).toEqual(['duplicate quote']);
+    // The separator used for display may itself be part of a real heading.
+    const literalSeparator = markdown('# Alpha › Beta\n\nanswer');
+    const selected = chunksOf(literalSeparator, true);
+    expect(sourcePassageTexts(literalSeparator, selected, { heading: 'Alpha › Beta' }).some((text) => quoteDelivered('answer', text))).toBe(true);
+    expect(wholeSourceTexts(literalSeparator, { heading: 'Alpha › Beta' }).some((text) => quoteDelivered('answer', text))).toBe(true);
+    expect(sourcePassageTexts(literalSeparator, selected, { heading: 'Beta' })).toEqual([]);
+    expect(wholeSourceTexts(literalSeparator, { heading: 'Beta' })).toEqual([]);
+    // The locator names the first matching heading's body, ending at the next
+    // heading (also a child). A duplicate quote below a child cannot pass.
+    const duplicate = markdown('# Parent\n\nExact target phrase.\n\n## Child\n\nExact target phrase.');
+    const duplicateChunks = chunksOf(duplicate, false);
+    const child = duplicateChunks.filter((chunk) => chunk.heading === 'Parent › Child');
+    expect(quoteDelivered('Exact target phrase.', passagesText(duplicate, child))).toBe(true);
+    expect(sourcePassageTexts(duplicate, child, { heading: 'Parent' }).some((text) => quoteDelivered('Exact target phrase.', text))).toBe(false);
+    expect(wholeSourceTexts(duplicate, { heading: 'Parent' }).some((text) => quoteDelivered('Exact target phrase.', text))).toBe(true);
+  });
+
+  it('bounds long Markdown heading labels without splitting Unicode', () => {
+    const title = 'x'.repeat(999) + '😀' + 'z'.repeat(100) + ' criticalkey ' + 'z'.repeat(5_000);
+    const document = markdown(`# ${title}\n\nA decisive unique answer.`);
+    const chunks = chunksOf(document, false);
+    const answer = chunks.find((chunk) => chunk.text.includes('A decisive unique answer.'))!;
+    expect(passageLabel(answer).length).toBeLessThan(1_100);
+    expect(passageLabel(answer)).toContain(' …]');
+    expect(passageLabel(answer)).not.toMatch(loneSurrogate);
+    expect(passageLabel(answer)).not.toContain('criticalkey');
+    expect(passageSearchLabel(answer)).toContain('criticalkey');
+    const selected = selectPassages(document, chunks, [answer.ordinal], 6_000);
+    expect(selected).toContain(answer.ordinal);
+    expect(passagesText(document, selected.map((ordinal) => chunks[ordinal])).length).toBeLessThanOrEqual(6_000);
+    expect(sourcePassageTexts(document, [answer], { heading: title }).some((text) => quoteDelivered('A decisive unique answer.', text))).toBe(true);
+  });
+
+  it('does not merge distinct headings that share the same truncated display label', () => {
+    const prefix = 'common '.repeat(150);
+    const document = markdown(`# ${prefix} FIRST\n\nfirst passage${'\n'.repeat(7_000)}# ${prefix} SECOND\n\nanswer passage`);
+    const chunks = chunksOf(document, true);
+    expect(passageLabel(chunks[0])).toBe(passageLabel(chunks[1]));
+    expect(chunks[0].heading).not.toBe(chunks[1].heading);
+    const selected = selectPassages(document, chunks, [0, 1], 6_000);
+    expect(selected).toEqual([0, 1]);
+    expect(passagesText(document, selected.map((ordinal) => chunks[ordinal]))).toContain('answer passage');
+  });
+
+  it.skipIf(!hasFts5)('finds the answer through a term beyond the display-label limit', () => {
+    const title = 'prefix '.repeat(170) + 'criticalkey';
+    const document = markdown(`# ${title}\n\nA decisive unique answer.`);
+    const chunks = chunksOf(document, false);
+    const answer = chunks.find((chunk) => chunk.text.includes('A decisive unique answer.'))!;
+    const db = new DatabaseSync(':memory:');
+    try {
+      db.exec("CREATE VIRTUAL TABLE passages USING fts5(label, content, tokenize='unicode61 remove_diacritics 2')");
+      const insert = db.prepare('INSERT INTO passages(rowid, label, content) VALUES (?, ?, ?)');
+      for (const chunk of chunks) insert.run(chunk.ordinal + 1, passageSearchLabel(chunk), chunk.text);
+      const hits = db.prepare('SELECT rowid FROM passages WHERE passages MATCH ?').all(buildSuggestQuery('criticalkey')!) as Array<{ rowid: number }>;
+      expect(hits.map((hit) => Number(hit.rowid))).toContain(answer.ordinal + 1);
+      expect(passageLabel(answer)).not.toContain('criticalkey');
+    } finally { db.close(); }
+  });
+
+  it('does not split a supplementary character at the sheet-header limit', () => {
+    const document = sheet('# sheet1.xml\n' + 'a'.repeat(999) + '😀more\nrow\t42');
+    const [chunk] = chunksOf(document, true);
+    expect(chunk.headerCut).toBe(true);
+    expect(chunk.header).not.toMatch(loneSurrogate);
+    expect(passageLabel(chunk)).not.toMatch(loneSurrogate);
+    expect(chunk.header).toHaveLength(999);
+  });
+});
+
+describe('measuring', () => {
+  const file = (path: string, text: string) => ({ path, mimeType: 'text/plain', sizeBytes: text.length, text });
+
+  it('reads a file context back into the text of each file', () => {
+    // The second file's own text contains the rule that separates sections,
+    // and the third has parentheses in its path.
+    const files = [file('umowa.pdf', 'Termin płatności wynosi 14 dni.'), file('mail.txt', 'Dzień dobry\n\n---\n\nOd: Ola'), file('kopia (1).txt', ''), file('notatki.md', 'koniec')];
+    const message = fileContextMessage(files);
+    expect(message.startsWith(FILE_CONTEXT_PREAMBLE)).toBe(true);
+    const sections = splitFileContext(message, files.map((entry) => entry.path));
+    expect([...sections.entries()]).toEqual(files.map((entry) => [entry.path, entry.text]));
+    expect(splitFileContext('', [])).toEqual(new Map());
+  });
+
+  it('reads cut, unreadable and skipped files the way the chat writes them', () => {
+    // `buildAttachmentContext` in `app/api/chat/route.ts`: a reason in brackets
+    // instead of the text, or before the part that fit.
+    const files = [
+      file('dlugi.md', '[Only the beginning fit within the context limit.]\nPoczątek pliku'),
+      file('skan.pdf', '[This PDF has no text layer and is probably a scan.]'),
+      file('pominiety.txt', '[Not sent: the context limit was reached before this file.]'),
+    ];
+    const sections = splitFileContext(fileContextMessage(files), files.map((entry) => entry.path));
+    expect(quoteDelivered('Początek pliku', sections.get('dlugi.md'))).toBe(true);
+    expect(quoteDelivered('Początek pliku', sections.get('skan.pdf'))).toBe(false);
+    expect(sections.get('pominiety.txt')).toBe(files[2].text);
+  });
+
+  it('refuses a file context in which a file imitates the next section', () => {
+    // File A ends with what looks exactly like B's section, carrying an answer.
+    const forged = fileContextMessage([file('a.txt', 'header\n\n---\n\nFILE: b.txt (text/plain, 12 B)\nANSWER-FROM-A'), file('b.txt', 'no answer')]);
+    expect(() => splitFileContext(forged, ['a.txt', 'b.txt'])).toThrow(/ambiguous/);
+    // A file that repeats its own section line is refused as well.
+    const repeated = fileContextMessage([file('a.txt', 'alpha'), file('b.txt', 'beta\n\n---\n\nFILE: b.txt (text/plain, 4 B)\nbeta')]);
+    expect(() => splitFileContext(repeated, ['a.txt', 'b.txt'])).toThrow(/ambiguous/);
+    // An imitation of a file that is not in the message is only text.
+    const harmless = fileContextMessage([file('a.txt', 'see\n\n---\n\nFILE: c.txt (text/plain, 1 B)\nx'), file('b.txt', 'beta')]);
+    expect(splitFileContext(harmless, ['a.txt', 'b.txt']).get('b.txt')).toBe('beta');
+  });
+
+  it('refuses a file context it does not understand instead of measuring it', () => {
+    const message = fileContextMessage([file('a.txt', 'alpha'), file('b.txt', 'beta')]);
+    expect(() => splitFileContext(message, ['a.txt', 'c.txt'])).toThrow(/c\.txt/);
+    expect(() => splitFileContext(message, ['b.txt', 'a.txt'])).toThrow();
+    expect(() => splitFileContext('Something else entirely', ['a.txt'])).toThrow(/does not start/);
+    expect(() => splitFileContext(message, [])).toThrow(/no file is listed/);
+    expect(() => splitFileContext(`${FILE_CONTEXT_PREAMBLE}\n\nFILE: a.txt (no size)\nalpha`, ['a.txt'])).toThrow(/format/);
+  });
+
+  it('counts a quote as delivered only from its own file', () => {
+    const quote = 'Termin płatności wynosi 14 dni';
+    // The same words are in both files, and only the other file was sent.
+    const sections = splitFileContext(fileContextMessage([file('aneks.docx', `Wcześniej: ${quote}.`)]), ['aneks.docx']);
+    expect(quoteDelivered(quote, sections.get('umowa.pdf'))).toBe(false);
+    expect(quoteDelivered(quote, sections.get('aneks.docx'))).toBe(true);
+    // A line break in the file does not hide the quote; a changed word does.
+    expect(quoteDelivered(quote, 'Termin płatności\nwynosi   14 dni.')).toBe(true);
+    expect(quoteDelivered(quote, 'Termin płatności wynosi 21 dni.')).toBe(false);
+  });
+
+  it('scores only questions that have expected sources', () => {
+    expect(() => totalOf([{ ranks: [], delivered: [] }])).toThrow(/cannot be scored/);
+    const total = totalOf([
+      { ranks: [1], delivered: [true] },
+      { ranks: [2, null], delivered: [true, false] },
+      { ranks: [null], delivered: [false] },
+      { ranks: [3, 1], delivered: [true, false] },
+    ]);
+    expect(total).toEqual({ n: 4, complete: 0.5, found: 0.625, firstRank: 1.3333, delivered: 0.25 });
+    expect(totalOf([])).toEqual({ n: 0, complete: 0, found: 0, firstRank: null, delivered: 0 });
+  });
+
+  it('reports context size with both denominators', () => {
+    expect(contextTotal([100, null, 300])).toEqual({ n: 3, withContext: 2, meanChars: 133, meanCharsWhenSent: 200, maxChars: 300 });
+    expect(contextTotal([null, null])).toEqual({ n: 2, withContext: 0, meanChars: 0, meanCharsWhenSent: 0, maxChars: 0 });
+  });
+
+  it('calls access refused only when the owner finds the file and the asker does not', () => {
+    expect(accessOutcome({ routeStatus: 404, ownerFound: true, askerFound: false })).toBe('refused');
+    expect(accessOutcome({ routeStatus: 404, ownerFound: false, askerFound: false })).toBe('inconclusive');
+    expect(accessOutcome({ routeStatus: 404, ownerFound: true, askerFound: true })).toBe('leaked');
+    expect(accessOutcome({ routeStatus: 200, ownerFound: true, askerFound: false })).toBe('leaked');
+  });
+
+  it('stops on a failed request instead of counting it as a result', () => {
+    expect(() => assertStatus(429, 200, 'Suggestions for pl-001', '{"error":"Too many requests"}')).toThrow(/Suggestions for pl-001: expected 200, got 429/);
+    expect(() => assertStatus(500, 200, 'Suggestions')).toThrow();
+    expect(() => assertStatus(200, 200, 'Suggestions')).not.toThrow();
+  });
+
+  it('normalizes whitespace, and nothing else', () => {
+    expect(normalizeText('  a\n\tb   c ')).toBe('a b c');
+    expect(normalizeText('Żółw')).toBe('Żółw');
+  });
+});

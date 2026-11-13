@@ -1,0 +1,42 @@
+{
+  "projects": [
+    {
+      "id": "umowy-kormoran",
+      "name": "Umowy Kormoran",
+      "owner": "ola",
+      "visibility": "selected",
+      "members": [{ "id": "marek", "role": "editor" }]
+    },
+    {
+      "id": "sklep-wdrozenie",
+      "name": "Sklep wdrozenie",
+      "owner": "marek",
+      "visibility": "team",
+      "members": [
+        { "id": "jagoda", "role": "editor" },
+        { "id": "tomek", "role": "editor" }
+      ]
+    },
+    {
+      "id": "kadry",
+      "name": "Kadry",
+      "owner": "ola",
+      "visibility": "private",
+      "members": []
+    },
+    {
+      "id": "oferta-zielony-dach",
+      "name": "Oferta Zielony Dach",
+      "owner": "jagoda",
+      "visibility": "selected",
+      "members": [{ "id": "tomek", "role": "editor" }]
+    },
+    {
+      "id": "notatki-tomka",
+      "name": "Notatki Tomka",
+      "owner": "tomek",
+      "visibility": "private",
+      "members": []
+    }
+  ]
+}
