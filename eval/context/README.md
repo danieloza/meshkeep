@@ -9,6 +9,7 @@ so a change to context is judged on numbers. The design they were built for is
 ```
 schema.ts            the format of a set and of its results (zod)
 measure.ts           how results are counted, shared by the runner and the simulation
+passages.ts          how a passage sent by the chat counts as delivered at its place
 chunking.ts          the chunking rule the simulation uses
 .gitattributes       keeps the bytes of a corpus the same on every machine
 sets/
@@ -19,8 +20,10 @@ sets/
     sources/         HTML the PDFs are printed from
     build-corpus.mjs rebuilds the generated files of the corpus
     questions.json   the questions and what each should find
-    baseline.json    measured through the application
+    baseline.json    measured through the application before step B (passages)
+    step-b.json      measured through the application with step B
     simulation.json  a what-if, not the application
+    simulation-passages.json  the chunks the simulation's "files, then passages" chooses
 ```
 
 Everything in a corpus is made up. No set may hold real documents, names or addresses.
@@ -37,10 +40,13 @@ closed to the person asking, and the text files of the corpus have LF line endin
 tests the counting and chunking rules themselves.
 
 ```bash
-npm run eval:context -- dev
+npm run eval:context -- dev --out step-b
 ```
 
-Measures the set through the HTTP API of a local build and writes `baseline.json`. It builds
+Measures the set through the HTTP API of a local build and writes `<name>.json` (default
+`run.json`; `baseline.json` only when named). It indexes every project until both the file
+text and the passages are done, and fails without a result if a long file is then still sent
+without passages. It builds
 the application when needed and takes several minutes: the chat allows ten messages a minute
 per person, and the run keeps under that. Any request that fails stops the run. Windows only,
 like the API tests it shares its harness with.
@@ -49,8 +55,15 @@ like the API tests it shares its harness with.
 node --experimental-strip-types scripts/eval-context-chunks.mjs dev
 ```
 
-Simulates other ways of choosing context on the same questions and writes `simulation.json`.
-Needs Node 24.
+Simulates other ways of choosing context on the same questions and writes `simulation.json`,
+and the chunks it chooses for long files to `simulation-passages.json`. Needs Node 24.
+
+```bash
+node scripts/eval-context-parity.mjs dev step-b
+```
+
+Compares the chunks the application sent for each long file (`step-b.json`) with the
+simulation's choice, one row per file, and exits non-zero on any difference.
 
 Both commands give the same file on every run and on every checkout of the same commit.
 
@@ -72,6 +85,15 @@ label-only matches. Whole files are checked against their extracted text and loc
 A heading locator means the body after the first matching heading and before the next real
 heading at any level; heading-like lines inside Markdown fences do not end the section.
 The full heading and sheet header are searchable even when their display labels are shortened.
+
+The application-backed run reports **passageDelivered** too (`passages.ts`). For a long file
+sent by passages, the section is cut into label lines and bodies with the chat's manifest
+alone: the chunks of a run share a locator, and each chunk's `length` is what it adds to the
+body. The quote must lie in a body, never in a label line, at its expected place: the same page
+or sheet, or under the expected heading. A run may start in the section before that heading and
+cross into it; the body is then read from the heading's own line to the next heading line, as
+the simulation reads the region. A file sent whole counts; a long file sent as before because
+its passages were missing does not, and a run with any such file fails.
 
 A share always stands next to its count. With five questions of a kind, one question is twenty
 percentage points.

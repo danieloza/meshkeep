@@ -13,8 +13,14 @@
 //
 // No real model is called and nothing leaves this machine. Any request that
 // fails stops the run: a failure is a fault of the measurement, never a
-// result. The result is written to `eval/context/sets/<set>/baseline.json`;
-// two runs give the same file.
+// result. The result is written to `eval/context/sets/<set>/<name>.json`
+// (`--out <name>`, default `run`); two runs give the same file. The measured
+// record of an earlier state of the application, `baseline.json`, is written
+// only when asked for by name.
+//
+// Since step B of the ADR a long file is sent by its passages. Each expected
+// source then also says whether its quote reached the provider inside a
+// passage body of its file, at its expected place (`eval/context/passages.ts`).
 
 import { createHash, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,12 +28,16 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
+import { FALLBACK_NOTE, passageQuoteDelivered, splitPassages } from '../eval/context/passages.ts';
 import { baseline, canAsk, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
-import { ORIGIN, jako, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from '../tests/api/harness.ts';
+import { buildSuggestQuery } from '../lib/search.ts';
+import { ORIGIN, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from '../tests/api/harness.ts';
 
-const setName = process.argv[2];
-if (!setName) {
-  console.error('Usage: npm run eval:context -- <set>');
+const [setName, ...options] = process.argv.slice(2);
+const outAt = options.indexOf('--out');
+const outName = outAt >= 0 ? options[outAt + 1] : 'run';
+if (!setName || !/^[a-z0-9-]+$/.test(outName ?? '')) {
+  console.error('Usage: npm run eval:context -- <set> [--out <name>]');
   process.exit(2);
 }
 const SET = fileURLToPath(new URL(`../eval/context/sets/${setName}/`, import.meta.url));
@@ -118,13 +128,29 @@ async function upload(project) {
   return names.length;
 }
 
+// Rounds until both the file text and the passages of every file are done.
+// A round whose passage count is missing (its passage step failed) is not done.
 async function index(project) {
   for (let round = 0; round < 40; round += 1) {
     const response = await zapytaj(`/api/projects/${projectUuid.get(project.id)}/search-index`, { method: 'POST', headers: { ...ORIGIN, ...as(project.owner) } });
     ok(response, 200, `Indexing ${project.id}`);
-    if (response.dane.remaining === 0) return;
+    if (response.dane.remaining === 0 && response.dane.passagesRemaining === 0) return;
   }
   throw new Error(`Indexing ${project.id} did not finish in 40 rounds.`);
+}
+
+// What the chat read from D1 to send one file by passages: all its chunk
+// rows with their text columns, and the ranked candidates (the same match as
+// `lib/server/context-passages.ts`). Read from this run's disposable local
+// database, never a hosted one.
+function d1Reads(fileId, question) {
+  const [rows] = odczytajLokalneD1(`SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(c.chunk_key) + LENGTH(c.content) + LENGTH(c.label)
+    + LENGTH(c.search_label) + LENGTH(c.place) + LENGTH(c.heading) + COALESCE(LENGTH(s.reason), 0)), 0) AS chars
+    FROM file_chunks c JOIN file_chunk_states s ON s.file_id = c.file_id WHERE c.file_id = ?`, fileId);
+  const match = buildSuggestQuery(question.slice(0, 2_000));
+  const ranked = match ? odczytajLokalneD1(`SELECT c.ordinal FROM file_chunks_fts JOIN file_chunks c ON c.rowid = file_chunks_fts.rowid
+    WHERE file_chunks_fts MATCH ? AND c.file_id = ? LIMIT 40`, `{path search_label content} : (${match})`, fileId).length : 0;
+  return { chunkRows: Number(rows.n), rankedRows: ranked, chars: Number(rows.chars) };
 }
 
 function suggest(memberId, projectId, text) {
@@ -237,6 +263,9 @@ async function run() {
       let context = null;
       let manifest = [];
       let sections = new Map();
+      // Passage runs of each file sent by passages, read back by the manifest.
+      const runs = new Map();
+      let sent;
       if (question.kind !== 'access' && suggestions.length) {
         const answer = await chat(question.asker, question.project, question.question, suggestions.map((suggestion) => idOf.get(suggestion.file)));
         manifest = answer.manifest;
@@ -245,14 +274,31 @@ async function run() {
         sections = splitFileContext(answer.message, manifest.map((entry) => entry.path));
         const count = (status) => manifest.filter((entry) => entry.status === status).length;
         context = { chars: answer.message.length, included: count('included'), truncated: count('truncated'), unreadable: count('unreadable'), skipped: count('skipped') };
+        // Every section sent by passages is read back, expected or not: one the
+        // reader cannot cut by its manifest stops the run.
+        for (const entry of manifest) if (entry.passages) runs.set(entry.id, splitPassages(sections.get(entry.path), entry.passages));
+        sent = manifest.map((entry) => ({
+          file: corpusPath(entry.id),
+          status: entry.status,
+          ...(entry.note ? { note: entry.note } : {}),
+          ...(entry.passages ? { ordinals: entry.passages.map((passage) => passage.ordinal), d1: d1Reads(entry.id, question.question) } : {}),
+        }));
       }
 
       const sources = question.expected.map((source) => {
         const state = manifest.find((entry) => entry.id === idOf.get(source.file))?.status ?? null;
         // Delivered means: the chat says it sent text of this file, and the
         // quote is in the part of the message that came from this file.
-        const sent = state === 'included' || state === 'truncated';
-        return { file: source.file, rank: rankOf(source.file), manifest: state, delivered: sent && quoteDelivered(source.quote, sections.get(pathIn(source.file))) };
+        const entry = manifest.find((item) => item.id === idOf.get(source.file));
+        const reached = state === 'included' || state === 'truncated';
+        const delivered = reached && quoteDelivered(source.quote, sections.get(pathIn(source.file)));
+        // By passages: inside a passage body at the expected place. Whole, or
+        // as the extractor gave it: every place of the file was sent. As
+        // before for lack of passages: not a passage delivery.
+        const passageDelivered = !reached ? false
+          : entry.passages ? passageQuoteDelivered(source.quote, runs.get(entry.id), source.locator)
+            : entry.note?.includes(FALLBACK_NOTE) ? false : delivered;
+        return { file: source.file, rank: rankOf(source.file), manifest: state, delivered, passageDelivered };
       });
 
       const result = {
@@ -265,6 +311,8 @@ async function run() {
         sources,
         complete: scored ? sources.every((source) => source.rank !== null) : null,
         delivered: scored ? sources.every((source) => source.delivered) : null,
+        passageDelivered: scored ? sources.every((source) => source.passageDelivered) : null,
+        ...(sent ? { sent } : {}),
       };
 
       if (question.kind === 'no-answer') {
@@ -289,7 +337,7 @@ async function run() {
 
       results.push(result);
       const mark = scored
-        ? `${result.complete ? 'found' : 'MISSED'}, ${result.delivered ? 'delivered' : 'NOT DELIVERED'}`
+        ? `${result.complete ? 'found' : 'MISSED'}, ${result.delivered ? 'delivered' : 'NOT DELIVERED'}, ${result.passageDelivered ? 'at its place' : 'NOT AT ITS PLACE'}`
         : question.kind === 'access' ? result.access.map((entry) => entry.outcome.toUpperCase()).join(', ') : `${suggestions.length} suggested`;
       console.log(`${question.id.padEnd(7)} ${question.kind.padEnd(10)} ${mark}`);
     }
@@ -297,7 +345,26 @@ async function run() {
     const scored = results.filter((result) => isScored(result.kind));
     const noAnswer = results.filter((result) => result.kind === 'no-answer');
     const access = results.filter((result) => result.kind === 'access');
-    const total = (items) => totalOf(items.map((result) => ({ ranks: result.sources.map((source) => source.rank), delivered: result.sources.map((source) => source.delivered) })));
+    const total = (items) => ({
+      ...totalOf(items.map((result) => ({ ranks: result.sources.map((source) => source.rank), delivered: result.sources.map((source) => source.delivered) }))),
+      passageDelivered: mean(items.map((result) => (result.passageDelivered ? 1 : 0))),
+    });
+    const sentFiles = results.flatMap((result) => result.sent ?? []);
+    const byPassages = results.filter((result) => result.sent?.some((file) => file.ordinals));
+    const d1PerMessage = byPassages.map((result) => result.sent.filter((file) => file.d1).reduce((sum, file) => ({
+      rows: sum.rows + file.d1.chunkRows + file.d1.rankedRows, chars: sum.chars + file.d1.chars }), { rows: 0, chars: 0 }));
+    const passages = {
+      filesByPassages: sentFiles.filter((file) => file.ordinals).length,
+      beginningNoMatch: results.filter((result) => result.sent?.some((file) => file.note?.startsWith('No passage matched'))).map((result) => result.id),
+      fallback: sentFiles.filter((file) => file.note?.includes(FALLBACK_NOTE)).length,
+      d1: {
+        messages: d1PerMessage.length,
+        meanRows: mean(d1PerMessage.map((item) => item.rows)),
+        maxRows: Math.max(0, ...d1PerMessage.map((item) => item.rows)),
+        meanChars: mean(d1PerMessage.map((item) => item.chars)),
+        maxChars: Math.max(0, ...d1PerMessage.map((item) => item.chars)),
+      },
+    };
     const contextOf = (items) => {
       const sent = items.filter((result) => result.context);
       const sum = (key) => sent.reduce((count, result) => count + result.context[key], 0);
@@ -327,6 +394,7 @@ async function run() {
         // A question with no tag has nothing that makes retrieval hard.
         byTag: grouped(scored, (result) => (result.tags.length ? result.tags : ['plain']), total),
         context: { scored: contextOf(scored), noAnswer: contextOf(noAnswer) },
+        passages,
         noAnswer: {
           n: noAnswer.length,
           withSuggestions: noAnswer.filter((result) => result.suggestions.length > 0).length,
@@ -344,10 +412,16 @@ async function run() {
       questions: results,
     });
 
-    writeFileSync(join(SET, 'baseline.json'), `${JSON.stringify(output, null, 2)}\n`, 'utf8');
-    const { scored: all, access: closed } = output.totals;
-    console.log(`\nScored questions: ${all.n}. Every expected file suggested: ${Math.round(all.complete * all.n)}. Every quote delivered to the provider from its own file: ${Math.round(all.delivered * all.n)}.`);
-    console.log(`Access: ${closed.filesRefused} of ${closed.files} forbidden files refused (${closed.filesInconclusive} inconclusive, ${closed.filesLeaked} leaked); ${closed.refused} of ${closed.n} questions. Written to eval/context/sets/${setName}/baseline.json`);
+    const { scored: all, access: closed, context: size } = output.totals;
+    console.log(`\nScored questions: ${all.n}. Every expected file suggested: ${Math.round(all.complete * all.n)}. Every quote delivered to the provider from its own file: ${Math.round(all.delivered * all.n)}. Every source passage delivered at its place: ${Math.round(all.passageDelivered * all.n)}.`);
+    console.log(`Context of scored questions: mean ${size.scored.meanChars} characters over all ${size.scored.n}, ${size.scored.meanCharsWhenSent} over the ${size.scored.withContext} that sent context, most ${size.scored.maxChars}.`);
+    console.log(`Passages: ${passages.filesByPassages} files sent by passages; by their beginning for lack of a match: ${passages.beginningNoMatch.join(', ') || 'none'}; sent as before for lack of passages: ${passages.fallback}. D1 per message with passages: rows mean ${passages.d1.meanRows}, most ${passages.d1.maxRows}; characters mean ${passages.d1.meanChars}, most ${passages.d1.maxChars}.`);
+    console.log(`Access: ${closed.filesRefused} of ${closed.files} forbidden files refused (${closed.filesInconclusive} inconclusive, ${closed.filesLeaked} leaked); ${closed.refused} of ${closed.n} questions.`);
+    // Indexing ran to completion first, so a file sent as before means the run
+    // did not measure what it claims: it fails, and writes no result.
+    if (passages.fallback) throw new Error(`${passages.fallback} long files were sent without passages after indexing finished. The run is not a result.`);
+    writeFileSync(join(SET, `${outName}.json`), `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+    console.log(`Written to eval/context/sets/${setName}/${outName}.json`);
   } finally {
     stopWorkera();
     provider.server.close();

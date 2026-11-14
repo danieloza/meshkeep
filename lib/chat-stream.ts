@@ -113,6 +113,27 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+// The `contextPassage` contract, checked by hand: this file also runs in the
+// browser, which is kept free of zod (`lib/api-client.ts`). A test parses
+// what this keeps with the contract itself.
+const isCount = (value: unknown, min: number) => Number.isInteger(value) && (value as number) >= min;
+function isLocator(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const entries = Object.entries(value);
+  if (entries.length !== 1) return false;
+  const [key, place] = entries[0];
+  return key === 'heading' ? typeof place === 'string' && place.length > 0 : (key === 'page' || key === 'sheet') && isCount(place, 1);
+}
+function isPassage(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const { ordinal, chunkKey, locator, length } = value as Record<string, unknown>;
+  return isCount(ordinal, 0) && isCount(length, 1) && typeof chunkKey === 'string' && /^[0-9a-f]{20}$/.test(chunkKey)
+    && (locator === undefined || isLocator(locator));
+}
+
+// Stored answers from before passages have no `passages`, and still read. A
+// list that does not fit the contract is dropped, not the file it belongs to:
+// the answer still says which file was sent.
 export function readContextFiles(raw: string | null | undefined): ContextFile[] {
   if (!raw) return [];
   try {
@@ -122,7 +143,12 @@ export function readContextFiles(raw: string | null | undefined): ContextFile[] 
       typeof item === 'object' && item !== null
       && typeof (item as ContextFile).id === 'string'
       && typeof (item as ContextFile).path === 'string'
-      && ['included', 'truncated', 'unreadable', 'skipped'].includes((item as ContextFile).status));
+      && ['included', 'truncated', 'unreadable', 'skipped'].includes((item as ContextFile).status))
+      .map((item) => {
+        if (item.passages === undefined || (Array.isArray(item.passages) && item.passages.every(isPassage))) return item;
+        const { passages: _dropped, ...rest } = item;
+        return rest;
+      });
   } catch {
     return [];
   }
