@@ -274,7 +274,7 @@ export function chunksOf(document: Document, joinSections: boolean, rule: ChunkR
 }
 
 // A UTF-16 limit may fall between the two halves of a supplementary character.
-function safeHeader(header: string, limit: number): string {
+export function safeHeader(header: string, limit: number): string {
   let end = Math.min(header.length, limit);
   if (end < header.length && isHighSurrogate(header.charCodeAt(end - 1))) end -= 1;
   return header.slice(0, end);
