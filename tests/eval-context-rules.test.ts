@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { CHUNK_RULE, canonicalText, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passageSearchLabel, passagesText, pdfDocument, selectPassages, sheetUnits, sourcePassageTexts, splitRange, wholeSourceTexts, type Document } from '@/eval/context/chunking';
-import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, fileContextMessage, normalizeText, quoteDelivered, remainingFileContextChars, splitFileContext, totalOf } from '@/eval/context/measure';
+import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, fileContextMessage, type IndexRound, indexUntilDone, normalizeText, quoteDelivered, remainingFileContextChars, splitFileContext, totalOf } from '@/eval/context/measure';
 import { buildSuggestQuery } from '@/lib/search';
 
 // The rules the context evaluation counts by, and the chunking rule its
@@ -393,5 +393,50 @@ describe('measuring', () => {
   it('normalizes whitespace, and nothing else', () => {
     expect(normalizeText('  a\n\tb   c ')).toBe('a b c');
     expect(normalizeText('Żółw')).toBe('Żółw');
+  });
+});
+
+describe('indexing until done', () => {
+  // A round function that replays the given reports, one per call.
+  const replay = (reports: IndexRound[]) => {
+    let call = 0;
+    return async () => {
+      if (call >= reports.length) throw new Error('More rounds than scripted.');
+      return reports[call++];
+    };
+  };
+
+  it('keeps going for as many rounds as a large project needs', async () => {
+    // 120 files whose text is read at upload; a round fills two files' passages.
+    const files = 120;
+    const reports = Array.from({ length: files / 2 }, (_, index) => ({ remaining: 0, passagesRemaining: files - 2 * (index + 1) }));
+    expect(await indexUntilDone(replay(reports))).toBe(60);
+    // Text first, five files a round, each making a file due for passages.
+    const mixed: IndexRound[] = [
+      { remaining: 15, passagesRemaining: 3 }, { remaining: 10, passagesRemaining: 7 }, { remaining: 5, passagesRemaining: 11 },
+      { remaining: 0, passagesRemaining: 15 }, { remaining: 0, passagesRemaining: 13 }, { remaining: 0, passagesRemaining: 0 },
+    ];
+    expect(await indexUntilDone(replay(mixed))).toBe(6);
+  });
+
+  it('is done only when both counts are zero', async () => {
+    expect(await indexUntilDone(replay([{ remaining: 0, passagesRemaining: 0 }]))).toBe(1);
+    // A missing passage count is a failed passage step, not an empty backlog.
+    expect(await indexUntilDone(replay([{ remaining: 0 }, { remaining: 0, passagesRemaining: 1 }, { remaining: 0, passagesRemaining: 0 }]))).toBe(3);
+  });
+
+  it('tolerates a backlog that rises for fewer rounds than its patience', async () => {
+    // A failed file comes due again for a retry.
+    const reports = [{ remaining: 0, passagesRemaining: 4 }, { remaining: 0, passagesRemaining: 5 }, { remaining: 0, passagesRemaining: 4 }, { remaining: 0, passagesRemaining: 2 }, { remaining: 0, passagesRemaining: 0 }];
+    expect(await indexUntilDone(replay(reports))).toBe(5);
+  });
+
+  it('stops loudly once the backlog has not fallen for its patience', async () => {
+    const stuck = replay(Array.from({ length: 10 }, () => ({ remaining: 0, passagesRemaining: 7 })));
+    await expect(indexUntilDone(stuck)).rejects.toThrow(/after 4 rounds, 0 files still wait for text and 7 for passages/);
+    const failing = replay(Array.from({ length: 10 }, () => ({ remaining: 2 })));
+    await expect(indexUntilDone(failing)).rejects.toThrow(/an unknown number of/);
+    const slow = replay([{ remaining: 0, passagesRemaining: 9 }, { remaining: 0, passagesRemaining: 9 }, { remaining: 0, passagesRemaining: 8 }, ...Array.from({ length: 5 }, () => ({ remaining: 0, passagesRemaining: 8 }))]);
+    await expect(indexUntilDone(slow, 5)).rejects.toThrow(/after 8 rounds/);
   });
 });

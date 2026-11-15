@@ -8,6 +8,7 @@ import { type ChatRequest, contextFile, conversationDetail } from '@/lib/contrac
 import { indexRound, projectFiles } from '@/lib/contracts/files';
 import { connectionResponse } from '@/lib/contracts/providers';
 import { FALLBACK_NOTE } from '@/eval/context/passages';
+import { indexUntilDone } from '@/eval/context/measure';
 import { ID, ORIGIN, TOKENY, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
 
 // Step B through the HTTP API of the built worker: a long file sends its best
@@ -62,14 +63,13 @@ async function upload(token: string, project: string, files: Array<[string, stri
   return projectFiles.parse(response.dane).files;
 }
 
-async function indexAll(token: string, project: string) {
-  for (let round = 0; round < 40; round += 1) {
+// The evaluator's own loop (`indexUntilDone`), over real indexing rounds.
+function indexAll(token: string, project: string) {
+  return indexUntilDone(async () => {
     const response = await zapytaj(`/api/projects/${project}/search-index`, { method: 'POST', headers: { ...ORIGIN, ...jako(token) } });
     expect(response.status, response.tekst).toBe(200);
-    const parsed = indexRound.parse(response.dane);
-    if (parsed.remaining === 0 && parsed.passagesRemaining === 0) return;
-  }
-  throw new Error(`Indexing ${project} did not finish in 40 rounds.`);
+    return indexRound.parse(response.dane);
+  });
 }
 
 async function chat(question: string, attachmentIds: string[], project = ID.projektWspolny) {
@@ -175,6 +175,20 @@ describe('passages of a long file in the chat', () => {
     expect(files).toEqual([{ id: file.id, path: 'docs/late.md', status: 'included', note: FALLBACK_NOTE }]);
     expect(sections.get('docs/late.md')).toBe(late);
   });
+
+  it('indexes the passages of a project of more than a hundred files', async () => {
+    // Synthetic, small, made up here: an upload takes at most 100 files, so two.
+    const notes = Array.from({ length: 120 }, (_, index) => [`many/note-${String(index).padStart(3, '0')}.md`, `# Note ${index}\n\nNote ${index} is about item ${index}.\n`] as [string, string]);
+    await upload(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela, notes.slice(0, 100));
+    await upload(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela, notes.slice(100));
+    const rounds = await indexAll(TOKENY.wlasciciel, ID.projektPrywatnyWlasciciela);
+    // A round fills at most two files' passages, so 120 files take at least 60
+    // rounds: well past the old fixed bound of 40.
+    expect(rounds).toBeGreaterThanOrEqual(60);
+    const [indexed] = odczytajLokalneD1(`SELECT COUNT(*) AS n FROM file_chunk_states s JOIN files f ON f.id = s.file_id
+      WHERE f.project_id = ? AND s.status = 'indexed' AND s.extractor_version = ?`, ID.projektPrywatnyWlasciciela, CHUNK_EXTRACTOR_VERSION);
+    expect(indexed.n).toBe(120);
+  }, 300_000);
 
   it('still reads an answer stored before passages existed', async () => {
     const detail = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${ID.rozmowaWlasciciela}`, { headers: jako(TOKENY.wlasciciel) });

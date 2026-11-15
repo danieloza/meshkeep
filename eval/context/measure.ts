@@ -198,3 +198,32 @@ export function accessOutcome(control: AccessControl): 'refused' | 'leaked' | 'i
 export function assertStatus(actual: number, expected: number, what: string, body = ''): void {
   if (actual !== expected) throw new Error(`${what}: expected ${expected}, got ${actual} ${body.slice(0, 300)}`.trim());
 }
+
+// --- Indexing ----------------------------------------------------------------
+
+// What one indexing round reports (`indexRound` in `lib/contracts/files.ts`).
+// `passagesRemaining` is absent when the round's passage step failed.
+export type IndexRound = { remaining: number; passagesRemaining?: number };
+
+// Runs indexing rounds until neither file text nor passages are due, and
+// returns how many rounds it took. There is no fixed number of rounds: a
+// round fills the passages of at most two files, so a project of a hundred
+// files needs more than fifty. Instead the loop stops loudly when the backlog
+// (both counts together; unknown when the passage count is missing) has not
+// reached a new low for `patience` rounds in a row. New lows are ever smaller
+// counts, so the loop always ends.
+export async function indexUntilDone(round: () => Promise<IndexRound>, patience = 3): Promise<number> {
+  let lowest = Infinity;
+  let stalled = 0;
+  for (let rounds = 1; ; rounds += 1) {
+    const { remaining, passagesRemaining } = await round();
+    if (remaining === 0 && passagesRemaining === 0) return rounds;
+    const backlog = passagesRemaining === undefined ? Infinity : remaining + passagesRemaining;
+    if (backlog < lowest) {
+      lowest = backlog;
+      stalled = 0;
+    } else if (++stalled >= patience) {
+      throw new Error(`Indexing stopped making progress: after ${rounds} rounds, ${remaining} files still wait for text and ${passagesRemaining ?? 'an unknown number of'} for passages, with no new low in ${patience} rounds.`);
+    }
+  }
+}

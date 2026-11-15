@@ -27,7 +27,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
+import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, indexUntilDone, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
 import { FALLBACK_NOTE, passageQuoteDelivered, splitPassages } from '../eval/context/passages.ts';
 import { baseline, canAsk, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
 import { buildSuggestQuery } from '../lib/search.ts';
@@ -128,15 +128,16 @@ async function upload(project) {
   return names.length;
 }
 
-// Rounds until both the file text and the passages of every file are done.
-// A round whose passage count is missing (its passage step failed) is not done.
+// Rounds until both the file text and the passages of every file are done,
+// for as many rounds as the project needs while each brings the backlog down
+// (`indexUntilDone`). A round whose passage count is missing (its passage step
+// failed) is not done.
 async function index(project) {
-  for (let round = 0; round < 40; round += 1) {
+  await indexUntilDone(async () => {
     const response = await zapytaj(`/api/projects/${projectUuid.get(project.id)}/search-index`, { method: 'POST', headers: { ...ORIGIN, ...as(project.owner) } });
     ok(response, 200, `Indexing ${project.id}`);
-    if (response.dane.remaining === 0 && response.dane.passagesRemaining === 0) return;
-  }
-  throw new Error(`Indexing ${project.id} did not finish in 40 rounds.`);
+    return response.dane;
+  }).catch((error) => { throw new Error(`Indexing ${project.id}: ${error.message}`); });
 }
 
 // What the chat read from D1 to send one file by passages: all its chunk
