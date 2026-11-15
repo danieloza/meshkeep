@@ -90,9 +90,9 @@ The full heading and sheet header are searchable even when their display labels 
 The application-backed run reports **passageDelivered** too (`passages.ts`). A long file sent
 by passages arrives as a note line, then runs of label line and body. The section is cut with
 the chat's manifest: the chunks of a run share a locator, and each chunk's `length` is what it
-adds to the body. The note must equal the manifest's note, and every body must equal the source
-file's text for its chunks, read and chunked as the indexer does (`sources.ts`); otherwise the
-run stops. A quote then counts only inside the source region of its expected place within the
+adds to the body. The note must equal the manifest's note, every body must equal the source
+file's text for its chunks, read and chunked as the indexer does (`sources.ts`), and every
+manifest entry must give its chunk's own locator, length and stamp; otherwise the run stops. A quote then counts only inside the source region of its expected place within the
 chunks sent (`sourcePassageTexts`, the simulation's own rule): the same page or sheet, or the
 body under the first heading with the expected title. A label never counts. A file sent whole
 counts; a long file sent as before because its passages were missing does not, and a run with

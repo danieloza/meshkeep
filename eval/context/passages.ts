@@ -12,7 +12,7 @@
 //
 // Only erasable TypeScript. Node runs this file as it is.
 
-import { type Chunk, type Document, type PassageLocator, passageRuns, sourcePassageTexts } from './chunking.ts';
+import { type Chunk, chunkLocator, type Document, type PassageLocator, passageRuns, sourcePassageTexts } from './chunking.ts';
 import { quoteDelivered } from './measure.ts';
 
 // The manifest note of a long file the chat sent as before, because its
@@ -21,7 +21,7 @@ import { quoteDelivered } from './measure.ts';
 export const FALLBACK_NOTE = 'Passages were not available yet.';
 
 export type Locator = PassageLocator;
-export type SentPassage = { ordinal: number; locator?: Locator; length: number };
+export type SentPassage = { ordinal: number; chunkKey?: string; locator?: Locator; length: number };
 export type PassageRun = { locator?: Locator; label: string | null; body: string; ordinals: number[] };
 export type PassageSection = { note: string; runs: PassageRun[] };
 
@@ -72,12 +72,19 @@ export function splitPassages(section: string, passages: SentPassage[]): Passage
 
 // The chunks behind a file's passages, from the source document chunked by the
 // shared rule, after checking that every run the provider received is the
-// document's own text for those chunks, under their own label. A mismatch
-// stops the run: the measurement does not guess where a body came from.
-export function sentSourceChunks(document: Document, chunks: Chunk[], passages: SentPassage[], runs: PassageRun[]): Chunk[] {
+// document's own text for those chunks, under their own label, and that the
+// manifest describes each chunk as the source does: its locator, the
+// characters it adds to its run's body, and, when `keys` are given, its stamp.
+// The manifest is what a citation will keep, so it is checked, not trusted. A
+// mismatch stops the run: the measurement does not guess.
+export function sentSourceChunks(document: Document, chunks: Chunk[], passages: SentPassage[], runs: PassageRun[], keys?: string[]): Chunk[] {
   const sent = passages.map((passage) => {
     const chunk = chunks[passage.ordinal];
     if (!chunk) throw new Error(`Passage ${passage.ordinal} is not a chunk of its source file.`);
+    if (JSON.stringify(passage.locator ?? null) !== JSON.stringify(chunkLocator(chunk) ?? null)) {
+      throw new Error(`The manifest gives passage ${passage.ordinal} a locator its source chunk does not have.`);
+    }
+    if (keys && passage.chunkKey !== keys[passage.ordinal]) throw new Error(`The manifest gives passage ${passage.ordinal} a stamp its source chunk does not have.`);
     return chunk;
   });
   const expected = passageRuns(document, sent);
@@ -85,6 +92,15 @@ export function sentSourceChunks(document: Document, chunks: Chunk[], passages: 
   for (const [index, run] of expected.entries()) {
     if (run.body !== runs[index].body || (run.label || null) !== runs[index].label) {
       throw new Error(`Passage run ${index + 1} sent is not the source text of its chunks.`);
+    }
+    // Each chunk of the source run adds its slice, and after the first the
+    // text since the chunk before.
+    const members = sent.filter((chunk) => chunk.ordinal >= run.first.ordinal && chunk.ordinal <= run.last.ordinal);
+    for (const [position, chunk] of members.entries()) {
+      const length = chunk.end - (position ? members[position - 1].end : chunk.start);
+      if (passages.find((passage) => passage.ordinal === chunk.ordinal)!.length !== length) {
+        throw new Error(`The manifest gives passage ${chunk.ordinal} a length its source chunk does not have.`);
+      }
     }
   }
   return sent;

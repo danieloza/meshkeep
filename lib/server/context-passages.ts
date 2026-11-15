@@ -1,9 +1,9 @@
 import 'server-only';
 
 import { getDb } from '@/db';
-import { type Chunk, type Document, passageRuns, passagesText, selectPassages } from '@/lib/context-chunking';
+import { type Chunk, chunkLocator, type Document, passageRuns, passagesText, selectPassages } from '@/lib/context-chunking';
 import { CHUNK_EXTRACTOR_VERSION, chunksFromRows, type StoredChunk } from '@/lib/context-document';
-import type { ContextPassage, PassageLocator } from '@/lib/contracts/conversations';
+import type { ContextPassage } from '@/lib/contracts/conversations';
 import { buildSuggestQuery } from '@/lib/search';
 
 // ADR 0001, decision 0: a file whose extracted text is at most this long is
@@ -49,12 +49,6 @@ export function passageMatch(question: string): string | null {
   return match ? `{path search_label content} : (${match})` : null;
 }
 
-export function locatorOf(chunk: Pick<Chunk, 'place' | 'heading'>): PassageLocator | undefined {
-  const place = chunk.place.match(/^(page|sheet) (\d+)$/);
-  if (place) return place[1] === 'page' ? { page: Number(place[2]) } : { sheet: Number(place[2]) };
-  return chunk.heading ? { heading: chunk.heading } : undefined;
-}
-
 export type PassageChoice = { text: string; passages: ContextPassage[] };
 
 // The shared rule chooses (`selectPassages`) and writes (`passagesText`) what
@@ -70,7 +64,7 @@ export function choosePassages(document: Document, chunks: Chunk[], keys: string
     let body = 0;
     for (const chunk of selected.filter((item) => item.ordinal >= run.first.ordinal && item.ordinal <= run.last.ordinal)) {
       const length = chunk.end - (previous ? previous.end : chunk.start);
-      const locator = locatorOf(chunk);
+      const locator = chunkLocator(chunk);
       passages.push({ ordinal: chunk.ordinal, chunkKey: keys[chunk.ordinal], ...(locator ? { locator } : {}), length });
       body += length;
       previous = chunk;
@@ -143,12 +137,22 @@ export async function filePassages(file: { id: string; projectId: string; sha256
   const matched = ranked.length > 0;
   // Step A records a reason with an indexed file only when it indexed part of it.
   const facts = { total: stored.length, partial: stored[0].reason !== null, extractorNote };
-  // Reserve the longest note this file can get: no count is above the total.
-  const reserve = Math.max(...[true, false].map((either) => noteLine(passageNote({ ...facts, count: stored.length, matched: either })).length));
-  const allowance = Math.min(PER_FILE_PASSAGE_CHARS, room - reserve);
-  if (allowance <= 0) return { kind: 'none' };
-  const choice = choosePassages(rebuilt.document, rebuilt.chunks, stored.map((row) => row.chunkKey),
-    matched ? ranked : rebuilt.chunks.map((chunk) => chunk.ordinal), allowance);
+  // The note is known except for its count, and the count changes its length
+  // only by its digits. Reserve the note for the most passages a given number
+  // of digits allows, fewest digits (most room for passages) first, and take
+  // the first choice whose own count fits that reservation. The last try, with
+  // the digits of the total, always fits. So a file is left out only when not
+  // even its actual note and one passage fit the room.
+  const choose = (allowance: number) => (allowance <= 0 ? null : choosePassages(rebuilt.document, rebuilt.chunks,
+    stored.map((row) => row.chunkKey), matched ? ranked : rebuilt.chunks.map((chunk) => chunk.ordinal), allowance));
+  let choice: PassageChoice | null = null;
+  for (let digits = 1; digits <= String(stored.length).length && !choice; digits += 1) {
+    const most = Math.min(stored.length, 10 ** digits - 1);
+    const candidate = choose(Math.min(PER_FILE_PASSAGE_CHARS, room - noteLine(passageNote({ ...facts, count: most, matched })).length));
+    // Less room cannot fit what more room did not.
+    if (!candidate) break;
+    if (candidate.passages.length <= most) choice = candidate;
+  }
   if (!choice) return { kind: 'none' };
   const note = passageNote({ ...facts, count: choice.passages.length, matched });
   return { kind: 'passages', section: noteLine(note) + choice.text, text: choice.text, passages: choice.passages, note };

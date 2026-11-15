@@ -141,6 +141,59 @@ describe("Codex's counterexamples and the simulation's heading rule", () => {
   });
 });
 
+describe('checking the manifest against the source', () => {
+  // What the chat's manifest says about each passage, as the sender writes it.
+  const keys = (chunks: ReturnType<typeof chunksOf>) => chunks.map((chunk) => `${String(chunk.ordinal).padStart(20, '0')}`);
+  function sendWithKeys(document: Document, chunks: ReturnType<typeof chunksOf>, ranked: number[]) {
+    const choice = choosePassages(document, chunks, keys(chunks), ranked, 6_000)!;
+    const section = `[Passages of a longer file: ${choice.passages.length} of ${chunks.length}.]\n${choice.text}`;
+    return { passages: choice.passages, runs: splitPassages(section, choice.passages).runs, section };
+  }
+  const pdf = contextDocument('pdf', '', [`Page one ${'a '.repeat(900)}`, `Page two ${'b '.repeat(900)}`, `Page three ${'c '.repeat(900)}`]);
+  const pdfChunks = chunksOf(pdf, true);
+  const sheets = contextDocument('xlsx', `# sheet1.xml\nName\tValue\none\t1\n# sheet2.xml\nName\tValue\ntwo\t2`);
+  const sheetChunks = chunksOf(sheets, true);
+
+  it('accepts a manifest that describes the source chunks', () => {
+    for (const [document, chunks, ranked] of [[pdf, pdfChunks, [2]], [sheets, sheetChunks, [0, 1]], [longDocument, longChunks, [69, 70, 84]]] as const) {
+      const { passages, runs } = sendWithKeys(document, chunks, [...ranked]);
+      expect(sentSourceChunks(document, chunks, passages, runs, keys(chunks))).toHaveLength(passages.length);
+    }
+  });
+
+  it('refuses a wrong page, sheet or heading even when text and label are right', () => {
+    // Codex's probe: a real page-3 chunk under its own `[page 3]` label, said to be on page 2.
+    const page = sendWithKeys(pdf, pdfChunks, [2]);
+    expect(page.passages[0].locator).toEqual({ page: 3 });
+    const onPage2 = page.passages.map((passage) => ({ ...passage, locator: { page: 2 } }));
+    expect(() => sentSourceChunks(pdf, pdfChunks, onPage2, page.runs)).toThrow(/locator/);
+    const sheet = sendWithKeys(sheets, sheetChunks, [1]);
+    expect(() => sentSourceChunks(sheets, sheetChunks, sheet.passages.map((passage) => ({ ...passage, locator: { sheet: 1 } })), sheet.runs)).toThrow(/locator/);
+    const heading = sendWithKeys(longDocument, longChunks, [84]);
+    expect(() => sentSourceChunks(longDocument, longChunks, heading.passages.map((passage) => ({ ...passage, locator: { heading: 'Webhooks' } })), heading.runs)).toThrow(/locator/);
+    // A locator dropped is wrong too.
+    expect(() => sentSourceChunks(pdf, pdfChunks, page.passages.map(({ locator: _locator, ...rest }) => rest), page.runs)).toThrow();
+  });
+
+  it('refuses lengths that add up but belong to other chunks, and a wrong stamp', () => {
+    // Two neighbouring chunks under one heading: one run, two lengths.
+    const document = md(`# Doc\n\n${'a '.repeat(700)}\n\n${'b '.repeat(500)}\n\n${'c '.repeat(600)}`);
+    const chunks = chunksOf(document, true);
+    const { passages, runs } = sendWithKeys(document, chunks, [1, 2]);
+    expect(passages).toHaveLength(2);
+    expect(runs).toHaveLength(1);
+    expect(passages[0].length).not.toBe(passages[1].length);
+    // The same total for the run, split the other way round.
+    const swapped = [{ ...passages[0], length: passages[1].length }, { ...passages[1], length: passages[0].length }];
+    const read = splitPassages(`[note]\n${choosePassages(document, chunks, keys(chunks), [1, 2], 6_000)!.text}`, swapped).runs;
+    expect(() => sentSourceChunks(document, chunks, swapped, read)).toThrow(/length/);
+    const forged = passages.map((passage, index) => (index ? { ...passage, chunkKey: 'f'.repeat(20) } : passage));
+    expect(() => sentSourceChunks(document, chunks, forged, runs, keys(chunks))).toThrow(/stamp/);
+    // Without known stamps, the stamp is not checked; everything else still is.
+    expect(sentSourceChunks(document, chunks, forged, runs)).toHaveLength(2);
+  });
+});
+
 describe('refusing what cannot be measured', () => {
   it('refuses a section that does not match its manifest or lacks its note line', () => {
     const { section, passages } = send(longDocument, longChunks, [10, 30]);

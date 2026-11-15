@@ -101,11 +101,11 @@ function indexAll(token: string, project: string) {
   });
 }
 
-async function chat(question: string, attachmentIds: string[], project = ID.projektWspolny) {
+async function chat(question: string, attachmentIds: string[], project = ID.projektWspolny, token = TOKENY.wlasciciel) {
   const before = received.length;
   const response = await zapytaj('/api/chat', {
     method: 'POST',
-    headers: { ...ORIGIN, ...jako(TOKENY.wlasciciel), 'Content-Type': 'application/json' },
+    headers: { ...ORIGIN, ...jako(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ projectId: project, model: 'recorder', messages: [{ role: 'user', content: question }], attachmentIds, clientRequestId: crypto.randomUUID() } satisfies ChatRequest),
   });
   const events = response.tekst.split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line) as { type: string; context?: unknown[]; conversationId?: string });
@@ -221,6 +221,35 @@ describe('passages of a long file in the chat', () => {
     expect(sent.startsWith(`[${files[1].note}]\n`)).toBe(true);
     expect(sent.length).toBeLessThanOrEqual(80_000 - filler.length);
     expect([...sections.values()].reduce((sum, body) => sum + body.length, 0)).toBeLessThanOrEqual(80_000);
+  });
+
+  it('sends an attached file whose note and passages exactly fill the room left, and less one character short', async () => {
+    // As the editor: the owner's messages in this file stay under ten a minute.
+    const ask = (ids: string[]) => chat('When do I feed the quokka?', ids, ID.projektWspolny, TOKENY.edytor);
+    const alone = await ask([ours]);
+    expect(alone.response.status, alone.response.tekst).toBe(200);
+    const section = alone.sections.get('docs/guide.md')!;
+    // A file without passages yet takes all of the 80 000 but the room the guide needs.
+    const filler = (size: number) => {
+      const text = Array.from({ length: 3_000 }, (_, index) => `Filler line ${index} with plain words.`).join('\n').slice(0, size);
+      expect(text.length).toBe(size);
+      return text;
+    };
+    const [exact] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/filler-exact.txt', filler(80_000 - section.length)]]);
+    const fits = await ask([exact.id, ours]);
+    expect(fits.response.status, fits.response.tekst).toBe(200);
+    expect(fits.files[0]).toMatchObject({ id: exact.id, status: 'included', note: FALLBACK_NOTE });
+    expect(fits.files[1]).toEqual(alone.files[0]);
+    expect(fits.sections.get('docs/guide.md')).toBe(section);
+    const [over] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/filler-over.txt', filler(80_000 - section.length + 1)]]);
+    const short = await ask([over.id, ours]);
+    expect(short.response.status, short.response.tekst).toBe(200);
+    // One character short, those passages no longer fit; what is sent instead
+    // (fewer passages, or nothing) never takes more than the room left.
+    expect(short.files[1].passages).not.toEqual(alone.files[0].passages);
+    const shortSection = short.sections.get('docs/guide.md')!;
+    expect(shortSection.length).toBeLessThanOrEqual(section.length - 1);
+    expect([...short.sections.values()].reduce((sum, body) => sum + body.length, 0)).toBeLessThanOrEqual(80_000);
   });
 
   it('tells the model when no passage matched, as the manifest does', async () => {

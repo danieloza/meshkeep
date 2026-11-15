@@ -284,14 +284,15 @@ async function run() {
         context = { chars: answer.message.length, included: count('included'), truncated: count('truncated'), unreadable: count('unreadable'), skipped: count('skipped') };
         // Every section sent by passages is read back, expected or not, and
         // checked against its source file: a section the reader cannot cut by
-        // its manifest, a note that differs from the manifest's, or a body that
-        // is not the source text of its chunks stops the run.
+        // its manifest, a note that differs from the manifest's, a body that is
+        // not the source text of its chunks, or a manifest entry whose locator,
+        // length or stamp the source chunk does not have stops the run.
         for (const entry of manifest) {
           if (!entry.passages) continue;
           const { note, runs } = splitPassages(sections.get(entry.path), entry.passages);
           if (note !== entry.note) throw new Error(`${question.id}: the note sent with ${entry.path} is not the manifest's note.`);
-          const { document, chunks } = await sourceOf(corpusPath(entry.id));
-          passageSources.set(entry.id, { document, sent: sentSourceChunks(document, chunks, entry.passages, runs) });
+          const { document, chunks, keys } = await sourceOf(corpusPath(entry.id));
+          passageSources.set(entry.id, { document, sent: sentSourceChunks(document, chunks, entry.passages, runs, keys) });
         }
         sent = manifest.map((entry) => ({
           file: corpusPath(entry.id),

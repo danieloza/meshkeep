@@ -7,10 +7,11 @@
 //
 // Only erasable TypeScript. Node runs this file as it is.
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { type Chunk, chunksOf, type Document } from './chunking.ts';
-import { contextDocument, limitContextText, limitPdfPages, MAX_FILE_CHUNKS } from '../../lib/context-document.ts';
+import { CHUNK_EXTRACTOR_VERSION, contextDocument, limitContextText, limitPdfPages, MAX_FILE_CHUNKS } from '../../lib/context-document.ts';
 import { wydobadzTekstDokumentu } from '../../lib/document-text.ts';
 
 // As `lib/server/context-file.ts` and `lib/server/file-text.ts` set them.
@@ -40,8 +41,15 @@ export async function sourceDocument(path: string): Promise<Document> {
   return contextDocument(extension, limitContextText(extracted).text);
 }
 
-// The document and the chunks the indexer stores for it, ordinal by ordinal.
-export async function sourceChunks(path: string): Promise<{ document: Document; chunks: Chunk[] }> {
+const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
+
+// The document and the chunks the indexer stores for it, ordinal by ordinal,
+// with each chunk's stamp: the first 20 hex characters of
+// `sha256(file SHA-256 + ":" + extractor version + ":" + ordinal)` (ADR 0001,
+// decision 1), from the file's own bytes.
+export async function sourceChunks(path: string): Promise<{ document: Document; chunks: Chunk[]; keys: string[] }> {
   const document = await sourceDocument(path);
-  return { document, chunks: chunksOf(document, true).slice(0, MAX_FILE_CHUNKS) };
+  const chunks = chunksOf(document, true).slice(0, MAX_FILE_CHUNKS);
+  const fileSha = sha256(bytesOf(path));
+  return { document, chunks, keys: chunks.map((chunk) => sha256(`${fileSha}:${CHUNK_EXTRACTOR_VERSION}:${chunk.ordinal}`).slice(0, 20)) };
 }

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chunksOf, passagesText, type Document } from '@/lib/context-chunking';
+import { chunkLocator, chunksOf, passagesText, type Document } from '@/lib/context-chunking';
 import { buildContextChunks, CHUNK_EXTRACTOR_VERSION, contextDocument } from '@/lib/context-document';
 import { contextFile } from '@/lib/contracts/conversations';
 import { readContextFiles } from '@/lib/chat-stream';
@@ -10,7 +10,7 @@ import { readContextFiles } from '@/lib/chat-stream';
 const mocks = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock('@/db', () => ({ getDb: () => ({ $client: mocks.client }) }));
 
-import { choosePassages, filePassages, locatorOf, needsPassages, PER_FILE_PASSAGE_CHARS, passageNote, WHOLE_FILE_CHARS } from '@/lib/server/context-passages';
+import { choosePassages, filePassages, needsPassages, PER_FILE_PASSAGE_CHARS, passageNote, WHOLE_FILE_CHARS } from '@/lib/server/context-passages';
 
 // The real migrations and the real SQL on SQLite. batch() runs its statements
 // in one transaction and returns their rows, as D1 does.
@@ -131,6 +131,35 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     expect(wide.text.length).toBeLessThanOrEqual(6_000);
   });
 
+  it('sends a file whose actual note and passages fit the room exactly, and not one character less', async () => {
+    await addFile('g', 'p', 'docs/guide.md', guide);
+    // A match: the longer no-match note cannot apply, so it is not reserved.
+    const ample = await ask('g', 'p', 'quokka');
+    if (ample.kind !== 'passages') throw new Error(ample.kind);
+    expect(await ask('g', 'p', 'quokka', ample.section.length)).toEqual(ample);
+    expect(await ask('g', 'p', 'quokka', ample.section.length - 1)).toEqual({ kind: 'none' });
+    // No match: the same, with the no-match note.
+    const beginning = await ask('g', 'p', 'zzzz');
+    if (beginning.kind !== 'passages') throw new Error(beginning.kind);
+    expect(await ask('g', 'p', 'zzzz', beginning.section.length)).toEqual(beginning);
+  });
+
+  it('reserves the note for the count actually sent, digits included', async () => {
+    // Fifteen small sheets: every chunk matches, and all fit, so the count has two digits.
+    const sheets = contextDocument('xlsx', Array.from({ length: 15 }, (_, index) => `# sheet${index + 1}.xml\nName\tValue\nrow ${index}\t${index}`).join('\n'));
+    await addFile('s', 'p', 'data/many.xlsx', sheets);
+    const ample = await ask('s', 'p', 'Value');
+    if (ample.kind !== 'passages') throw new Error(ample.kind);
+    expect(ample.passages).toHaveLength(15);
+    // A note for 9 passages is one character shorter than for 15: that character must not
+    // let in more than the room holds, nor cost a passage when the room is exact.
+    expect(await ask('s', 'p', 'Value', ample.section.length)).toEqual(ample);
+    const short = await ask('s', 'p', 'Value', ample.section.length - 1);
+    if (short.kind !== 'passages') throw new Error(short.kind);
+    expect(short.section.length).toBeLessThanOrEqual(ample.section.length - 1);
+    expect(short.passages.length).toBeLessThan(15);
+  });
+
   it('reserves the note before choosing: a passage that fits only without its note is not sent', async () => {
     await addFile('g', 'p', 'docs/guide.md', guide);
     // One chunk holds "quokka"; with room to spare it goes alone.
@@ -156,7 +185,7 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     const lengths: number[] = [];
     let previous: number | null = null;
     for (const passage of result.passages) {
-      if (previous !== null && passage.ordinal === previous + 1 && JSON.stringify(locatorOf(guideChunks[passage.ordinal])) === JSON.stringify(locatorOf(guideChunks[previous]))) lengths[lengths.length - 1] += passage.length;
+      if (previous !== null && passage.ordinal === previous + 1 && JSON.stringify(chunkLocator(guideChunks[passage.ordinal])) === JSON.stringify(chunkLocator(guideChunks[previous]))) lengths[lengths.length - 1] += passage.length;
       else lengths.push(passage.length);
       previous = passage.ordinal;
     }
