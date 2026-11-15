@@ -12,7 +12,7 @@ import { chargeRun, finishRun, releaseRun, reserveRun } from '@/lib/server/chat-
 import { assertChatAllowed } from '@/lib/server/tokenrouter';
 import { KeyRejectedError, markRejected, readCompletionJson, resolveProvider, streamProvider } from '@/lib/server/provider';
 import { rozszerzeniePliku, trescPliku } from '@/lib/server/file-text';
-import { type FilePassages, filePassages, needsPassages, PER_FILE_PASSAGE_CHARS } from '@/lib/server/context-passages';
+import { type FilePassages, filePassages, needsPassages } from '@/lib/server/context-passages';
 
 const MAX_ATTACHMENT_CONTEXT_CHARS = 80_000;
 const MAX_ANSWER_CHARS = 200_000;
@@ -78,14 +78,17 @@ async function buildAttachmentContext(projectId: string, attachmentIds: string[]
     if (needsPassages(tekst)) {
       let passages: FilePassages;
       try {
-        passages = await filePassages(file, question, Math.min(PER_FILE_PASSAGE_CHARS, remaining));
+        // The passages keep their own allowance; the note line is paid from
+        // the room left, like the file's other metadata.
+        passages = await filePassages(file, question, remaining, powod);
       } catch {
         passages = { kind: 'unavailable', reason: 'The passage query failed.' };
       }
       if (passages.kind === 'passages') {
-        sections.push(`${heading}\n${passages.text}`);
+        // The model is told what the manifest tells the member, in the note line.
+        sections.push(`${heading}\n${passages.section}`);
         manifest.push({ id: file.id, path: file.relativePath, status: 'truncated', note: passages.note, passages: passages.passages });
-        remaining -= passages.text.length;
+        remaining -= passages.section.length;
         continue;
       }
       if (passages.kind === 'none') {

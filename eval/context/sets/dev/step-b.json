@@ -124,9 +124,9 @@
       "scored": {
         "n": 40,
         "withContext": 40,
-        "meanChars": 6140,
-        "meanCharsWhenSent": 6140,
-        "maxChars": 10736,
+        "meanChars": 6150,
+        "meanCharsWhenSent": 6150,
+        "maxChars": 10774,
         "meanFiles": 4.05,
         "included": 149,
         "truncated": 11,
@@ -136,9 +136,9 @@
       "noAnswer": {
         "n": 7,
         "withContext": 5,
-        "meanChars": 4872,
-        "meanCharsWhenSent": 6820,
-        "maxChars": 10048,
+        "meanChars": 4877,
+        "meanCharsWhenSent": 6828,
+        "maxChars": 10086,
         "meanFiles": 5,
         "included": 23,
         "truncated": 1,
@@ -1334,7 +1334,7 @@
         }
       ],
       "context": {
-        "chars": 10736,
+        "chars": 10774,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1372,7 +1372,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "5 of 91 passages.",
+          "note": "Passages of a longer file: 5 of 91.",
           "ordinals": [
             3,
             9,
@@ -1416,7 +1416,7 @@
         }
       ],
       "context": {
-        "chars": 10081,
+        "chars": 10119,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1442,7 +1442,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             16,
             18,
@@ -1497,7 +1497,7 @@
         }
       ],
       "context": {
-        "chars": 10182,
+        "chars": 10220,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1531,7 +1531,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             34,
             35,
@@ -1580,7 +1580,7 @@
         }
       ],
       "context": {
-        "chars": 10173,
+        "chars": 10211,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1614,7 +1614,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             1,
             2,
@@ -1655,7 +1655,7 @@
         }
       ],
       "context": {
-        "chars": 7559,
+        "chars": 7597,
         "included": 2,
         "truncated": 1,
         "unreadable": 0,
@@ -1681,7 +1681,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             36,
             37,
@@ -1728,7 +1728,7 @@
         }
       ],
       "context": {
-        "chars": 10288,
+        "chars": 10326,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1766,7 +1766,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "5 of 91 passages.",
+          "note": "Passages of a longer file: 5 of 91.",
           "ordinals": [
             0,
             27,
@@ -1812,7 +1812,7 @@
         }
       ],
       "context": {
-        "chars": 9685,
+        "chars": 9723,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1834,7 +1834,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             60,
             63,
@@ -1891,7 +1891,7 @@
         }
       ],
       "context": {
-        "chars": 8503,
+        "chars": 8541,
         "included": 3,
         "truncated": 1,
         "unreadable": 0,
@@ -1913,7 +1913,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             69,
             70,
@@ -1970,7 +1970,7 @@
         }
       ],
       "context": {
-        "chars": 10058,
+        "chars": 10096,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -1996,7 +1996,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             39,
             67,
@@ -2654,7 +2654,7 @@
         }
       ],
       "context": {
-        "chars": 9837,
+        "chars": 9875,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -2691,7 +2691,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             19,
             64,
@@ -2820,7 +2820,7 @@
         }
       ],
       "context": {
-        "chars": 10299,
+        "chars": 10337,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -2849,7 +2849,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             1,
             69,
@@ -3118,7 +3118,7 @@
         }
       ],
       "context": {
-        "chars": 10048,
+        "chars": 10086,
         "included": 4,
         "truncated": 1,
         "unreadable": 0,
@@ -3140,7 +3140,7 @@
         {
           "file": "sklep-wdrozenie/api-reference.md",
           "status": "truncated",
-          "note": "4 of 91 passages.",
+          "note": "Passages of a longer file: 4 of 91.",
           "ordinals": [
             1,
             9,

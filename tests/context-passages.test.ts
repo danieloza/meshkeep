@@ -10,7 +10,7 @@ import { readContextFiles } from '@/lib/chat-stream';
 const mocks = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock('@/db', () => ({ getDb: () => ({ $client: mocks.client }) }));
 
-import { choosePassages, filePassages, locatorOf, needsPassages, PER_FILE_PASSAGE_CHARS, WHOLE_FILE_CHARS } from '@/lib/server/context-passages';
+import { choosePassages, filePassages, locatorOf, needsPassages, PER_FILE_PASSAGE_CHARS, passageNote, WHOLE_FILE_CHARS } from '@/lib/server/context-passages';
 
 // The real migrations and the real SQL on SQLite. batch() runs its statements
 // in one transaction and returns their rows, as D1 does.
@@ -78,8 +78,9 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
       VALUES (?,?,?,?,?,1,0,?,?,0)`).run(id, indexed.stateProject ?? project, indexed.stateSha ?? SHA, indexed.version ?? CHUNK_EXTRACTOR_VERSION,
       indexed.status ?? 'indexed', rows.length, indexed.reason ?? null);
   }
-  const ask = (id: string, project: string, question: string, allowance = PER_FILE_PASSAGE_CHARS, sha = SHA) =>
-    filePassages({ id, projectId: project, sha256: sha }, question, allowance);
+  // `room`: what is left of the chat's total for this file, as the route passes it.
+  const ask = (id: string, project: string, question: string, room = 80_000, sha = SHA, extractorNote?: string) =>
+    filePassages({ id, projectId: project, sha256: sha }, question, room, extractorNote);
 
   const guide = contextDocument('md', GUIDE);
   const guideChunks = chunksOf(guide, true);
@@ -100,24 +101,50 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     expect(result.text).toContain('[Field guide › Section 17]');
     // Exactly what the shared serialization writes for the listed chunks.
     expect(result.text).toBe(passagesText(guide, result.passages.map((passage) => guideChunks[passage.ordinal])));
-    expect(result.note).toBe(`${result.passages.length} of ${guideChunks.length} passages.`);
+    expect(result.note).toBe(`Passages of a longer file: ${result.passages.length} of ${guideChunks.length}.`);
+    // The provider gets the same note, on its own line above the passages.
+    expect(result.section).toBe(`[${result.note}]\n${result.text}`);
     expect(result.passages.every((passage) => contextFile.shape.passages.unwrap().element.safeParse(passage).success)).toBe(true);
     expect(result.passages.find((passage) => passage.locator && 'heading' in passage.locator && passage.locator.heading.endsWith('Section 17'))).toBeTruthy();
   });
 
-  it('never exceeds the allowance, labels and separators counted', async () => {
+  it('never exceeds the allowance or the room left, labels, separators and the note counted', async () => {
     await addFile('g', 'p', 'docs/guide.md', guide);
-    for (const allowance of [300, 700, 1_500, 2_000, 3_333, 6_000]) {
+    for (const room of [300, 700, 1_500, 2_000, 3_333, 6_000, 6_100, 80_000]) {
       for (const question of ['feed the quokka and the alpaca and the tapir', 'leaves noon', 'nothing like this at all']) {
-        const result = await ask('g', 'p', question, allowance);
-        if (result.kind === 'passages') expect(result.text.length).toBeLessThanOrEqual(allowance);
+        const result = await ask('g', 'p', question, room);
+        if (result.kind !== 'passages') continue;
+        // The passages keep the simulation's allowance; the note line is paid from the room.
+        expect(result.text.length).toBeLessThanOrEqual(PER_FILE_PASSAGE_CHARS);
+        expect(result.section.length).toBeLessThanOrEqual(room);
       }
     }
+    // With room to spare for the note, the note does not shrink the passages' allowance.
+    const roomy = await ask('g', 'p', 'feed the quokka and the alpaca and the tapir', 80_000);
+    const tight = await ask('g', 'p', 'feed the quokka and the alpaca and the tapir', PER_FILE_PASSAGE_CHARS + 200);
+    if (roomy.kind !== 'passages' || tight.kind !== 'passages') throw new Error('passages expected');
+    expect(tight.passages).toEqual(roomy.passages);
     // Several sections were asked for: their labels and the omission marks are in the text and counted.
     const wide = await ask('g', 'p', 'feed the quokka and the alpaca and the tapir', 6_000);
     if (wide.kind !== 'passages') throw new Error(wide.kind);
     expect(wide.text).toContain('[…]');
     expect(wide.text.length).toBeLessThanOrEqual(6_000);
+  });
+
+  it('reserves the note before choosing: a passage that fits only without its note is not sent', async () => {
+    await addFile('g', 'p', 'docs/guide.md', guide);
+    // One chunk holds "quokka"; with room to spare it goes alone.
+    const alone = await ask('g', 'p', 'quokka');
+    if (alone.kind !== 'passages') throw new Error(alone.kind);
+    expect(alone.passages.length).toBeGreaterThan(0);
+    // Room for its text, not for its text and the note line.
+    const room = alone.text.length + 5;
+    const tight = await ask('g', 'p', 'quokka', room);
+    if (tight.kind === 'passages') expect(tight.section.length).toBeLessThanOrEqual(room);
+    else expect(tight).toEqual({ kind: 'none' });
+    // With room for the longest note as well, it is sent.
+    const enough = await ask('g', 'p', 'quokka', alone.text.length + 400);
+    expect(enough.kind === 'passages' && enough.text).toBe(alone.text);
   });
 
   it("adds up each run's passage lengths to the body sent under its label", async () => {
@@ -182,7 +209,13 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     await addFile('part', 'p', 'docs/part.md', guide, { reason: 'Only the beginning of this file was indexed for passages.' });
     const result = await ask('part', 'p', 'quokka');
     if (result.kind !== 'passages') throw new Error(result.kind);
-    expect(result.note).toMatch(/^\d+ of \d+ passages\. The rest of the file could not be searched\.$/);
+    expect(result.note).toMatch(/^Passages of a longer file: \d+ of \d+\. The rest of the file could not be searched\.$/);
+    expect(result.section.split('\n')[0]).toBe(`[${result.note}]`);
+    // The extractor's own warning travels with it.
+    const warned = await ask('part', 'p', 'quokka', 80_000, SHA, 'The document has 41 pages; only text from the beginning was added to context.');
+    if (warned.kind !== 'passages') throw new Error(warned.kind);
+    expect(warned.note).toMatch(/The rest of the file could not be searched\. The document has 41 pages; only text from the beginning was added to context\.$/);
+    expect(warned.section.split('\n')[0]).toBe(`[${warned.note}]`);
   });
 
   it('sends the beginning when no passage matches, and skips only when nothing fits', async () => {
@@ -190,9 +223,10 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     for (const question of ['zzzz qqqq', 'co to?']) {
       const result = await ask('g', 'p', question);
       if (result.kind !== 'passages') throw new Error(result.kind);
-      expect(result.note).toBe('No passage matched the question; the beginning of the file was sent.');
+      expect(result.note).toBe(`Passages of a longer file: no passage matched the question; the beginning of the file was sent (${result.passages.length} of ${guideChunks.length}).`);
       expect(result.passages[0].ordinal).toBe(0);
       expect(result.text.startsWith('[Field guide]\n# Field guide\n\n## Section 1')).toBe(true);
+      expect(result.section.startsWith(`[${result.note}]\n[Field guide]\n`)).toBe(true);
     }
     expect(await ask('g', 'p', 'zzzz', 20)).toEqual({ kind: 'none' });
     expect(await ask('g', 'p', 'quokka', 20)).toEqual({ kind: 'none' });
@@ -207,12 +241,22 @@ describe.skipIf(!hasFts5())('passages of a long file', () => {
     expect(Number((db.prepare("SELECT COUNT(*) AS n FROM file_chunks_fts WHERE file_chunks_fts MATCH 'columns'").get() as { n: number }).n)).toBeGreaterThan(0);
     const result = await ask('s', 'p', 'columns');
     if (result.kind !== 'passages') throw new Error(result.kind);
-    expect(result.note).toBe('No passage matched the question; the beginning of the file was sent.');
+    expect(result.note).toContain('no passage matched the question');
     // The full header is in the search label, so a column name still finds rows.
     const named = await ask('s', 'p', 'Value of row 399');
     if (named.kind !== 'passages') throw new Error(named.kind);
-    expect(named.note).toMatch(/passages\.$/);
+    expect(named.note).toMatch(/^Passages of a longer file: \d+ of \d+\.$/);
     expect(named.text).toContain('[sheet 1 · columns: Name | Value]');
+  });
+});
+
+describe('the note on a file sent by passages', () => {
+  it('states every fact the manifest states, on one line', () => {
+    expect(passageNote({ count: 3, total: 40, matched: true, partial: false })).toBe('Passages of a longer file: 3 of 40.');
+    expect(passageNote({ count: 3, total: 40, matched: true, partial: true, extractorNote: 'The document has 41 pages; only text from the beginning was added to context.' }))
+      .toBe('Passages of a longer file: 3 of 40. The rest of the file could not be searched. The document has 41 pages; only text from the beginning was added to context.');
+    expect(passageNote({ count: 2, total: 9, matched: false, partial: false })).toContain('no passage matched the question; the beginning of the file was sent (2 of 9)');
+    expect(passageNote({ count: 1, total: 2, matched: true, partial: false, extractorNote: 'Line one.\nLine two.' })).not.toContain('\n');
   });
 });
 
@@ -238,5 +282,17 @@ describe('stored answers', () => {
       expect('passages' in entry, JSON.stringify(variant)).toBe(contextFile.shape.passages.safeParse([variant]).success);
     }
     expect(readContextFiles(JSON.stringify([{ ...good, passages: 'no' }]))).toEqual([{ id: good.id, path: good.path, status: 'truncated' }]);
+    // 2^53 is an integer, but not a safe one: the contract refuses it, and so does the check.
+    const unsafe = 2 ** 53;
+    for (const variant of [{ ...passage, ordinal: unsafe }, { ...passage, length: unsafe }, { ...passage, locator: { page: unsafe } }, { ...passage, locator: { sheet: unsafe } }]) {
+      const [entry] = readContextFiles(JSON.stringify([{ ...good, passages: [variant] }]));
+      expect(entry, JSON.stringify(variant)).toEqual({ id: good.id, path: good.path, status: 'truncated' });
+      expect(contextFile.safeParse(entry).success).toBe(true);
+      expect(contextFile.shape.passages.safeParse([variant]).success).toBe(false);
+    }
+    // The largest safe integer still passes, as it does the contract.
+    const [largest] = readContextFiles(JSON.stringify([{ ...good, passages: [{ ...passage, ordinal: Number.MAX_SAFE_INTEGER }] }]));
+    expect('passages' in largest).toBe(true);
+    expect(contextFile.safeParse(largest).success).toBe(true);
   });
 });

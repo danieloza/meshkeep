@@ -116,7 +116,8 @@ export function estimateTokens(text: string): number {
 // The `contextPassage` contract, checked by hand: this file also runs in the
 // browser, which is kept free of zod (`lib/api-client.ts`). A test parses
 // what this keeps with the contract itself.
-const isCount = (value: unknown, min: number) => Number.isInteger(value) && (value as number) >= min;
+// Safe integers only: zod's `int()` refuses 2^53 and above, and so does this.
+const isCount = (value: unknown, min: number) => Number.isSafeInteger(value) && (value as number) >= min;
 function isLocator(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
   const entries = Object.entries(value);

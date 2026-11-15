@@ -10,6 +10,7 @@ so a change to context is judged on numbers. The design they were built for is
 schema.ts            the format of a set and of its results (zod)
 measure.ts           how results are counted, shared by the runner and the simulation
 passages.ts          how a passage sent by the chat counts as delivered at its place
+sources.ts           a corpus file read and chunked as the passage indexer does
 chunking.ts          the chunking rule the simulation uses
 .gitattributes       keeps the bytes of a corpus the same on every machine
 sets/
@@ -86,14 +87,16 @@ A heading locator means the body after the first matching heading and before the
 heading at any level; heading-like lines inside Markdown fences do not end the section.
 The full heading and sheet header are searchable even when their display labels are shortened.
 
-The application-backed run reports **passageDelivered** too (`passages.ts`). For a long file
-sent by passages, the section is cut into label lines and bodies with the chat's manifest
-alone: the chunks of a run share a locator, and each chunk's `length` is what it adds to the
-body. The quote must lie in a body, never in a label line, at its expected place: the same page
-or sheet, or under the expected heading. A run may start in the section before that heading and
-cross into it; the body is then read from the heading's own line to the next heading line, as
-the simulation reads the region. A file sent whole counts; a long file sent as before because
-its passages were missing does not, and a run with any such file fails.
+The application-backed run reports **passageDelivered** too (`passages.ts`). A long file sent
+by passages arrives as a note line, then runs of label line and body. The section is cut with
+the chat's manifest: the chunks of a run share a locator, and each chunk's `length` is what it
+adds to the body. The note must equal the manifest's note, and every body must equal the source
+file's text for its chunks, read and chunked as the indexer does (`sources.ts`); otherwise the
+run stops. A quote then counts only inside the source region of its expected place within the
+chunks sent (`sourcePassageTexts`, the simulation's own rule): the same page or sheet, or the
+body under the first heading with the expected title. A label never counts. A file sent whole
+counts; a long file sent as before because its passages were missing does not, and a run with
+any such file fails.
 
 A share always stands next to its count. With five questions of a kind, one question is twenty
 percentage points.

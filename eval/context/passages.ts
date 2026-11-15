@@ -1,37 +1,43 @@
 // How a passage counts as delivered at its place, read from what the model
-// provider received (ADR 0001, section 7, row B). Shared by the runner
-// (`scripts/eval-context.mjs`) and the tests.
+// provider received and checked against the source file (ADR 0001, section
+// 7, row B). Shared by the runner (`scripts/eval-context.mjs`) and the tests.
 //
-// A long file reaches the provider as runs: a label line, then the file's own
-// text. The manifest lists the chunks behind each run, with their locator and
-// the characters each adds to its run's body. With that, the reader cuts the
-// section into label lines and bodies without the document, and only bodies
-// can hold a quote: a generated label never counts.
+// A long file reaches the provider as a note line, then runs: a label line,
+// then the file's own text. The manifest lists the chunks behind each run,
+// with their locator and the characters each adds to its run's body. With
+// that, the reader cuts the section into the note, label lines and bodies.
+// Each body must then equal the source document's text for those chunks, and
+// a quote counts only inside the source region of its expected place, as the
+// simulation reads it (`sourcePassageTexts`). A label never counts.
 //
 // Only erasable TypeScript. Node runs this file as it is.
 
-import { nextMarkdownFence } from './chunking.ts';
-import { normalizeText } from './measure.ts';
+import { type Chunk, type Document, type PassageLocator, passageRuns, sourcePassageTexts } from './chunking.ts';
+import { quoteDelivered } from './measure.ts';
 
 // The manifest note of a long file the chat sent as before, because its
 // passages were not available. `tests/api/chat-passages.test.ts` pins that the
 // chat writes exactly this, so the runner's count of such files is real.
 export const FALLBACK_NOTE = 'Passages were not available yet.';
 
-export type Locator = { page: number } | { sheet: number } | { heading: string };
+export type Locator = PassageLocator;
 export type SentPassage = { ordinal: number; locator?: Locator; length: number };
 export type PassageRun = { locator?: Locator; label: string | null; body: string; ordinals: number[] };
+export type PassageSection = { note: string; runs: PassageRun[] };
 
 const sameLocator = (a?: Locator, b?: Locator) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-// The runs of one file's section, as the chat writes them (`passagesText`):
-// consecutive chunks with the same locator form one run; runs are separated by
-// a blank line, or by an omission mark where chunks were left out; a run has
-// a label line exactly when its chunks have a locator. The section must be
-// consumed exactly, or the reader refuses it: a measurement on a format it
-// does not understand would be worse than none.
-export function splitPassages(section: string, passages: SentPassage[]): PassageRun[] {
+// One file's section, as the chat writes it: the note line, then the runs as
+// `passagesText` writes them. Consecutive chunks with the same locator form
+// one run; runs are separated by a blank line, or by an omission mark where
+// chunks were left out; a run has a label line exactly when its chunks have a
+// locator. The section must be consumed exactly, or the reader refuses it: a
+// measurement on a format it does not understand would be worse than none.
+export function splitPassages(section: string, passages: SentPassage[]): PassageSection {
   if (!passages.length) throw new Error('A file sent by passages lists none.');
+  const noteEnd = section.indexOf('\n');
+  const note = noteEnd < 0 ? '' : section.slice(0, noteEnd);
+  if (!/^\[.+\]$/.test(note)) throw new Error('A file sent by passages has no note line.');
   const groups: SentPassage[][] = [];
   for (const [index, passage] of passages.entries()) {
     const previous = passages[index - 1];
@@ -41,7 +47,7 @@ export function splitPassages(section: string, passages: SentPassage[]): Passage
     else groups.push([passage]);
   }
   const runs: PassageRun[] = [];
-  let at = 0;
+  let at = noteEnd + 1;
   for (const [index, group] of groups.entries()) {
     if (index) {
       const separator = groups[index - 1].at(-1)!.ordinal + 1 === group[0].ordinal ? '\n\n' : '\n\n[…]\n\n';
@@ -61,46 +67,33 @@ export function splitPassages(section: string, passages: SentPassage[]): Passage
     at += length;
   }
   if (at !== section.length) throw new Error('The section holds more than its passages.');
-  return runs;
+  return { note: note.slice(1, -1), runs };
 }
 
-// The parts of a Markdown body under the heading `heading`: the region from
-// that heading's line to the next heading line of any level, as the
-// simulation reads it (`sourcePassageTexts`). Before the body's first heading
-// line, the text is under the run's own heading trail, whose last component
-// is the heading it is under. A `#` line inside a code fence is not a heading.
-export function textsUnderHeading(body: string, trail: string, heading: string): string[] {
-  const texts: string[] = [];
-  let under = trail === heading || trail.endsWith(` › ${heading}`);
-  let lines: string[] = [];
-  let fence: ReturnType<typeof nextMarkdownFence> = null;
-  const flush = () => { if (under && lines.length) texts.push(lines.join('\n')); lines = []; };
-  for (const line of body.split('\n')) {
-    const match = fence ? null : line.match(/^(#{1,6}) (.*)$/);
-    if (match) {
-      flush();
-      under = match[2].trim() === heading;
-      continue;
-    }
-    fence = nextMarkdownFence(line, fence);
-    lines.push(line);
-  }
-  flush();
-  return texts;
-}
-
-// Whether a quote reached the provider inside a passage body of its file, at
-// its expected place: the same page or sheet, or under the same heading. With
-// no expected place, any body counts.
-export function passageQuoteDelivered(quote: string, runs: PassageRun[], locator?: Locator): boolean {
-  const wanted = normalizeText(quote);
-  const holds = (text: string) => normalizeText(text).includes(wanted);
-  return runs.some((run) => {
-    if (!locator) return holds(run.body);
-    if ('heading' in locator) {
-      const trail = run.locator && 'heading' in run.locator ? run.locator.heading : '';
-      return textsUnderHeading(run.body, trail, locator.heading).some(holds);
-    }
-    return sameLocator(run.locator, locator) && holds(run.body);
+// The chunks behind a file's passages, from the source document chunked by the
+// shared rule, after checking that every run the provider received is the
+// document's own text for those chunks, under their own label. A mismatch
+// stops the run: the measurement does not guess where a body came from.
+export function sentSourceChunks(document: Document, chunks: Chunk[], passages: SentPassage[], runs: PassageRun[]): Chunk[] {
+  const sent = passages.map((passage) => {
+    const chunk = chunks[passage.ordinal];
+    if (!chunk) throw new Error(`Passage ${passage.ordinal} is not a chunk of its source file.`);
+    return chunk;
   });
+  const expected = passageRuns(document, sent);
+  if (expected.length !== runs.length) throw new Error('The runs sent do not match the source chunks behind them.');
+  for (const [index, run] of expected.entries()) {
+    if (run.body !== runs[index].body || (run.label || null) !== runs[index].label) {
+      throw new Error(`Passage run ${index + 1} sent is not the source text of its chunks.`);
+    }
+  }
+  return sent;
+}
+
+// Whether a quote was delivered inside the source region of its expected
+// place, within the chunks sent: the simulation's own rule, including the
+// first occurrence of a repeated heading. With no expected place, any sent
+// source slice counts.
+export function sourcePassageDelivered(quote: string, document: Document, sent: Chunk[], locator?: Locator): boolean {
+  return sourcePassageTexts(document, sent, locator).some((text) => quoteDelivered(quote, text));
 }

@@ -1,4 +1,5 @@
-import { canonicalText, type Chunk, CHUNK_RULE, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passageSearchLabel, pdfDocument, safeHeader, sheetUnits, type Document } from './context-chunking';
+// With its extension, so the evaluation can run this file in Node as it is.
+import { canonicalText, type Chunk, CHUNK_RULE, chunksOf, lineUnits, markdownUnits, paragraphUnits, passageLabel, passageSearchLabel, pdfDocument, safeHeader, sheetUnits, type Document } from './context-chunking.ts';
 
 // This version is part of every stamp. Change it when extraction or chunk
 // boundaries change, or what a stored chunk holds, so a saved citation cannot

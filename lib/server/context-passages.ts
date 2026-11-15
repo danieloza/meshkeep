@@ -81,15 +81,46 @@ export function choosePassages(document: Document, chunks: Chunk[], keys: string
 }
 
 export type FilePassages =
-  | { kind: 'passages'; text: string; passages: ContextPassage[]; note: string }
-  // Current chunks exist, but not even one fits the room left.
+  // `section` is what the provider receives under the file's `FILE:` line: the
+  // note line, then the passages (`text`). The manifest's note is the same note.
+  | { kind: 'passages'; section: string; text: string; passages: ContextPassage[]; note: string }
+  // Current chunks exist, but the room left cannot hold the note and one passage.
   | { kind: 'none' }
   // No current chunks, or they cannot be read: the chat sends the file as before.
   | { kind: 'unavailable'; reason: string };
 
+export type PassageNoteFacts = {
+  count: number;
+  total: number;
+  // A passage matched the question; otherwise the beginning was sent.
+  matched: boolean;
+  // Only part of the file was indexed, so the rest could not be searched.
+  partial: boolean;
+  // What the extractor said about the file (`powod` of `trescPliku`).
+  extractorNote?: string;
+};
+
+// What the model and the manifest are told about a file sent by passages: the
+// same facts, in one line.
+export function passageNote(facts: PassageNoteFacts): string {
+  const sent = facts.matched
+    ? `Passages of a longer file: ${facts.count} of ${facts.total}.`
+    : `Passages of a longer file: no passage matched the question; the beginning of the file was sent (${facts.count} of ${facts.total}).`;
+  const note = [sent, facts.partial ? 'The rest of the file could not be searched.' : null, facts.extractorNote ?? null].filter(Boolean).join(' ');
+  // One line, whatever the extractor wrote.
+  return note.replace(/\s+/g, ' ').trim();
+}
+
+// The note line as sent, `[note]` and its line end: what it costs the room.
+const noteLine = (note: string) => `[${note}]\n`;
+
 type Row = StoredChunk & { chunkCount: number; reason: string | null };
 
-export async function filePassages(file: { id: string; projectId: string; sha256: string }, question: string, allowance: number): Promise<FilePassages> {
+// `room` is what is left of the total for this file's text. The note line is
+// paid from it, like the `FILE:` line is file metadata; the passages keep the
+// simulation's allowance of `PER_FILE_PASSAGE_CHARS`, as far as the room left
+// after the longest possible note allows.
+export async function filePassages(file: { id: string; projectId: string; sha256: string }, question: string, room: number, extractorNote?: string): Promise<FilePassages> {
   const db = getDb().$client;
   const match = passageMatch(question);
   const fence = [file.sha256, CHUNK_EXTRACTOR_VERSION];
@@ -110,13 +141,15 @@ export async function filePassages(file: { id: string; projectId: string; sha256
   // server cannot tell a file the member attached on purpose from one Auto
   // suggested, and an attached file must not arrive empty.
   const matched = ranked.length > 0;
+  // Step A records a reason with an indexed file only when it indexed part of it.
+  const facts = { total: stored.length, partial: stored[0].reason !== null, extractorNote };
+  // Reserve the longest note this file can get: no count is above the total.
+  const reserve = Math.max(...[true, false].map((either) => noteLine(passageNote({ ...facts, count: stored.length, matched: either })).length));
+  const allowance = Math.min(PER_FILE_PASSAGE_CHARS, room - reserve);
+  if (allowance <= 0) return { kind: 'none' };
   const choice = choosePassages(rebuilt.document, rebuilt.chunks, stored.map((row) => row.chunkKey),
     matched ? ranked : rebuilt.chunks.map((chunk) => chunk.ordinal), allowance);
   if (!choice) return { kind: 'none' };
-  // Step A records a reason with an indexed file only when it indexed part of it.
-  const note = [
-    matched ? `${choice.passages.length} of ${stored.length} passages.` : 'No passage matched the question; the beginning of the file was sent.',
-    stored[0].reason === null ? null : 'The rest of the file could not be searched.',
-  ].filter(Boolean).join(' ');
-  return { kind: 'passages', text: choice.text, passages: choice.passages, note };
+  const note = passageNote({ ...facts, count: choice.passages.length, matched });
+  return { kind: 'passages', section: noteLine(note) + choice.text, text: choice.text, passages: choice.passages, note };
 }

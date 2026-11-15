@@ -54,13 +54,42 @@ function startProvider(): Promise<void> {
   }));
 }
 
-async function upload(token: string, project: string, files: Array<[string, string]>) {
+const MIME: Record<string, string> = { md: 'text/markdown', txt: 'text/plain', pdf: 'application/pdf' };
+
+async function upload(token: string, project: string, files: Array<[string, string | Uint8Array<ArrayBuffer>]>) {
   const form = new FormData();
-  for (const [path, text] of files) form.append('files', new File([text], path.split('/').pop()!, { type: 'text/markdown' }));
+  for (const [path, content] of files) form.append('files', new File([content], path.split('/').pop()!, { type: MIME[path.split('.').pop()!] }));
   form.append('paths', JSON.stringify(files.map(([path]) => path)));
   const response = await zapytaj(`/api/projects/${project}/files`, { method: 'POST', headers: { ...ORIGIN, ...jako(token) }, body: form });
   expect(response.status, response.tekst).toBe(201);
   return projectFiles.parse(response.dane).files;
+}
+
+// A plain PDF with a text layer, one line of ASCII text per entry, written by
+// hand: the tests need a document over 40 pages, and no PDF library is a
+// dependency. Helvetica is one of the standard fonts, so nothing is embedded.
+function pdfOf(pages: string[][]): Uint8Array<ArrayBuffer> {
+  const escape = (line: string) => line.replace(/[\\()]/g, (character) => `\\${character}`);
+  const objects: string[] = [];
+  const pageIds = pages.map((_, index) => 4 + index * 2);
+  objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`;
+  objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  pages.forEach((lines, index) => {
+    const stream = `BT /F1 9 Tf 12 TL 40 800 Td ${lines.map((line) => `(${escape(line)}) Tj T*`).join(' ')} ET`;
+    objects[pageIds[index]] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageIds[index] + 1} 0 R >>`;
+    objects[pageIds[index] + 1] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  });
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  for (let id = 1; id < objects.length; id += 1) {
+    offsets[id] = pdf.length;
+    pdf += `${id} 0 obj\n${objects[id]}\nendobj\n`;
+  }
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}`;
+  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(pdf) as Uint8Array<ArrayBuffer>;
 }
 
 // The evaluator's own loop (`indexUntilDone`), over real indexing rounds.
@@ -131,15 +160,17 @@ describe('passages of a long file in the chat', () => {
     expect(whole).toEqual({ id: short, path: 'docs/short.md', status: 'included' });
     expect(sections.get('docs/short.md')).toBe(SHORT);
     // The long file goes by passages: the section the question is about, under its label.
-    expect(long).toMatchObject({ id: ours, path: 'docs/guide.md', status: 'truncated', note: expect.stringMatching(/^\d+ of \d+ passages\.$/) });
+    expect(long).toMatchObject({ id: ours, path: 'docs/guide.md', status: 'truncated', note: expect.stringMatching(/^Passages of a longer file: \d+ of \d+\.$/) });
     const sent = sections.get('docs/guide.md')!;
     expect(sent).toContain('[Field guide › Section 17]\nThe quokka lives here');
     expect(sent).toContain('Rule 17: feed the quokka at noon.');
-    expect(sent.length).toBeLessThanOrEqual(6_000);
-    // Verbatim: exactly the shared serialization of the listed chunks of this file.
+    // Verbatim: the note line, then exactly the shared serialization of the
+    // listed chunks of this file, which keeps the simulation's allowance.
     const document = contextDocument('md', OURS);
     const chunks = chunksOf(document, true);
-    expect(sent).toBe(passagesText(document, long.passages!.map((passage) => chunks[passage.ordinal])));
+    const passages = passagesText(document, long.passages!.map((passage) => chunks[passage.ordinal]));
+    expect(sent).toBe(`[${long.note}]\n${passages}`);
+    expect(passages.length).toBeLessThanOrEqual(6_000);
     // Each listed chunk carries its own stamp and locator.
     for (const passage of long.passages!) {
       expect(passage.chunkKey).toBe(stamp(sha(OURS), passage.ordinal));
@@ -175,6 +206,65 @@ describe('passages of a long file in the chat', () => {
     expect(files).toEqual([{ id: file.id, path: 'docs/late.md', status: 'included', note: FALLBACK_NOTE }]);
     expect(sections.get('docs/late.md')).toBe(late);
   });
+
+  it('pays the note line from the room left, and never sends more than the room', async () => {
+    // A long file without passages yet takes most of the 80 000 first, as before.
+    const filler = Array.from({ length: 1_000 }, (_, index) => `Filler paragraph ${index} holds plain words and nothing else. `.repeat(2)).join('\n\n').slice(0, 77_000);
+    const [first] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/filler.txt', filler]]);
+    const { response, files, sections } = await chat('When do I feed the quokka?', [first.id, ours]);
+    expect(response.status, response.tekst).toBe(200);
+    expect(files[0]).toMatchObject({ id: first.id, status: 'included', note: FALLBACK_NOTE });
+    expect(sections.get('docs/filler.txt')).toBe(filler);
+    // 3 000 characters were left: the note and the passages fit in them.
+    expect(files[1]).toMatchObject({ id: ours, status: 'truncated', note: expect.stringMatching(/^Passages of a longer file:/) });
+    const sent = sections.get('docs/guide.md')!;
+    expect(sent.startsWith(`[${files[1].note}]\n`)).toBe(true);
+    expect(sent.length).toBeLessThanOrEqual(80_000 - filler.length);
+    expect([...sections.values()].reduce((sum, body) => sum + body.length, 0)).toBeLessThanOrEqual(80_000);
+  });
+
+  it('tells the model when no passage matched, as the manifest does', async () => {
+    // No word of this question, nor its stem, is in the guide.
+    const { response, files, sections } = await chat('Tell me about zebracorn plover flamingo', [ours]);
+    expect(response.status, response.tekst).toBe(200);
+    const [entry] = files;
+    expect(entry.note).toContain('no passage matched the question; the beginning of the file was sent');
+    expect(sections.get('docs/guide.md')!.startsWith(`[${entry.note}]\n[Field guide]\n# Field guide`)).toBe(true);
+  });
+
+  it('tells the model that the rest of a long PDF could not be searched, with the extractor warning', async () => {
+    // 41 pages: past the 40 pages that are read for passages and for the chat.
+    const pages = Array.from({ length: 41 }, (_, page) => Array.from({ length: 30 }, (_, line) => (page === 6 && line === 3
+      ? 'The pelican code is PELICAN-SEVEN.'
+      : `Page ${page + 1} line ${line + 1} holds plain words for the report.`)));
+    const [pdf] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/report.pdf', pdfOf(pages)]]);
+    await indexAll(TOKENY.wlasciciel, ID.projektWspolny);
+    const { response, files, sections } = await chat('What is the pelican code?', [pdf.id]);
+    expect(response.status, response.tekst).toBe(200);
+    const [entry] = files;
+    expect(entry.status).toBe('truncated');
+    expect(entry.note).toContain('The rest of the file could not be searched.');
+    expect(entry.note).toContain('The document has 41 pages; only text from the beginning was added to context.');
+    const sent = sections.get('docs/report.pdf')!;
+    expect(sent.split('\n')[0]).toBe(`[${entry.note}]`);
+    expect(sent).toContain('[page 7]');
+    expect(sent).toContain('PELICAN-SEVEN');
+  }, 120_000);
+
+  it('tells the model that the rest of a text file past 120 000 characters could not be searched', async () => {
+    const lines = Array.from({ length: 3_200 }, (_, index) => (index === 10 ? 'The heron password is HERON-FORTY-TWO.' : `Log line ${index} records an ordinary event.`));
+    const text = lines.map((line, index) => (index % 5 === 4 ? `${line}\n` : line)).join('\n');
+    expect(text.length).toBeGreaterThan(120_000);
+    const [log] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/events.txt', text]]);
+    await indexAll(TOKENY.wlasciciel, ID.projektWspolny);
+    const { response, files, sections } = await chat('What is the heron password?', [log.id]);
+    expect(response.status, response.tekst).toBe(200);
+    const [entry] = files;
+    expect(entry).toMatchObject({ status: 'truncated', note: expect.stringMatching(/^Passages of a longer file: \d+ of \d+\. The rest of the file could not be searched\.$/) });
+    const sent = sections.get('docs/events.txt')!;
+    expect(sent.split('\n')[0]).toBe(`[${entry.note}]`);
+    expect(sent).toContain('HERON-FORTY-TWO');
+  }, 120_000);
 
   it('indexes the passages of a project of more than a hundred files', async () => {
     // Synthetic, small, made up here: an upload takes at most 100 files, so two.

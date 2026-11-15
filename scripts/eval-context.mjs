@@ -28,7 +28,8 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, indexUntilDone, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
-import { FALLBACK_NOTE, passageQuoteDelivered, splitPassages } from '../eval/context/passages.ts';
+import { FALLBACK_NOTE, sentSourceChunks, sourcePassageDelivered, splitPassages } from '../eval/context/passages.ts';
+import { sourceChunks } from '../eval/context/sources.ts';
 import { baseline, canAsk, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
 import { buildSuggestQuery } from '../lib/search.ts';
 import { ORIGIN, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from '../tests/api/harness.ts';
@@ -52,6 +53,12 @@ const { projects } = projectsSchema.parse(readJson('projects.json'));
 const { questions } = questionSet.parse(readJson('questions.json'));
 const projectOf = (file) => file.split('/')[0];
 const pathIn = (file) => file.slice(file.indexOf('/') + 1);
+// A corpus file read and chunked as the passage indexer does, once per run.
+const sources = new Map();
+const sourceOf = (file) => {
+  if (!sources.has(file)) sources.set(file, sourceChunks(join(SET, 'corpus', file)));
+  return sources.get(file);
+};
 
 // --- The set as rows --------------------------------------------------------
 
@@ -264,8 +271,8 @@ async function run() {
       let context = null;
       let manifest = [];
       let sections = new Map();
-      // Passage runs of each file sent by passages, read back by the manifest.
-      const runs = new Map();
+      // Each file sent by passages: its source document and the chunks sent.
+      const passageSources = new Map();
       let sent;
       if (question.kind !== 'access' && suggestions.length) {
         const answer = await chat(question.asker, question.project, question.question, suggestions.map((suggestion) => idOf.get(suggestion.file)));
@@ -275,9 +282,17 @@ async function run() {
         sections = splitFileContext(answer.message, manifest.map((entry) => entry.path));
         const count = (status) => manifest.filter((entry) => entry.status === status).length;
         context = { chars: answer.message.length, included: count('included'), truncated: count('truncated'), unreadable: count('unreadable'), skipped: count('skipped') };
-        // Every section sent by passages is read back, expected or not: one the
-        // reader cannot cut by its manifest stops the run.
-        for (const entry of manifest) if (entry.passages) runs.set(entry.id, splitPassages(sections.get(entry.path), entry.passages));
+        // Every section sent by passages is read back, expected or not, and
+        // checked against its source file: a section the reader cannot cut by
+        // its manifest, a note that differs from the manifest's, or a body that
+        // is not the source text of its chunks stops the run.
+        for (const entry of manifest) {
+          if (!entry.passages) continue;
+          const { note, runs } = splitPassages(sections.get(entry.path), entry.passages);
+          if (note !== entry.note) throw new Error(`${question.id}: the note sent with ${entry.path} is not the manifest's note.`);
+          const { document, chunks } = await sourceOf(corpusPath(entry.id));
+          passageSources.set(entry.id, { document, sent: sentSourceChunks(document, chunks, entry.passages, runs) });
+        }
         sent = manifest.map((entry) => ({
           file: corpusPath(entry.id),
           status: entry.status,
@@ -293,11 +308,13 @@ async function run() {
         const entry = manifest.find((item) => item.id === idOf.get(source.file));
         const reached = state === 'included' || state === 'truncated';
         const delivered = reached && quoteDelivered(source.quote, sections.get(pathIn(source.file)));
-        // By passages: inside a passage body at the expected place. Whole, or
-        // as the extractor gave it: every place of the file was sent. As
-        // before for lack of passages: not a passage delivery.
+        // By passages: inside the source region of the expected place, within
+        // the chunks sent (the simulation's rule). Whole, or as the extractor
+        // gave it: every place of the file was sent. As before for lack of
+        // passages: not a passage delivery.
+        const passageSource = entry?.passages ? passageSources.get(entry.id) : null;
         const passageDelivered = !reached ? false
-          : entry.passages ? passageQuoteDelivered(source.quote, runs.get(entry.id), source.locator)
+          : passageSource ? sourcePassageDelivered(source.quote, passageSource.document, passageSource.sent, source.locator)
             : entry.note?.includes(FALLBACK_NOTE) ? false : delivered;
         return { file: source.file, rank: rankOf(source.file), manifest: state, delivered, passageDelivered };
       });
@@ -356,7 +373,7 @@ async function run() {
       rows: sum.rows + file.d1.chunkRows + file.d1.rankedRows, chars: sum.chars + file.d1.chars }), { rows: 0, chars: 0 }));
     const passages = {
       filesByPassages: sentFiles.filter((file) => file.ordinals).length,
-      beginningNoMatch: results.filter((result) => result.sent?.some((file) => file.note?.startsWith('No passage matched'))).map((result) => result.id),
+      beginningNoMatch: results.filter((result) => result.sent?.some((file) => file.note?.includes('no passage matched the question'))).map((result) => result.id),
       fallback: sentFiles.filter((file) => file.note?.includes(FALLBACK_NOTE)).length,
       d1: {
         messages: d1PerMessage.length,
