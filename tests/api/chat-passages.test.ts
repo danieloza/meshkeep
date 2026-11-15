@@ -252,6 +252,23 @@ describe('passages of a long file in the chat', () => {
     expect([...short.sections.values()].reduce((sum, body) => sum + body.length, 0)).toBeLessThanOrEqual(80_000);
   });
 
+  it('charges a passages file, note line included, to the total before the files after it', async () => {
+    // The passages file first; then a long file without passages yet, which takes what is left.
+    const ask = (ids: string[]) => chat('When do I feed the quokka?', ids, ID.projektWspolny, TOKENY.edytor);
+    const tail = Array.from({ length: 3_000 }, (_, index) => `Tail line ${index} with plain words.`).join('\n').slice(0, 90_000);
+    expect(tail.length).toBe(90_000);
+    const [after] = await upload(TOKENY.wlasciciel, ID.projektWspolny, [['docs/tail.txt', tail]]);
+    const { response, files, sections } = await ask([ours, after.id]);
+    expect(response.status, response.tekst).toBe(200);
+    const section = sections.get('docs/guide.md')!;
+    expect(files[0]).toMatchObject({ id: ours, status: 'truncated' });
+    expect(section.startsWith(`[${files[0].note}]\n`)).toBe(true);
+    // Exactly the room the passages file left, its note line counted.
+    expect(files[1]).toMatchObject({ id: after.id, status: 'truncated', note: expect.stringContaining(FALLBACK_NOTE) });
+    expect(sections.get('docs/tail.txt')).toBe(tail.slice(0, 80_000 - section.length));
+    expect([...sections.values()].reduce((sum, body) => sum + body.length, 0)).toBe(80_000);
+  });
+
   it('tells the model when no passage matched, as the manifest does', async () => {
     // No word of this question, nor its stem, is in the guide.
     const { response, files, sections } = await chat('Tell me about zebracorn plover flamingo', [ours]);
