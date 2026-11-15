@@ -88,10 +88,11 @@ heading at any level; heading-like lines inside Markdown fences do not end the s
 The full heading and sheet header are searchable even when their display labels are shortened.
 
 The application-backed run reports **passageDelivered** too (`passages.ts`). A long file sent
-by passages arrives as a note line, then runs of label line and body. The section is cut with
-the chat's manifest: the chunks of a run share a locator, and each chunk's `length` is what it
-adds to the body. The note must equal the manifest's note, every body must equal the source
-file's text for its chunks, read and chunked as the indexer does (`sources.ts`), and every
+by passages arrives as a note line, then runs of label line and body. The manifest's chunks are
+mapped onto the source file, read and chunked as the indexer does (`sources.ts`), and grouped
+into runs by the sender's own rule (`passageRuns`), so a new label within one page or sheet
+starts a new run here as in the chat. Each chunk's `length` is what it adds to its run's body.
+The note must equal the manifest's note, every label and body must equal the source's, and every
 manifest entry must give its chunk's own locator, length and stamp; otherwise the run stops. A quote then counts only inside the source region of its expected place within the
 chunks sent (`sourcePassageTexts`, the simulation's own rule): the same page or sheet, or the
 body under the first heading with the expected title. A label never counts. A file sent whole

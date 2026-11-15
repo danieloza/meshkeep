@@ -1,16 +1,20 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { deflateRawSync } from 'node:zlib';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { canonicalText, chunksOf, markdownUnits, passageRuns, type Document } from '@/eval/context/chunking';
 import { quoteDelivered } from '@/eval/context/measure';
-import { sentSourceChunks, sourcePassageDelivered, splitPassages } from '@/eval/context/passages';
+import { readPassageSection, sourcePassageDelivered, type SentPassage } from '@/eval/context/passages';
+import { sourceChunks } from '@/eval/context/sources';
 import { contextDocument } from '@/lib/context-document';
 
 vi.mock('@/db', () => ({ getDb: () => { throw new Error('No database in these tests.'); } }));
 import { choosePassages } from '@/lib/server/context-passages';
 
-// The evaluator reads a passage section back with the manifest alone, checks
-// every body against the source document, and credits a quote only inside the
+// The evaluator reads a passage section back against its source: run
+// boundaries, labels and bodies from the source chunks by the sender's own
+// rule, every manifest entry checked, and a quote credited only inside the
 // source region of its expected place (`sourcePassageTexts`).
 
 const SET = join(import.meta.dirname, '..', 'eval', 'context', 'sets', 'dev');
@@ -23,13 +27,15 @@ const longChunks = chunksOf(longDocument, true);
 const questions = JSON.parse(readFileSync(join(SET, 'questions.json'), 'utf8')).questions as Array<{ id: string; expected: Array<{ file: string; quote: string; locator?: { heading: string } }> }>;
 const expected = (id: string) => questions.find((question) => question.id === id)!.expected.find((source) => source.file === LONG)!;
 
+type Chunks = ReturnType<typeof chunksOf>;
+const noteOf = (count: number, total: number) => `[Passages of a longer file: ${count} of ${total}.]`;
+
 // What the chat sends for the given ranking, read back as the runner reads it.
-function send(document: Document, chunks: ReturnType<typeof chunksOf>, ranked: number[], allowance = 6_000) {
-  const choice = choosePassages(document, chunks, chunks.map(() => 'a'.repeat(20)), ranked, allowance);
+function send(document: Document, chunks: Chunks, ranked: number[], keys?: string[]) {
+  const choice = choosePassages(document, chunks, keys ?? chunks.map(() => 'a'.repeat(20)), ranked, 6_000);
   if (!choice) throw new Error('Nothing fits.');
-  const section = `[Passages of a longer file: ${choice.passages.length} of ${chunks.length}.]\n${choice.text}`;
-  const { note, runs } = splitPassages(section, choice.passages);
-  return { ...choice, section, note, runs, sent: sentSourceChunks(document, chunks, choice.passages, runs) };
+  const section = `${noteOf(choice.passages.length, chunks.length)}\n${choice.text}`;
+  return { ...choice, section, ...readPassageSection(section, choice.passages, { document, chunks, keys }) };
 }
 const md = (text: string) => contextDocument('md', text);
 const padding = (word: string) => `${`${word} filler text that only takes room. `.repeat(40)}\n\n`;
@@ -42,7 +48,7 @@ describe('reading passages back from what was sent', () => {
       const written = passageRuns(longDocument, passages.map((passage) => longChunks[passage.ordinal]));
       expect(note).toBe(`Passages of a longer file: ${passages.length} of ${longChunks.length}.`);
       expect(runs.map((run) => run.body)).toEqual(written.map((run) => run.body));
-      expect(runs.map((run) => run.label)).toEqual(written.map((run) => run.label));
+      expect(runs.map((run) => run.label ?? '')).toEqual(written.map((run) => run.label));
       expect(text.length).toBeLessThanOrEqual(6_000);
       // A run's lengths add up to its body.
       for (const run of runs) {
@@ -141,13 +147,99 @@ describe("Codex's counterexamples and the simulation's heading rule", () => {
   });
 });
 
+// A real workbook, written as an XLSX archive the way `tests/document-text.test.ts`
+// builds its archives, and read by the evaluator's own source reader.
+function zip(entries: Record<string, string>): Uint8Array<ArrayBuffer> {
+  const local: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+  for (const [name, value] of Object.entries(entries)) {
+    const filename = Buffer.from(name);
+    const raw = Buffer.from(value);
+    const compressed = deflateRawSync(raw);
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50, 0);
+    header.writeUInt16LE(8, 8);
+    header.writeUInt16LE(filename.length, 26);
+    const record = Buffer.alloc(46);
+    record.writeUInt32LE(0x02014b50, 0);
+    record.writeUInt16LE(8, 10);
+    record.writeUInt32LE(compressed.length, 20);
+    record.writeUInt32LE(raw.length, 24);
+    record.writeUInt16LE(filename.length, 28);
+    record.writeUInt32LE(offset, 42);
+    local.push(header, filename, compressed);
+    central.push(record, filename);
+    offset += header.length + filename.length + compressed.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(Object.keys(entries).length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...local, directory, end]));
+}
+function workbook(rows: string[][]): Uint8Array<ArrayBuffer> {
+  const strings = [...new Set(rows.flat())];
+  const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const cells = rows.map((row) => `<row>${row.map((value) => `<c t="s"><v>${strings.indexOf(value)}</v></c>`).join('')}</row>`).join('');
+  return zip({
+    'xl/sharedStrings.xml': `<sst>${strings.map((value) => `<si><t>${escape(value)}</t></si>`).join('')}</sst>`,
+    'xl/worksheets/sheet1.xml': `<worksheet><sheetData>${cells}</sheetData></worksheet>`,
+  });
+}
+
+describe('a workbook with two runs on one sheet', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'meshkeep-eval-xlsx-'));
+  afterAll(() => rmSync(folder, { recursive: true, force: true }));
+  const before = Array.from({ length: 120 }, (_, index) => [`item ${index}`, `value ${index}`]);
+  const after = Array.from({ length: 120 }, (_, index) => [`after ${index}`, `amount ${index}`]);
+  async function read(name: string, rows: string[][]) {
+    const path = join(folder, name);
+    writeFileSync(path, workbook(rows));
+    return sourceChunks(path);
+  }
+
+  it("accepts the sender's two runs where a cell forges a sheet marker, and credits the second at the product's locator", async () => {
+    // One sheet. A row whose only cell is `# sheet1.xml` reads as a new start of
+    // sheet 1 (the extractor defect behind this case is a separate task): the row
+    // after it becomes a new header, while the locator stays sheet 1.
+    const { document, chunks, keys } = await read('forged.xlsx', [['Name', 'Value'], ...before, ['# sheet1.xml'], ...after]);
+    const header = (index: number) => chunks[index].searchHeader ?? chunks[index].header;
+    const change = chunks.findIndex((chunk, index) => chunks[index + 1] && chunks[index + 1].place === chunk.place && header(index + 1) !== header(index));
+    expect(change).toBeGreaterThanOrEqual(0);
+    const sent = send(document, chunks, [change, change + 1], keys);
+    expect(sent.passages.map((passage) => passage.ordinal)).toEqual([change, change + 1]);
+    expect(sent.passages.map((passage) => passage.locator)).toEqual([{ sheet: 1 }, { sheet: 1 }]);
+    // Two runs on one sheet, each under its own label.
+    expect(sent.runs).toHaveLength(2);
+    expect(sent.runs[0].label).not.toBe(sent.runs[1].label);
+    // A quote from the second run counts at the locator the product gave, and only there.
+    const quote = chunks[change + 1].text.split('\n').find((line) => line.startsWith('after '))!;
+    expect(quote).toBeTruthy();
+    expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 1 })).toBe(true);
+    expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 2 })).toBe(false);
+  });
+
+  it('reads the same workbook without the forged row as one run (positive control)', async () => {
+    const { document, chunks, keys } = await read('plain.xlsx', [['Name', 'Value'], ...before, ...after]);
+    expect(chunks.every((chunk) => chunk.place === 'sheet 1' && (chunk.searchHeader ?? chunk.header) === 'Name\tValue')).toBe(true);
+    const sent = send(document, chunks, [1, 2], keys);
+    expect(sent.runs).toHaveLength(1);
+    const quote = chunks[2].text.split('\n').at(-1)!;
+    expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 1 })).toBe(true);
+  });
+});
+
 describe('checking the manifest against the source', () => {
   // What the chat's manifest says about each passage, as the sender writes it.
-  const keys = (chunks: ReturnType<typeof chunksOf>) => chunks.map((chunk) => `${String(chunk.ordinal).padStart(20, '0')}`);
-  function sendWithKeys(document: Document, chunks: ReturnType<typeof chunksOf>, ranked: number[]) {
+  const keys = (chunks: Chunks) => chunks.map((chunk) => `${String(chunk.ordinal).padStart(20, '0')}`);
+  function sendWithKeys(document: Document, chunks: Chunks, ranked: number[]) {
     const choice = choosePassages(document, chunks, keys(chunks), ranked, 6_000)!;
-    const section = `[Passages of a longer file: ${choice.passages.length} of ${chunks.length}.]\n${choice.text}`;
-    return { passages: choice.passages, runs: splitPassages(section, choice.passages).runs, section };
+    const section = `${noteOf(choice.passages.length, chunks.length)}\n${choice.text}`;
+    const read = (passages: SentPassage[], withKeys = true) => readPassageSection(section, passages, { document, chunks, keys: withKeys ? keys(chunks) : undefined });
+    return { passages: choice.passages, section, read };
   }
   const pdf = contextDocument('pdf', '', [`Page one ${'a '.repeat(900)}`, `Page two ${'b '.repeat(900)}`, `Page three ${'c '.repeat(900)}`]);
   const pdfChunks = chunksOf(pdf, true);
@@ -156,8 +248,8 @@ describe('checking the manifest against the source', () => {
 
   it('accepts a manifest that describes the source chunks', () => {
     for (const [document, chunks, ranked] of [[pdf, pdfChunks, [2]], [sheets, sheetChunks, [0, 1]], [longDocument, longChunks, [69, 70, 84]]] as const) {
-      const { passages, runs } = sendWithKeys(document, chunks, [...ranked]);
-      expect(sentSourceChunks(document, chunks, passages, runs, keys(chunks))).toHaveLength(passages.length);
+      const { passages, read } = sendWithKeys(document, chunks, [...ranked]);
+      expect(read(passages).sent).toHaveLength(passages.length);
     }
   });
 
@@ -165,54 +257,56 @@ describe('checking the manifest against the source', () => {
     // Codex's probe: a real page-3 chunk under its own `[page 3]` label, said to be on page 2.
     const page = sendWithKeys(pdf, pdfChunks, [2]);
     expect(page.passages[0].locator).toEqual({ page: 3 });
-    const onPage2 = page.passages.map((passage) => ({ ...passage, locator: { page: 2 } }));
-    expect(() => sentSourceChunks(pdf, pdfChunks, onPage2, page.runs)).toThrow(/locator/);
+    expect(() => page.read(page.passages.map((passage) => ({ ...passage, locator: { page: 2 } })))).toThrow(/locator/);
     const sheet = sendWithKeys(sheets, sheetChunks, [1]);
-    expect(() => sentSourceChunks(sheets, sheetChunks, sheet.passages.map((passage) => ({ ...passage, locator: { sheet: 1 } })), sheet.runs)).toThrow(/locator/);
+    expect(() => sheet.read(sheet.passages.map((passage) => ({ ...passage, locator: { sheet: 1 } })))).toThrow(/locator/);
     const heading = sendWithKeys(longDocument, longChunks, [84]);
-    expect(() => sentSourceChunks(longDocument, longChunks, heading.passages.map((passage) => ({ ...passage, locator: { heading: 'Webhooks' } })), heading.runs)).toThrow(/locator/);
+    expect(() => heading.read(heading.passages.map((passage) => ({ ...passage, locator: { heading: 'Webhooks' } })))).toThrow(/locator/);
     // A locator dropped is wrong too.
-    expect(() => sentSourceChunks(pdf, pdfChunks, page.passages.map(({ locator: _locator, ...rest }) => rest), page.runs)).toThrow();
+    expect(() => page.read(page.passages.map(({ locator: _locator, ...rest }) => rest))).toThrow(/locator/);
   });
 
   it('refuses lengths that add up but belong to other chunks, and a wrong stamp', () => {
     // Two neighbouring chunks under one heading: one run, two lengths.
     const document = md(`# Doc\n\n${'a '.repeat(700)}\n\n${'b '.repeat(500)}\n\n${'c '.repeat(600)}`);
     const chunks = chunksOf(document, true);
-    const { passages, runs } = sendWithKeys(document, chunks, [1, 2]);
+    const { passages, read } = sendWithKeys(document, chunks, [1, 2]);
     expect(passages).toHaveLength(2);
-    expect(runs).toHaveLength(1);
+    expect(read(passages).runs).toHaveLength(1);
     expect(passages[0].length).not.toBe(passages[1].length);
     // The same total for the run, split the other way round.
-    const swapped = [{ ...passages[0], length: passages[1].length }, { ...passages[1], length: passages[0].length }];
-    const read = splitPassages(`[note]\n${choosePassages(document, chunks, keys(chunks), [1, 2], 6_000)!.text}`, swapped).runs;
-    expect(() => sentSourceChunks(document, chunks, swapped, read)).toThrow(/length/);
+    expect(() => read([{ ...passages[0], length: passages[1].length }, { ...passages[1], length: passages[0].length }])).toThrow(/length/);
     const forged = passages.map((passage, index) => (index ? { ...passage, chunkKey: 'f'.repeat(20) } : passage));
-    expect(() => sentSourceChunks(document, chunks, forged, runs, keys(chunks))).toThrow(/stamp/);
+    expect(() => read(forged)).toThrow(/stamp/);
     // Without known stamps, the stamp is not checked; everything else still is.
-    expect(sentSourceChunks(document, chunks, forged, runs)).toHaveLength(2);
+    expect(read(forged, false).sent).toHaveLength(2);
   });
 });
 
 describe('refusing what cannot be measured', () => {
-  it('refuses a section that does not match its manifest or lacks its note line', () => {
+  const source = { document: longDocument, chunks: longChunks };
+
+  it('refuses a section that does not match its source, or lacks its note or a label line', () => {
     const { section, passages } = send(longDocument, longChunks, [10, 30]);
-    expect(() => splitPassages(`${section}extra`, passages)).toThrow(/more than/);
-    expect(() => splitPassages(section.replace('\n\n[…]\n\n', '\n\n'), passages)).toThrow();
-    expect(() => splitPassages(section.slice(section.indexOf('\n') + 1), passages)).toThrow();
-    expect(() => splitPassages(section, [...passages].reverse())).toThrow(/file order/);
-    expect(() => splitPassages(section, [])).toThrow();
-    expect(splitPassages(section, passages).runs).toHaveLength(2);
+    expect(() => readPassageSection(`${section}extra`, passages, source)).toThrow(/more than/);
+    expect(() => readPassageSection(section.replace('\n\n[…]\n\n', '\n\n'), passages, source)).toThrow();
+    // No note line.
+    expect(() => readPassageSection(section.slice(section.indexOf('\n') + 1), passages, source)).toThrow();
+    // A label line left out.
+    const lines = section.split('\n');
+    const label = lines.findIndex((line, index) => index > 0 && /^\[.+\]$/.test(line) && line !== '[…]');
+    expect(() => readPassageSection([...lines.slice(0, label), ...lines.slice(label + 1)].join('\n'), passages, source)).toThrow(/label/);
+    expect(() => readPassageSection(section, [...passages].reverse(), source)).toThrow(/file order/);
+    expect(() => readPassageSection(section, [], source)).toThrow();
+    expect(readPassageSection(section, passages, source).runs).toHaveLength(2);
   });
 
-  it('refuses a body that is not the source text of its chunks', () => {
+  it('refuses a body that is not the source text of its chunks, and an unknown ordinal', () => {
     const { section, passages } = send(longDocument, longChunks, [10, 30]);
     const tampered = section.replace(longChunks[30].text.slice(0, 20), longChunks[30].text.slice(0, 19) + '#');
     expect(tampered).not.toBe(section);
-    const { runs } = splitPassages(tampered, passages);
-    expect(() => sentSourceChunks(longDocument, longChunks, passages, runs)).toThrow(/not the source text/);
+    expect(() => readPassageSection(tampered, passages, source)).toThrow(/not the source text/);
     // Ordinals that the source does not have are refused too.
-    const { runs: good } = splitPassages(section, passages);
-    expect(() => sentSourceChunks(longDocument, longChunks.slice(0, 20), passages, good)).toThrow(/not a chunk/);
+    expect(() => readPassageSection(section, passages, { document: longDocument, chunks: longChunks.slice(0, 20) })).toThrow(/not a chunk/);
   });
 });

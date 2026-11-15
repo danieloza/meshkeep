@@ -28,7 +28,7 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILE_CONTEXT_PREAMBLE, accessOutcome, assertStatus, contextTotal, grouped, indexUntilDone, mean, mimeOf, quoteDelivered, splitFileContext, totalOf } from '../eval/context/measure.ts';
-import { FALLBACK_NOTE, sentSourceChunks, sourcePassageDelivered, splitPassages } from '../eval/context/passages.ts';
+import { FALLBACK_NOTE, readPassageSection, sourcePassageDelivered } from '../eval/context/passages.ts';
 import { sourceChunks } from '../eval/context/sources.ts';
 import { baseline, canAsk, projects as projectsSchema, questionSet, team as teamSchema } from '../eval/context/schema.ts';
 import { buildSuggestQuery } from '../lib/search.ts';
@@ -282,17 +282,18 @@ async function run() {
         sections = splitFileContext(answer.message, manifest.map((entry) => entry.path));
         const count = (status) => manifest.filter((entry) => entry.status === status).length;
         context = { chars: answer.message.length, included: count('included'), truncated: count('truncated'), unreadable: count('unreadable'), skipped: count('skipped') };
-        // Every section sent by passages is read back, expected or not, and
-        // checked against its source file: a section the reader cannot cut by
-        // its manifest, a note that differs from the manifest's, a body that is
-        // not the source text of its chunks, or a manifest entry whose locator,
-        // length or stamp the source chunk does not have stops the run.
+        // Every section sent by passages is read back, expected or not, against
+        // its source file: run boundaries, labels and bodies from the source by
+        // the sender's own rule (`readPassageSection`). A section that does not
+        // match its source, a note that differs from the manifest's, or a
+        // manifest entry whose locator, length or stamp the source chunk does
+        // not have stops the run.
         for (const entry of manifest) {
           if (!entry.passages) continue;
-          const { note, runs } = splitPassages(sections.get(entry.path), entry.passages);
+          const source = await sourceOf(corpusPath(entry.id));
+          const { note, sent: chunks } = readPassageSection(sections.get(entry.path), entry.passages, source);
           if (note !== entry.note) throw new Error(`${question.id}: the note sent with ${entry.path} is not the manifest's note.`);
-          const { document, chunks, keys } = await sourceOf(corpusPath(entry.id));
-          passageSources.set(entry.id, { document, sent: sentSourceChunks(document, chunks, entry.passages, runs, keys) });
+          passageSources.set(entry.id, { document: source.document, sent: chunks });
         }
         sent = manifest.map((entry) => ({
           file: corpusPath(entry.id),
