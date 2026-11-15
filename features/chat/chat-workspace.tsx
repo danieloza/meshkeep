@@ -52,7 +52,8 @@ function UsageMeter({ usage }: { usage: TodayUsage | null }) {
 }
 
 // Bounded rounds, so opening a project with many older files does not keep
-// the browser busy; whatever is left is picked up the next time.
+// the browser busy; whatever is left is picked up the next time. A round also
+// indexes passages of long files, so it continues while either backlog is due.
 // Says whether any file was read, so the caller knows the list's text states
 // changed.
 async function indexProjectFiles(projectId: string): Promise<boolean> {
@@ -60,7 +61,7 @@ async function indexProjectFiles(projectId: string): Promise<boolean> {
   for (let round = 0; round < 5; round += 1) {
     const result = await api.projects.indexRound(projectId).catch(() => null);
     if (result?.indexed) read = true;
-    if (!result?.remaining) break;
+    if (!result?.remaining && !result?.passagesRemaining) break;
   }
   return read;
 }

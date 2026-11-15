@@ -274,7 +274,7 @@ export function chunksOf(document: Document, joinSections: boolean, rule: ChunkR
 }
 
 // A UTF-16 limit may fall between the two halves of a supplementary character.
-function safeHeader(header: string, limit: number): string {
+export function safeHeader(header: string, limit: number): string {
   let end = Math.min(header.length, limit);
   if (end < header.length && isHighSurrogate(header.charCodeAt(end - 1))) end -= 1;
   return header.slice(0, end);
@@ -320,6 +320,15 @@ export function passagesText(document: Document, chunks: Chunk[]): string {
 }
 
 export type PassageLocator = { page: number } | { sheet: number } | { heading: string };
+
+// Where a chunk sits, as the chat's manifest records it: its page or sheet,
+// else the full trail of headings above it, else nowhere in particular. The
+// evaluation checks each manifest entry against this.
+export function chunkLocator(chunk: Pick<Chunk, 'place' | 'heading'>): PassageLocator | undefined {
+  const place = chunk.place.match(/^(page|sheet) (\d+)$/);
+  if (place) return place[1] === 'page' ? { page: Number(place[2]) } : { sheet: Number(place[2]) };
+  return chunk.heading ? { heading: chunk.heading } : undefined;
+}
 
 // The set validator defines a heading location as the first matching heading's
 // body up to the next heading of any level. The heading line itself is not its

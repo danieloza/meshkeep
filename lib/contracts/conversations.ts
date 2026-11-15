@@ -34,11 +34,39 @@ export type AllConversations = z.infer<typeof allConversations>;
 export const contextFileStatus = z.enum(['included', 'truncated', 'unreadable', 'skipped']);
 export type ContextFileStatus = z.infer<typeof contextFileStatus>;
 
+// Where a passage sits in its file: a PDF page, a sheet of a workbook, or the
+// Markdown headings above it (the full trail, outermost first, joined with
+// ` › `). A passage without a place or a heading has no locator.
+export const passageLocator = z.union([
+  z.object({ page: z.number().int().min(1) }).strict(),
+  z.object({ sheet: z.number().int().min(1) }).strict(),
+  z.object({ heading: z.string().min(1) }).strict(),
+]);
+export type PassageLocator = z.infer<typeof passageLocator>;
+
+// One chunk of a long file that was sent. Consecutive chunks with the same
+// locator are sent as one run under one label, with the text between them.
+export const contextPassage = z.object({
+  // The chunk's position in its file (`file_chunks.ordinal`).
+  ordinal: z.number().int().min(0),
+  // The chunk's stamp: which content it had (`file_chunks.chunk_key`).
+  chunkKey: z.string().regex(/^[0-9a-f]{20}$/),
+  locator: passageLocator.optional(),
+  // The characters this passage adds to its run's body: its own slice, plus
+  // the text restored between it and the chunk before it in the same run.
+  // The lengths of a run add up to its body, the text sent under its label.
+  length: z.number().int().min(1),
+});
+export type ContextPassage = z.infer<typeof contextPassage>;
+
 export const contextFile = z.object({
   id,
   path: z.string(),
   status: contextFileStatus,
   note: z.string().optional(),
+  // A long file sent by its passages (`truncated`) lists them here, in file
+  // order. Older answers have no list.
+  passages: z.array(contextPassage).optional(),
 });
 export type ContextFile = z.infer<typeof contextFile>;
 

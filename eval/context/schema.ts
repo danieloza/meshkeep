@@ -162,6 +162,24 @@ const sourceOutcome = z.object({
   // Whether the quote was in the text that this file itself contributed to
   // what the model provider received.
   delivered: z.boolean(),
+  // Step B (`eval/context/passages.ts`): the quote reached the provider inside
+  // a passage body of its file at its expected place, or the file was sent
+  // whole. A label line never counts; neither does a file sent as before for
+  // lack of passages. Absent in runs made before passages existed.
+  passageDelivered: z.boolean().optional(),
+});
+
+// What the chat's manifest said about one sent file. `ordinals`: the chunks
+// of a long file sent by passages, in file order.
+const sentFile = z.object({
+  file: corpusFile,
+  status: z.enum(['included', 'truncated', 'unreadable', 'skipped']),
+  note: z.string().optional(),
+  ordinals: z.array(z.number().int().min(0)).optional(),
+  // What the chat read from D1 to choose and send those passages: the chunk
+  // rows of the file and the ranked candidates, and the characters of the
+  // chunk rows' text columns.
+  d1: z.object({ chunkRows: z.number().int(), rankedRows: z.number().int(), chars: z.number().int() }).optional(),
 });
 
 // What one forbidden file shows; see `accessOutcome` in `measure.ts`.
@@ -200,6 +218,10 @@ export const questionResult = z.object({
   // file. Null for the kinds that are not scored.
   complete: z.boolean().nullable(),
   delivered: z.boolean().nullable(),
+  // Every expected source passage-delivered; see `sourceOutcome`.
+  passageDelivered: z.boolean().nullable().optional(),
+  // Every file the chat reported, in the order sent.
+  sent: z.array(sentFile).optional(),
   // `no-answer`: which suggestions were listed as related.
   related: z.array(corpusFile).optional(),
   // `access`: one entry per forbidden file.
@@ -219,6 +241,8 @@ const total = z.object({
   firstRank: z.number().nullable(),
   // Questions where every expected quote reached the model provider.
   delivered: z.number(),
+  // Questions where every expected source was passage-delivered.
+  passageDelivered: z.number().optional(),
 });
 export type Total = z.infer<typeof total>;
 
@@ -259,6 +283,16 @@ export const baseline = z.object({
     context: z.object({ scored: contextTotal, noAnswer: contextTotal }),
     // Not scored for retrieval: reported for what they are.
     noAnswer: z.object({ n: z.number().int(), withSuggestions: z.number().int(), onlyRelated: z.number().int() }),
+    // Step B: long files sent by passages, by their beginning because no
+    // passage matched, and as before because passages were missing (a run
+    // with any of the last fails). What the chat read from D1 per message that
+    // sent passages.
+    passages: z.object({
+      filesByPassages: z.number().int(),
+      beginningNoMatch: z.array(z.string()),
+      fallback: z.number().int(),
+      d1: z.object({ messages: z.number().int(), meanRows: z.number(), maxRows: z.number().int(), meanChars: z.number(), maxChars: z.number().int() }),
+    }).optional(),
     // Questions, then the forbidden files behind them. A question counts as
     // refused only when every one of its files is.
     access: z.object({

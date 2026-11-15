@@ -289,6 +289,21 @@ const output = {
 };
 writeFileSync(join(SET, 'simulation.json'), `${JSON.stringify(output, null, 2)}\n`, 'utf8');
 
+// The chunks "files, then passages" chooses, per question and file, for the
+// parity check of the application's choice (step B of the ADR): its chat
+// manifest lists the ordinals it sent. Written apart, so `simulation.json`
+// stays as it was. The 12k and 24k totals choose the same on the dev set.
+const PARITY_STRATEGY = 'files-then-passages-24k';
+const choices = questions.filter((question) => question.kind !== 'access').map((question) => {
+  const match = buildSuggestQuery(question.question.slice(0, 500));
+  const sent = match ? STRATEGIES[PARITY_STRATEGY].pick(question, match) : new Map();
+  return {
+    id: question.id,
+    files: [...sent.entries()].map(([file, value]) => (value.chunks === null ? { file, whole: true } : { file, ordinals: value.chunks.map((chunk) => chunk.ordinal) })),
+  };
+});
+writeFileSync(join(SET, 'simulation-passages.json'), `${JSON.stringify({ version: 1, set: setName, simulation: true, strategy: PARITY_STRATEGY, questions: choices }, null, 2)}\n`, 'utf8');
+
 console.log(`${files.length} files. Small chunks: ${shape.small.chunks}, mean ${shape.small.meanChars} characters, longest ${shape.small.longest}. Joined chunks: ${shape.joined.chunks}, mean ${shape.joined.meanChars} characters, longest ${shape.joined.longest}.`);
 const row = (name, scored, context, noAnswer, missed) => console.log(
   `${name.padEnd(26)} n=${scored.n} found ${String(Math.round(scored.complete * scored.n)).padStart(2)} delivered ${String(Math.round(scored.delivered * scored.n)).padStart(2)}  mean ${String(context.meanChars).padStart(6)} max ${String(context.maxChars).padStart(6)}  no-answer n=${noAnswer.n}: ${noAnswer.withContext} with context, mean ${String(noAnswer.meanChars).padStart(6)} (${String(noAnswer.meanCharsWhenSent).padStart(6)} when sent)${missed ? `  missed: ${missed}` : ''}`,
