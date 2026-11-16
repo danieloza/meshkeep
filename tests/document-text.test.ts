@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { canonicalText, sheetUnits } from '@/lib/context-chunking';
 import { ROZSZERZENIA_BEZ_WSPARCIA, ROZSZERZENIA_DOKUMENTOW, wydobadzTekstDokumentu, zRtf } from '@/lib/document-text';
+import { workbook, zip } from './workbook';
 
 // Pliki testowe to prawdziwe archiwa OOXML z prawdziwa kompresja deflate,
 // wygenerowane przez `scripts/generate-fixtures.mjs`. Atrapa XML-a bez ZIP-a
@@ -11,39 +13,6 @@ function wczytaj(nazwa: string): Uint8Array<ArrayBuffer> {
   const sciezka = fileURLToPath(new URL(`./fixtures/${nazwa}`, import.meta.url));
   const bufor = readFileSync(sciezka);
   return new Uint8Array(bufor.buffer.slice(bufor.byteOffset, bufor.byteOffset + bufor.byteLength));
-}
-
-// Minimal compressed ZIP, generated in memory for the shared-string expansion test.
-function zip(entries: Record<string, string>): Uint8Array<ArrayBuffer> {
-  const local: Buffer[] = [];
-  const central: Buffer[] = [];
-  let offset = 0;
-  for (const [name, value] of Object.entries(entries)) {
-    const filename = Buffer.from(name);
-    const raw = Buffer.from(value);
-    const compressed = deflateRawSync(raw);
-    const header = Buffer.alloc(30);
-    header.writeUInt32LE(0x04034b50, 0);
-    header.writeUInt16LE(8, 8);
-    header.writeUInt16LE(filename.length, 26);
-    const record = Buffer.alloc(46);
-    record.writeUInt32LE(0x02014b50, 0);
-    record.writeUInt16LE(8, 10);
-    record.writeUInt32LE(compressed.length, 20);
-    record.writeUInt32LE(raw.length, 24);
-    record.writeUInt16LE(filename.length, 28);
-    record.writeUInt32LE(offset, 42);
-    local.push(header, filename, compressed);
-    central.push(record, filename);
-    offset += header.length + filename.length + compressed.length;
-  }
-  const directory = Buffer.concat(central);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(entries).length, 10);
-  end.writeUInt32LE(directory.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return new Uint8Array(Buffer.concat([...local, directory, end]));
 }
 
 describe('DOCX', () => {
@@ -123,6 +92,77 @@ describe('XLSX', () => {
     const { tekst } = await wydobadzTekstDokumentu('xlsx', wczytaj('przyklad.xlsx'));
     expect(tekst).toContain('Nazwa\tKwota');
     expect(tekst).toContain('Faktura wrzesień\t1230.50');
+  });
+});
+
+describe('XLSX: a row cannot start a sheet', () => {
+  // `sheetUnits` reads a line `# sheetN.xml` as the start of a sheet. A cell
+  // can hold exactly that text; the extractor escapes it with a backslash.
+  const text = async (...sheets: string[][][]) => (await wydobadzTekstDokumentu('xlsx', workbook(...sheets))).tekst;
+
+  it('escapes a one-cell row that reads like the line starting a sheet', async () => {
+    expect(await text([['Name', 'Value'], ['one', '1'], ['# sheet7.xml'], ['two', '2']]))
+      .toBe('# sheet1.xml\nName\tValue\none\t1\n\\# sheet7.xml\ntwo\t2');
+  });
+
+  it('escapes such a line after a line break inside a cell: LF, CRLF or CR', async () => {
+    for (const lineBreak of ['\n', '\r\n', '\r']) {
+      expect(await text([['Name', 'Value'], ['one', `note${lineBreak}# sheet7.xml`], [`# sheet7.xml${lineBreak}more`, '2']]))
+        .toBe(`# sheet1.xml\nName\tValue\none\tnote${lineBreak}\\# sheet7.xml\n\\# sheet7.xml${lineBreak}more\t2`);
+    }
+  });
+
+  it('escapes the last row when trimming the text would leave it reading like a sheet line', async () => {
+    // `# sheet7.xml` and an empty cell end the text as `# sheet7.xml\t`, and
+    // the trim takes the tab.
+    expect(await text([['Name', 'Value'], ['one', '1'], ['# sheet7.xml', '']])).toBe('# sheet1.xml\nName\tValue\none\t1\n\\# sheet7.xml');
+    expect(await text([['Name', 'Value'], ['# sheet7.xml \n ']])).toBe('# sheet1.xml\nName\tValue\n\\# sheet7.xml');
+  });
+
+  it('escapes a row that only starts like a sheet line, and leaves near misses as they are', async () => {
+    // A cut of such a row, right after `.xml`, would read as a sheet line.
+    const starts = [['# sheet7.xmlx'], ['# sheet7.xml', 'other cell'], ['# sheet7.xml', ''], ['# sheet7.xml and more']];
+    const near = ['## sheet7.xml', '# Sheet7.xml', ' # sheet7.xml', '#sheet7.xml', '# sheet.xml', '# sheet7.xm', '\\# sheet7.xml'];
+    const rows = [['Name', 'Value'], ...starts, ...near.map((cell) => [cell]), ['last', '1']];
+    expect(await text(rows)).toBe(['# sheet1.xml', 'Name\tValue', ...starts.map((row) => `\\${row.join('\t')}`), ...near, 'last\t1'].join('\n'));
+  });
+
+  it('escapes exactly the lines with a cut that `sheetUnits` reads as a sheet line', async () => {
+    // The oracle is `sheetUnits` itself, asked about every cut of the line, as
+    // the trim or the limit on indexed text can leave it: a pattern in the
+    // extractor that is narrower lets a forged line through, a broader one
+    // escapes a near miss.
+    const readAsSheet = (line: string) => sheetUnits(line).some((unit) => unit.section);
+    const cuts = (line: string) => Array.from({ length: line.length + 1 }, (_, end) => line.slice(0, end));
+    const candidates = ['# sheet7.xml', '# sheet0.xml', '# sheet1.xml', '# sheet10.xml', '# sheet007.xml', '# sheet123456789.xml',
+      '# sheet7.xmlx', '# sheet7.xml\t', '# sheet7.xml\tother', '# sheet7.xml and more', '# sheet1.xml2', '# sheet7.xml ',
+      '## sheet7.xml', '# Sheet7.xml', '# sheet7.XML', '#  sheet7.xml', '# sheet.xml', '# sheet7xml', '# sheet٧.xml', '# sheet7.xm',
+      ' # sheet7.xml', 'x# sheet7.xml', '\\# sheet7.xml'];
+    for (const candidate of candidates) {
+      const extracted = await text([['Name', 'Value'], [candidate], ['after', '1']]);
+      const line = extracted.split('\n')[2];
+      expect(line, candidate).toBe(cuts(candidate).some(readAsSheet) ? `\\${candidate}` : candidate);
+      expect(cuts(line).some(readAsSheet), candidate).toBe(false);
+      expect(sheetUnits(canonicalText(extracted)).every((unit) => unit.place === 'sheet 1'), candidate).toBe(true);
+    }
+  });
+
+  it('gives every ordinary workbook the same text as before the escape', async () => {
+    // SHA-256 of the extracted text, recorded with the extractor of `c550c17`,
+    // before the escape existed: the five development workbooks and the fixture.
+    const before: Record<string, string> = {
+      'eval/context/sets/dev/corpus/kadry/wynagrodzenia-2026.xlsx': '4f1280fd7a471a0ff7179306b45684032c71bf49e4259b8796811f7f97cf1cb9',
+      'eval/context/sets/dev/corpus/oferta-zielony-dach/kosztorys.xlsx': 'e398b8759c93662c97f56fd7a55ab924099fa05965a6110b4d335a9a1111b1d3',
+      'eval/context/sets/dev/corpus/sklep-wdrozenie/harmonogram-wdrozenia.xlsx': '2b040655b0ecd082fb2d232e4efca5b094604fe4c3aaf1866a300092b6864e47',
+      'eval/context/sets/dev/corpus/umowy-kormoran/cennik-2026.xlsx': '6fbffe827452a67d9315e6b89fd5c772ba444a5966db1792f77848860efbf73e',
+      'eval/context/sets/dev/corpus/umowy-kormoran/harmonogram-platnosci.xlsx': '63357a28541c5302d2ab0738531b5e78b78b5428ae8904b5508974f8f800c37c',
+      'tests/fixtures/przyklad.xlsx': '9c38bf2c02e0cf879c5029e46fd098ab9c18bf3d8a640db108d6afed35fca93f',
+    };
+    for (const [path, sha] of Object.entries(before)) {
+      const bytes = readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)));
+      const { tekst } = await wydobadzTekstDokumentu('xlsx', new Uint8Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
+      expect(createHash('sha256').update(tekst, 'utf8').digest('hex'), path).toBe(sha);
+    }
   });
 });
 

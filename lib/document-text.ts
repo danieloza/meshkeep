@@ -7,6 +7,9 @@
 //
 // PDF-y sa osobno (`lib/server/pdf-text.ts`), bo wymagaja prawdziwego parsera.
 
+// With its extension, so the evaluation can run this file in Node as it is.
+import { SHEET_MARKER_START } from './context-chunking.ts';
+
 export type WynikEkstrakcji = {
   tekst: string;
   // Krotki opis tego, co sie stalo, gdy tekstu nie ma. Wchodzi do kontekstu
@@ -153,6 +156,19 @@ async function zDocx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
 
 // --- XLSX ------------------------------------------------------------------
 
+// A cell can hold a line that starts like the line that starts a sheet
+// (`# sheet7.xml`, or `# sheet7.xml` and more text): in the row's first cell,
+// or after a line break inside a cell. Such a line gets a backslash in front
+// (`\# sheet7.xml`), so `sheetUnits` reads it as a row and the rows after it
+// keep their sheet and header. Escaping every line that starts with the
+// marker, not only one that equals it, keeps any later cut of the line safe:
+// the trim at the end of the text, and the limit on indexed text, which can
+// cut a line right after `.xml`. The breaks are the ones `canonicalText` turns
+// into `\n`: CRLF, CR and LF. No other line changes.
+function bezZnakuArkusza(tekst: string): string {
+  return tekst.split(/(\r\n|\r|\n)/).map((czesc, i) => (i % 2 === 0 && SHEET_MARKER_START.test(czesc) ? `\\${czesc}` : czesc)).join('');
+}
+
 async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
   const pliki = await czytajZArchiwum(dane, (n) => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n), budget);
   const wspolne = pliki.find((p) => p.nazwa === 'xl/sharedStrings.xml');
@@ -184,7 +200,7 @@ async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
         }
         return tekst;
       });
-      return komorki.join('\t');
+      return bezZnakuArkusza(komorki.join('\t'));
     }).filter((wiersz) => wiersz.trim().length > 0);
     if (wiersze.length) czesci.push(`# ${arkusz.nazwa.replace('xl/worksheets/', '')}\n${wiersze.join('\n')}`);
   }

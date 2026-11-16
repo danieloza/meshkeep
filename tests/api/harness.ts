@@ -195,6 +195,14 @@ export function zepsujLokalnyIndeksFragmentow(): void {
   const db = new DatabaseSync(sciezkaLokalnejD1());
   try { db.exec('DROP TABLE file_chunk_states'); } finally { db.close(); }
 }
+
+// A state the API cannot produce, written only to the disposable local test
+// database: for example a file whose passages were cut by an older extractor
+// version. No production database can be reached by this helper.
+export function zmienLokalneD1(sql: string, ...params: SQLInputValue[]): void {
+  const db = new DatabaseSync(sciezkaLokalnejD1());
+  try { db.prepare(sql).run(...params); } finally { db.close(); }
+}
 // Trzymane w module, a nie przekazywane do `podnieProces`, bo ten jest wolany
 // takze przy restarcie po awarii transportu. Restart bez tych zmiennych
 // podnioslby workera w innym trybie logowania niz ten, ktory test sprawdza.

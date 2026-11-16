@@ -4,12 +4,14 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chunksOf, passagesText } from '@/lib/context-chunking';
 import { CHUNK_EXTRACTOR_VERSION, contextDocument } from '@/lib/context-document';
+import { wydobadzTekstDokumentu } from '@/lib/document-text';
 import { type ChatRequest, contextFile, conversationDetail } from '@/lib/contracts/conversations';
 import { indexRound, projectFiles } from '@/lib/contracts/files';
 import { connectionResponse } from '@/lib/contracts/providers';
 import { FALLBACK_NOTE } from '@/eval/context/passages';
 import { indexUntilDone } from '@/eval/context/measure';
-import { ID, ORIGIN, TOKENY, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba } from './harness';
+import { workbook } from '../workbook';
+import { ID, ORIGIN, TOKENY, jako, odczytajLokalneD1, startWorkera, stopWorkera, zapytaj, zbudujJesliTrzeba, zmienLokalneD1 } from './harness';
 
 // Step B through the HTTP API of the built worker: a long file sends its best
 // passages for the question, verbatim, from its own project only. A fake
@@ -54,7 +56,7 @@ function startProvider(): Promise<void> {
   }));
 }
 
-const MIME: Record<string, string> = { md: 'text/markdown', txt: 'text/plain', pdf: 'application/pdf' };
+const MIME: Record<string, string> = { md: 'text/markdown', txt: 'text/plain', pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 
 async function upload(token: string, project: string, files: Array<[string, string | Uint8Array<ArrayBuffer>]>) {
   const form = new FormData();
@@ -123,6 +125,7 @@ async function chat(question: string, attachmentIds: string[], project = ID.proj
 let ours = '';
 let theirs = '';
 let short = '';
+let birds = '';
 
 beforeAll(async () => {
   await startProvider();
@@ -325,6 +328,50 @@ describe('passages of a long file in the chat', () => {
       WHERE f.project_id = ? AND s.status = 'indexed' AND s.extractor_version = ?`, ID.projektPrywatnyWlasciciela, CHUNK_EXTRACTOR_VERSION);
     expect(indexed.n).toBe(120);
   }, 300_000);
+
+  it('keeps the rows of a workbook after a cell that reads like a sheet line on their sheet', async () => {
+    // One sheet. Before the extractor escaped it, the row `# sheet7.xml` started
+    // a "sheet 7": the rows after it went out under `[sheet 7 · …]` with the
+    // locator `{ sheet: 7 }`.
+    const rows = [['Name', 'Value'], ...Array.from({ length: 200 }, (_, index) => [`item ${index}`, `value ${index}`]), ['# sheet7.xml'],
+      ...Array.from({ length: 200 }, (_, index) => [`pelican ${index}`, `weighs ${index} kg`])];
+    const bytes = workbook(rows);
+    [birds] = (await upload(TOKENY.wlasciciel, ID.projektWspolny, [['data/birds.xlsx', bytes]])).map((file) => file.id);
+    await indexAll(TOKENY.wlasciciel, ID.projektWspolny);
+    const { response, files, sections } = await chat('How much does the pelican weigh?', [birds]);
+    expect(response.status, response.tekst).toBe(200);
+    const [entry] = files;
+    expect(entry).toMatchObject({ id: birds, path: 'data/birds.xlsx', status: 'truncated', note: expect.stringMatching(/^Passages of a longer file: \d+ of \d+\.$/) });
+    expect(entry.passages!.length).toBeGreaterThan(0);
+    expect(entry.passages!.map((passage) => passage.locator)).toEqual(entry.passages!.map(() => ({ sheet: 1 })));
+    const sent = sections.get('data/birds.xlsx')!;
+    expect(sent).toContain('pelican 0\tweighs 0 kg');
+    expect(sent).toContain('[sheet 1 · columns: Name | Value]');
+    expect(sent).not.toContain('[sheet 7');
+    // Verbatim: the shared serialization of the listed chunks of the extracted
+    // text, each with the stamp of the current version.
+    const document = contextDocument('xlsx', (await wydobadzTekstDokumentu('xlsx', bytes)).tekst);
+    const chunks = chunksOf(document, true);
+    expect(sent).toBe(`[${entry.note}]\n${passagesText(document, entry.passages!.map((passage) => chunks[passage.ordinal]))}`);
+    const fileSha = createHash('sha256').update(bytes).digest('hex');
+    for (const passage of entry.passages!) expect(passage.chunkKey).toBe(stamp(fileSha, passage.ordinal));
+  }, 120_000);
+
+  it("cuts a workbook again when its passages were cut under version '2'", async () => {
+    // Passages cut before the escape may hold a forged sheet line's place. Their
+    // version makes them stale: the chat does not use them, and the next round
+    // cuts the file again.
+    zmienLokalneD1("UPDATE file_chunk_states SET extractor_version = '2', indexed_at = 0 WHERE file_id = ?", birds);
+    const stale = await chat('How much does the pelican weigh?', [birds]);
+    expect(stale.response.status, stale.response.tekst).toBe(200);
+    expect(stale.files).toEqual([{ id: birds, path: 'data/birds.xlsx', status: 'included', note: FALLBACK_NOTE }]);
+    await indexAll(TOKENY.wlasciciel, ID.projektWspolny);
+    const [state] = odczytajLokalneD1('SELECT status, extractor_version AS version, indexed_at AS at FROM file_chunk_states WHERE file_id = ?', birds);
+    expect(state).toMatchObject({ status: 'indexed', version: CHUNK_EXTRACTOR_VERSION });
+    expect(state.at).toBeGreaterThan(0);
+    const again = await chat('How much does the pelican weigh?', [birds]);
+    expect(again.files[0].passages!.map((passage) => passage.locator)).toEqual(again.files[0].passages!.map(() => ({ sheet: 1 })));
+  }, 120_000);
 
   it('still reads an answer stored before passages existed', async () => {
     const detail = await zapytaj(`/api/projects/${ID.projektWspolny}/conversations?conversationId=${ID.rozmowaWlasciciela}`, { headers: jako(TOKENY.wlasciciel) });

@@ -1,7 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { deflateRawSync } from 'node:zlib';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { canonicalText, chunksOf, markdownUnits, passageRuns, type Document } from '@/eval/context/chunking';
 import { quoteDelivered } from '@/eval/context/measure';
@@ -11,6 +10,7 @@ import { contextDocument } from '@/lib/context-document';
 
 vi.mock('@/db', () => ({ getDb: () => { throw new Error('No database in these tests.'); } }));
 import { choosePassages } from '@/lib/server/context-passages';
+import { workbook } from './workbook';
 
 // The evaluator reads a passage section back against its source: run
 // boundaries, labels and bodies from the source chunks by the sender's own
@@ -147,50 +147,35 @@ describe("Codex's counterexamples and the simulation's heading rule", () => {
   });
 });
 
-// A real workbook, written as an XLSX archive the way `tests/document-text.test.ts`
-// builds its archives, and read by the evaluator's own source reader.
-function zip(entries: Record<string, string>): Uint8Array<ArrayBuffer> {
-  const local: Buffer[] = [];
-  const central: Buffer[] = [];
-  let offset = 0;
-  for (const [name, value] of Object.entries(entries)) {
-    const filename = Buffer.from(name);
-    const raw = Buffer.from(value);
-    const compressed = deflateRawSync(raw);
-    const header = Buffer.alloc(30);
-    header.writeUInt32LE(0x04034b50, 0);
-    header.writeUInt16LE(8, 8);
-    header.writeUInt16LE(filename.length, 26);
-    const record = Buffer.alloc(46);
-    record.writeUInt32LE(0x02014b50, 0);
-    record.writeUInt16LE(8, 10);
-    record.writeUInt32LE(compressed.length, 20);
-    record.writeUInt32LE(raw.length, 24);
-    record.writeUInt16LE(filename.length, 28);
-    record.writeUInt32LE(offset, 42);
-    local.push(header, filename, compressed);
-    central.push(record, filename);
-    offset += header.length + filename.length + compressed.length;
-  }
-  const directory = Buffer.concat(central);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(entries).length, 10);
-  end.writeUInt32LE(directory.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return new Uint8Array(Buffer.concat([...local, directory, end]));
-}
-function workbook(rows: string[][]): Uint8Array<ArrayBuffer> {
-  const strings = [...new Set(rows.flat())];
-  const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const cells = rows.map((row) => `<row>${row.map((value) => `<c t="s"><v>${strings.indexOf(value)}</v></c>`).join('')}</row>`).join('');
-  return zip({
-    'xl/sharedStrings.xml': `<sst>${strings.map((value) => `<si><t>${escape(value)}</t></si>`).join('')}</sst>`,
-    'xl/worksheets/sheet1.xml': `<worksheet><sheetData>${cells}</sheetData></worksheet>`,
-  });
-}
+describe('two runs on one sheet', () => {
+  // The sender starts a new run where the source header changes, even on one
+  // sheet. A workbook cannot give such a sheet any more (the extractor escapes
+  // a cell that reads like a sheet line), so the rule is read on text cut by
+  // `sheetUnits` directly, without the extractor: the second `# sheet1.xml`
+  // line starts sheet 1 again, under a header of its own.
+  const rows = (word: string) => Array.from({ length: 120 }, (_, index) => `${word} ${index}\tamount ${index}`).join('\n');
+  const document = contextDocument('xlsx', `# sheet1.xml\nName\tValue\n${rows('item')}\n# sheet1.xml\nOther\tHeader\n${rows('after')}`);
+  const chunks = chunksOf(document, true);
 
-describe('a workbook with two runs on one sheet', () => {
+  it("accepts the sender's two runs and credits a quote from the second at its locator", () => {
+    const header = (index: number) => chunks[index].searchHeader ?? chunks[index].header;
+    const change = chunks.findIndex((chunk, index) => chunks[index + 1] && chunks[index + 1].place === chunk.place && header(index + 1) !== header(index));
+    expect(change).toBeGreaterThanOrEqual(0);
+    const sent = send(document, chunks, [change, change + 1]);
+    expect(sent.passages.map((passage) => passage.ordinal)).toEqual([change, change + 1]);
+    expect(sent.passages.map((passage) => passage.locator)).toEqual([{ sheet: 1 }, { sheet: 1 }]);
+    // Two runs on one sheet, each under its own label.
+    expect(sent.runs).toHaveLength(2);
+    expect(sent.runs[0].label).not.toBe(sent.runs[1].label);
+    const quote = chunks[change + 1].text.split('\n').find((line) => line.startsWith('after '))!;
+    expect(quote).toBeTruthy();
+    expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 1 })).toBe(true);
+    expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 2 })).toBe(false);
+  });
+});
+
+describe('a real workbook with a cell that reads like a sheet line', () => {
+  // Read by the evaluator's own source reader, as the indexer reads it.
   const folder = mkdtempSync(join(tmpdir(), 'meshkeep-eval-xlsx-'));
   afterAll(() => rmSync(folder, { recursive: true, force: true }));
   const before = Array.from({ length: 120 }, (_, index) => [`item ${index}`, `value ${index}`]);
@@ -201,28 +186,23 @@ describe('a workbook with two runs on one sheet', () => {
     return sourceChunks(path);
   }
 
-  it("accepts the sender's two runs where a cell forges a sheet marker, and credits the second at the product's locator", async () => {
-    // One sheet. A row whose only cell is `# sheet1.xml` reads as a new start of
-    // sheet 1 (the extractor defect behind this case is a separate task): the row
-    // after it becomes a new header, while the locator stays sheet 1.
+  it('keeps the rows after the cell on sheet 1 under the real header, and sends them as one run', async () => {
+    // Before the extractor escaped it, the row `# sheet1.xml` started sheet 1
+    // again: the row after it became a header, and the chunks around it two runs.
     const { document, chunks, keys } = await read('forged.xlsx', [['Name', 'Value'], ...before, ['# sheet1.xml'], ...after]);
-    const header = (index: number) => chunks[index].searchHeader ?? chunks[index].header;
-    const change = chunks.findIndex((chunk, index) => chunks[index + 1] && chunks[index + 1].place === chunk.place && header(index + 1) !== header(index));
-    expect(change).toBeGreaterThanOrEqual(0);
-    const sent = send(document, chunks, [change, change + 1], keys);
-    expect(sent.passages.map((passage) => passage.ordinal)).toEqual([change, change + 1]);
+    expect(chunks.every((chunk) => chunk.place === 'sheet 1' && (chunk.searchHeader ?? chunk.header) === 'Name\tValue')).toBe(true);
+    const forged = chunks.findIndex((chunk) => chunk.text.split('\n').includes('\\# sheet1.xml'));
+    expect(forged).toBeGreaterThanOrEqual(0);
+    expect(chunks[forged + 1]).toBeDefined();
+    const sent = send(document, chunks, [forged, forged + 1], keys);
     expect(sent.passages.map((passage) => passage.locator)).toEqual([{ sheet: 1 }, { sheet: 1 }]);
-    // Two runs on one sheet, each under its own label.
-    expect(sent.runs).toHaveLength(2);
-    expect(sent.runs[0].label).not.toBe(sent.runs[1].label);
-    // A quote from the second run counts at the locator the product gave, and only there.
-    const quote = chunks[change + 1].text.split('\n').find((line) => line.startsWith('after '))!;
-    expect(quote).toBeTruthy();
+    expect(sent.runs).toHaveLength(1);
+    const quote = chunks[forged + 1].text.split('\n').find((line) => line.startsWith('after '))!;
     expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 1 })).toBe(true);
     expect(sourcePassageDelivered(quote, document, sent.sent, { sheet: 2 })).toBe(false);
   });
 
-  it('reads the same workbook without the forged row as one run (positive control)', async () => {
+  it('reads the same workbook without the cell as one run too (positive control)', async () => {
     const { document, chunks, keys } = await read('plain.xlsx', [['Name', 'Value'], ...before, ...after]);
     expect(chunks.every((chunk) => chunk.place === 'sheet 1' && (chunk.searchHeader ?? chunk.header) === 'Name\tValue')).toBe(true);
     const sent = send(document, chunks, [1, 2], keys);
