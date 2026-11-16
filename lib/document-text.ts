@@ -8,7 +8,7 @@
 // PDF-y sa osobno (`lib/server/pdf-text.ts`), bo wymagaja prawdziwego parsera.
 
 // With its extension, so the evaluation can run this file in Node as it is.
-import { SHEET_MARKER } from './context-chunking.ts';
+import { SHEET_MARKER_START } from './context-chunking.ts';
 
 export type WynikEkstrakcji = {
   tekst: string;
@@ -156,14 +156,17 @@ async function zDocx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
 
 // --- XLSX ------------------------------------------------------------------
 
-// A cell can hold a line that reads exactly like the line that starts a sheet
-// (`# sheet7.xml`): as the row's only cell, or after a line break inside a
-// cell. Such a line gets a backslash in front (`\# sheet7.xml`), so
-// `sheetUnits` reads it as a row and the rows after it keep their sheet and
-// header. The breaks are the ones `canonicalText` turns into `\n`: CRLF, CR and
-// LF. No other line changes.
+// A cell can hold a line that starts like the line that starts a sheet
+// (`# sheet7.xml`, or `# sheet7.xml` and more text): in the row's first cell,
+// or after a line break inside a cell. Such a line gets a backslash in front
+// (`\# sheet7.xml`), so `sheetUnits` reads it as a row and the rows after it
+// keep their sheet and header. Escaping every line that starts with the
+// marker, not only one that equals it, keeps any later cut of the line safe:
+// the trim at the end of the text, and the limit on indexed text, which can
+// cut a line right after `.xml`. The breaks are the ones `canonicalText` turns
+// into `\n`: CRLF, CR and LF. No other line changes.
 function bezZnakuArkusza(tekst: string): string {
-  return tekst.split(/(\r\n|\r|\n)/).map((czesc, i) => (i % 2 === 0 && SHEET_MARKER.test(czesc) ? `\\${czesc}` : czesc)).join('');
+  return tekst.split(/(\r\n|\r|\n)/).map((czesc, i) => (i % 2 === 0 && SHEET_MARKER_START.test(czesc) ? `\\${czesc}` : czesc)).join('');
 }
 
 async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
@@ -201,13 +204,7 @@ async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
     }).filter((wiersz) => wiersz.trim().length > 0);
     if (wiersze.length) czesci.push(`# ${arkusz.nazwa.replace('xl/worksheets/', '')}\n${wiersze.join('\n')}`);
   }
-  // The trim can bare the last row's last line: `# sheet7.xml` followed by an
-  // empty cell or a space would end the text as a sheet's line. That line is
-  // always a row's, never a sheet's own: a sheet is written only with a row
-  // that is not blank.
-  const tekst = czesci.join('\n\n').trim();
-  const ostatnia = Math.max(tekst.lastIndexOf('\n'), tekst.lastIndexOf('\r')) + 1;
-  return { tekst: tekst.slice(0, ostatnia) + bezZnakuArkusza(tekst.slice(ostatnia)) };
+  return { tekst: czesci.join('\n\n').trim() };
 }
 
 // --- PPTX ------------------------------------------------------------------

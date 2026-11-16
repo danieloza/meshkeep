@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
 import { CHUNK_RULE, chunkLocator, chunksOf, type Document } from '@/lib/context-chunking';
-import { buildContextChunks, chunksFromRows, contextDocument, limitContextText, limitPdfPages, MAX_FILE_CHUNKS } from '@/lib/context-document';
+import { buildContextChunks, chunksFromRows, contextDocument, limitContextText, limitPdfPages, MAX_CHUNK_TEXT_CHARS, MAX_FILE_CHUNKS } from '@/lib/context-document';
 import { wydobadzTekstDokumentu } from '@/lib/document-text';
 import { workbook } from './workbook';
 
@@ -183,5 +183,30 @@ describe('a workbook cell that reads like the line starting a sheet', () => {
     expect(second[0]).toMatchObject({ place: 'sheet 2', header: 'Role\tRate' });
     expect(chunkLocator(second[0])).toEqual({ sheet: 2 });
     await expectRoundTrip(document);
+  });
+
+  it('leaves no sheet line where the limit on indexed text cuts a row right after `.xml`', async () => {
+    // The indexer extracts with an output budget of 120 000 characters of
+    // cells (the limits below are the ones `readContextDocument` passes), then
+    // cuts the text at 120 000 characters, anywhere in a line. The sheet's own
+    // line is outside that budget, so the text can pass the cut while the
+    // workbook is still accepted. The pad row is sized so the cut falls right
+    // after `.xml` of a row that starts like a sheet line.
+    const rows = Array.from({ length: 1075 }, (_, index) => [`item ${String(index).padStart(4, '0')}`, `note ${'.'.repeat(95)}`]);
+    const extract = (pad: number) => wydobadzTekstDokumentu('xlsx', workbook([['Name', 'Value'], ...rows, ['x'.repeat(pad)], ['# sheet7.xml and more']]),
+      { maxArchiveBytes: 1_000_000, maxArchiveEntries: 2_000, maxOutputChars: 120_000 });
+    const cutAt = (text: string) => text.lastIndexOf('sheet7.xml') + 'sheet7.xml'.length;
+    const pad = 100 + MAX_CHUNK_TEXT_CHARS - cutAt((await extract(100)).tekst);
+    const extracted = await extract(pad);
+    expect(extracted.powod).toBeFalsy();
+    expect(cutAt(extracted.tekst)).toBe(MAX_CHUNK_TEXT_CHARS);
+    const limited = limitContextText(extracted.tekst);
+    expect(limited.truncated).toBe(true);
+    expect(limited.text.endsWith('sheet7.xml')).toBe(true);
+    const document = contextDocument('xlsx', limited.text);
+    const chunks = chunksOf(document, true);
+    expect(chunks.at(-1)?.end).toBe(document.text.length);
+    expect(chunks.map(chunkLocator)).toEqual(chunks.map(() => ({ sheet: 1 })));
+    expect(document.text.endsWith('\n\\# sheet7.xml')).toBe(true);
   });
 });

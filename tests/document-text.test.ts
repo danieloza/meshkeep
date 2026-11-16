@@ -119,21 +119,30 @@ describe('XLSX: a row cannot start a sheet', () => {
     expect(await text([['Name', 'Value'], ['# sheet7.xml \n ']])).toBe('# sheet1.xml\nName\tValue\n\\# sheet7.xml');
   });
 
-  it('leaves near misses as they are', async () => {
-    const near = ['# sheet7.xmlx', '## sheet7.xml', '# Sheet7.xml', ' # sheet7.xml', '#sheet7.xml', '# sheet.xml', '\\# sheet7.xml'];
-    const rows = [['Name', 'Value'], ...near.map((cell) => [cell]), ['# sheet7.xml', 'other cell'], ['# sheet7.xml', ''], ['last', '1']];
-    expect(await text(rows)).toBe(`# sheet1.xml\n${rows.map((row) => row.join('\t')).join('\n')}`);
+  it('escapes a row that only starts like a sheet line, and leaves near misses as they are', async () => {
+    // A cut of such a row, right after `.xml`, would read as a sheet line.
+    const starts = [['# sheet7.xmlx'], ['# sheet7.xml', 'other cell'], ['# sheet7.xml', ''], ['# sheet7.xml and more']];
+    const near = ['## sheet7.xml', '# Sheet7.xml', ' # sheet7.xml', '#sheet7.xml', '# sheet.xml', '# sheet7.xm', '\\# sheet7.xml'];
+    const rows = [['Name', 'Value'], ...starts, ...near.map((cell) => [cell]), ['last', '1']];
+    expect(await text(rows)).toBe(['# sheet1.xml', 'Name\tValue', ...starts.map((row) => `\\${row.join('\t')}`), ...near, 'last\t1'].join('\n'));
   });
 
-  it('escapes exactly the lines that `sheetUnits` reads as a sheet line', async () => {
-    // The oracle is `sheetUnits` itself: a pattern in the extractor that is
-    // narrower lets a forged line through, a broader one escapes a near miss.
+  it('escapes exactly the lines with a cut that `sheetUnits` reads as a sheet line', async () => {
+    // The oracle is `sheetUnits` itself, asked about every cut of the line, as
+    // the trim or the limit on indexed text can leave it: a pattern in the
+    // extractor that is narrower lets a forged line through, a broader one
+    // escapes a near miss.
+    const readAsSheet = (line: string) => sheetUnits(line).some((unit) => unit.section);
+    const cuts = (line: string) => Array.from({ length: line.length + 1 }, (_, end) => line.slice(0, end));
     const candidates = ['# sheet7.xml', '# sheet0.xml', '# sheet1.xml', '# sheet10.xml', '# sheet007.xml', '# sheet123456789.xml',
-      '# sheet7.xmlx', '## sheet7.xml', '# Sheet7.xml', '# sheet7.XML', '#  sheet7.xml', '# sheet.xml', '# sheet7xml', '# sheet٧.xml', '# sheet7.xml\t'];
+      '# sheet7.xmlx', '# sheet7.xml\t', '# sheet7.xml\tother', '# sheet7.xml and more', '# sheet1.xml2', '# sheet7.xml ',
+      '## sheet7.xml', '# Sheet7.xml', '# sheet7.XML', '#  sheet7.xml', '# sheet.xml', '# sheet7xml', '# sheet٧.xml', '# sheet7.xm',
+      ' # sheet7.xml', 'x# sheet7.xml', '\\# sheet7.xml'];
     for (const candidate of candidates) {
-      const read = sheetUnits(candidate).some((unit) => unit.section);
       const extracted = await text([['Name', 'Value'], [candidate], ['after', '1']]);
-      expect(extracted.split('\n')[2], candidate).toBe(read ? `\\${candidate}` : candidate);
+      const line = extracted.split('\n')[2];
+      expect(line, candidate).toBe(cuts(candidate).some(readAsSheet) ? `\\${candidate}` : candidate);
+      expect(cuts(line).some(readAsSheet), candidate).toBe(false);
       expect(sheetUnits(canonicalText(extracted)).every((unit) => unit.place === 'sheet 1'), candidate).toBe(true);
     }
   });
