@@ -7,6 +7,9 @@
 //
 // PDF-y sa osobno (`lib/server/pdf-text.ts`), bo wymagaja prawdziwego parsera.
 
+// With its extension, so the evaluation can run this file in Node as it is.
+import { SHEET_MARKER } from './context-chunking.ts';
+
 export type WynikEkstrakcji = {
   tekst: string;
   // Krotki opis tego, co sie stalo, gdy tekstu nie ma. Wchodzi do kontekstu
@@ -153,6 +156,16 @@ async function zDocx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
 
 // --- XLSX ------------------------------------------------------------------
 
+// A cell can hold a line that reads exactly like the line that starts a sheet
+// (`# sheet7.xml`): as the row's only cell, or after a line break inside a
+// cell. Such a line gets a backslash in front (`\# sheet7.xml`), so
+// `sheetUnits` reads it as a row and the rows after it keep their sheet and
+// header. The breaks are the ones `canonicalText` turns into `\n`: CRLF, CR and
+// LF. No other line changes.
+function bezZnakuArkusza(tekst: string): string {
+  return tekst.split(/(\r\n|\r|\n)/).map((czesc, i) => (i % 2 === 0 && SHEET_MARKER.test(czesc) ? `\\${czesc}` : czesc)).join('');
+}
+
 async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Promise<WynikEkstrakcji> {
   const pliki = await czytajZArchiwum(dane, (n) => n === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n), budget);
   const wspolne = pliki.find((p) => p.nazwa === 'xl/sharedStrings.xml');
@@ -184,11 +197,17 @@ async function zXlsx(dane: Uint8Array<ArrayBuffer>, budget?: ArchiveBudget): Pro
         }
         return tekst;
       });
-      return komorki.join('\t');
+      return bezZnakuArkusza(komorki.join('\t'));
     }).filter((wiersz) => wiersz.trim().length > 0);
     if (wiersze.length) czesci.push(`# ${arkusz.nazwa.replace('xl/worksheets/', '')}\n${wiersze.join('\n')}`);
   }
-  return { tekst: czesci.join('\n\n').trim() };
+  // The trim can bare the last row's last line: `# sheet7.xml` followed by an
+  // empty cell or a space would end the text as a sheet's line. That line is
+  // always a row's, never a sheet's own: a sheet is written only with a row
+  // that is not blank.
+  const tekst = czesci.join('\n\n').trim();
+  const ostatnia = Math.max(tekst.lastIndexOf('\n'), tekst.lastIndexOf('\r')) + 1;
+  return { tekst: tekst.slice(0, ostatnia) + bezZnakuArkusza(tekst.slice(ostatnia)) };
 }
 
 // --- PPTX ------------------------------------------------------------------

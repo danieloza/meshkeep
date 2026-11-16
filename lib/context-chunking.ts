@@ -154,6 +154,11 @@ export function markdownUnits(text: string): Unit[] {
   return units;
 }
 
+// The line that starts a sheet in the extractor's text. The extractor
+// (`zXlsx` in `lib/document-text.ts`) escapes a row line that reads the same,
+// with this very pattern, so a cell cannot start a sheet of its own.
+export const SHEET_MARKER = /^# sheet(\d+)\.xml$/;
+
 // A spreadsheet as MeshKeep's extractor writes it: `# sheetN.xml`, then a
 // header row, then rows, tab-separated. Each line is a unit carrying its
 // sheet's header row.
@@ -163,7 +168,7 @@ export function sheetUnits(text: string): Unit[] {
   let header: string | undefined;
   let sheetLine: Unit | null = null;
   for (const line of linesOf(text)) {
-    const sheet = line.text.match(/^# sheet(\d+)\.xml$/);
+    const sheet = line.text.match(SHEET_MARKER);
     if (sheet) {
       place = `sheet ${sheet[1]}`;
       header = undefined;

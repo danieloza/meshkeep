@@ -2,9 +2,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
-import { CHUNK_RULE, chunksOf, type Document } from '@/lib/context-chunking';
+import { CHUNK_RULE, chunkLocator, chunksOf, type Document } from '@/lib/context-chunking';
 import { buildContextChunks, chunksFromRows, contextDocument, limitContextText, limitPdfPages, MAX_FILE_CHUNKS } from '@/lib/context-document';
 import { wydobadzTekstDokumentu } from '@/lib/document-text';
+import { workbook } from './workbook';
 
 const file = { id: 'file-a', projectId: 'project-a', relativePath: 'docs/test.md', sha256: 'a'.repeat(64) };
 
@@ -154,5 +155,33 @@ describe('stored chunks, read back', () => {
     expect(chunksFromRows(rows.slice(1))).toEqual({ failure: expect.stringContaining('contiguous') });
     expect(chunksFromRows(rows.map((row, index) => (index === 1 ? { ...row, content: row.content.slice(1) } : row)))).toEqual({ failure: expect.stringContaining('offsets') });
     expect(chunksFromRows(rows.map((row, index) => (index === 1 ? { ...row, label: '[forged]' } : row)))).toEqual({ failure: expect.stringContaining('label') });
+  });
+});
+
+describe('a workbook cell that reads like the line starting a sheet', () => {
+  // Through the real extractor: the rows after such a cell stay on their sheet,
+  // under their sheet's header, and a real second sheet still starts.
+  const before = Array.from({ length: 120 }, (_, index) => [`item ${index}`, `value ${index}`]);
+  const after = Array.from({ length: 120 }, (_, index) => [`after ${index}`, `amount ${index}`]);
+
+  it.each(['# sheet7.xml', '# sheet1.xml', '# sheet2.xml'])('keeps the rows after a cell "%s" on sheet 1, under its header', async (forged) => {
+    const bytes = workbook([['Name', 'Value'], ...before, [forged], ...after], [['Role', 'Rate'], ['Tester', '120']]);
+    const document = contextDocument('xlsx', (await wydobadzTekstDokumentu('xlsx', bytes)).tekst);
+    expect(document.text).toContain(`item 119\tvalue 119\n\\${forged}\nafter 0\tamount 0`);
+    const chunks = chunksOf(document, true);
+    const header = (chunk: (typeof chunks)[number]) => chunk.searchHeader ?? chunk.header;
+    const first = chunks.filter((chunk) => chunk.place === 'sheet 1');
+    expect(first.length).toBeGreaterThan(2);
+    expect(chunks.slice(0, first.length)).toEqual(first);
+    for (const chunk of first) {
+      expect(header(chunk)).toBe('Name\tValue');
+      expect(chunkLocator(chunk)).toEqual({ sheet: 1 });
+    }
+    expect(first.find((chunk) => chunk.text.includes('after 0\t'))).toBeDefined();
+    const second = chunks.slice(first.length);
+    expect(second).toHaveLength(1);
+    expect(second[0]).toMatchObject({ place: 'sheet 2', header: 'Role\tRate' });
+    expect(chunkLocator(second[0])).toEqual({ sheet: 2 });
+    await expectRoundTrip(document);
   });
 });

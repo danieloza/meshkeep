@@ -8,7 +8,10 @@ import { canonicalText, type Chunk, CHUNK_RULE, chunksOf, lineUnits, markdownUni
 //   2: `content` also carries the text between the previous chunk and this one
 //      (its leading gap), so the chat can send the exact span of consecutive
 //      chunks without the document.
-export const CHUNK_EXTRACTOR_VERSION = '2';
+//   3: a workbook row line that reads like the line starting a sheet
+//      (`# sheet7.xml`) is escaped by the extractor, so it no longer starts a
+//      sheet: the rows after it keep their sheet and header.
+export const CHUNK_EXTRACTOR_VERSION = '3';
 export const MAX_FILE_CHUNKS = 600;
 export const MAX_CHUNK_PDF_CHARS = 120_000;
 export const MAX_CHUNK_TEXT_CHARS = 120_000;

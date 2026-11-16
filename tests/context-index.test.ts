@@ -128,6 +128,17 @@ describe.skipIf(!hasFts5() && process.versions.node.startsWith('22.'))('context 
     expect(state('a')).toMatchObject({ status: 'indexed', attempts: 1, file_sha: 'new-sha' });
   });
 
+  it('cuts a file again when its chunks were cut under another extractor version', async () => {
+    // The test above changes the file's bytes; this changes only the version.
+    addFile('a');
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 0, failed: 0, remaining: 0 });
+    db.exec("UPDATE file_chunk_states SET extractor_version='v0' WHERE file_id='a'");
+    expect(await indexPendingContextChunks('p')).toEqual({ processed: 1, failed: 0, remaining: 0 });
+    expect(state('a')).toMatchObject({ status: 'indexed', extractor_version: 'v1', attempts: 1 });
+    expect(mocks.build).toHaveBeenCalledTimes(2);
+  });
+
   it('counts a retry that becomes due while the round is running', async () => {
     addFile('a');
     for (let i = 0; i < 5; i += 1) addFile(`b${i}`);
